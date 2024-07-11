@@ -1,0 +1,4 @@
+.env
+bot.log
+aeon.db
+node_modules

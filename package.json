@@ -1,0 +1,39 @@
+{
+  "name": "aeon-chat",
+  "version": "0.3.0",
+  "description": "",
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "cross-env ./node-modules/.bin/tsc --sourceMap",
+    "clean": "cross-env rm -rf dist",
+    "start": "node -r ts-node/register src/index"
+  },
+  "repository": {
+    "type": "git",
+    "url": "github.com/TheDiscordBirb/FTM-Bot"
+  },
+  "author": "Birb, Stern",
+  "license": "ISC",
+  "dependencies": {
+    "@discordjs/collection": "^1.5.3",
+    "axios": "^1.7.2",
+    "cross-spawn": "^7.0.3",
+    "discord.js": "^14.15.2",
+    "dotenv": "^16.4.5",
+    "eventemitter2": "^6.4.9",
+    "glob": "^8.0.3",
+    "glob-promise": "^6.0.3",
+    "mongoose": "^7.5.2",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
+    "ulid": "^2.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.5.7",
+    "cross-env": "^7.0.3",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2"
+  }
+}
