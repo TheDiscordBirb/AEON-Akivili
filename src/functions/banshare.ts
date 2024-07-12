@@ -45,7 +45,7 @@ class BanshareManager {
             .setLabel('Banshare')
             .setStyle(ButtonStyle.Success)
         const blanketBanButton = new ButtonBuilder()
-            .setCustomId(`${BanShareButtonArg.BLANKET_BAN} ${data.user.id} 0`)
+            .setCustomId(`${BanShareButtonArg.BLANKET_BAN} ${data.user.id}`)
             .setLabel(`Blanket Ban 0/${config.approvalCountNeededForBlanketBan}`)
             .setStyle(ButtonStyle.Success)
         const reject = new ButtonBuilder()

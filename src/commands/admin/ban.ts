@@ -56,8 +56,8 @@ export default new Command({
 
         const banshareResponse = options.args.getString('banshare');
         const attachment = options.args.getAttachment('banshare-proof');
-        if (!!attachment && (banshareResponse == BanShareOption.YES)) {
-            await options.interaction.reply({ content: 'If you want to automatically banshare this person please provide a screenshot of their message.' });
+        if (!attachment && (banshareResponse == BanShareOption.YES)) {
+            await options.interaction.reply({ content: 'If you want to automatically banshare this person please provide a screenshot of their message.', ephemeral: true });
             return;
         }
         
@@ -112,7 +112,7 @@ export default new Command({
             return;
         }
         
-        await options.interaction.reply({ content: `${userInfo.guildMember} has been banned. (For now this feature is only a proof of work, it will be functional after open beta)`, ephemeral: true });
+        await options.interaction.reply({ content: `${userInfo.guildMember} has been banned. (For now this feature is only a proof of concept, it will be functional after open beta)`, ephemeral: true });
         // TODO: ban user
 
         if (!banshareResponse || (banshareResponse == BanShareOption.NO)) return;
@@ -142,7 +142,7 @@ export default new Command({
 
         try {
             await banshareManager.requestBanshare(data, options.client, options.interaction.member.user, options.interaction.guild);
-            await options.interaction.editReply({ content: `${targetUser} has been banned and banshare has been submitted. (For now this feature is only a proof of work, it will be functional after open beta)` });
+            await options.interaction.editReply({ content: `${targetUser} has been banned and banshare has been submitted. (For now this feature is only a proof of concept, it will be functional after open beta)` });
         } catch (error) {
             logger.error('Could not ban user / share ban', error as Error)
         }

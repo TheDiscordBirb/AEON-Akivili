@@ -5,11 +5,13 @@ import { databaseManager } from '../structures/database';
 import { ulid } from "ulid";
 import { config } from "../const";
 import { Logger } from "../logger";
+import { client } from "../structures/client";
 
 const logger = new Logger('MessageCreated');
 
 export default new Event("messageCreate", async (interaction) => {
     if (interaction.webhookId) return;
+    if (interaction.member?.user === client.user) return;
     
     const channel = interaction.channel as BaseGuildTextChannel;
     

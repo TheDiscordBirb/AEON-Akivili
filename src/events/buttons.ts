@@ -81,13 +81,14 @@ export default new Event("interactionCreate", async (interaction) => {
             break;
         }
         case BanShareButtonArg.BLANKET_BAN: {
-            if ((customIdArgs.length < 2) || (customIdArgs.length > 2 + config.approvalCountNeededForBlanketBan)) {
+            if ((customIdArgs.length < 1) || (customIdArgs.length > 2)) {
                 // TODO: write log
                 return;
             }
             const currentApprover = interaction.user;
             const userId = customIdArgs[0];
-            const approvers = customIdArgs.slice(1, 1 + config.approvalCountNeededForBlanketBan);
+            const approvers = customIdArgs[1] ? customIdArgs[1].split(':') : [];
+            logger.debug(`Approvers: ${approvers}`);
 
             const currentApproverIndex = approvers.findIndex((approver) => approver === currentApprover.id);
             if (currentApproverIndex === -1) {
@@ -95,6 +96,8 @@ export default new Event("interactionCreate", async (interaction) => {
             } else {
                 approvers.splice(currentApproverIndex, 1);
             }
+            logger.debug(`Approvers: ${approvers}`);
+            logger.debug(`Approvals needed: ${config.approvalCountNeededForBlanketBan}`);
             
             const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
             
@@ -116,7 +119,7 @@ export default new Event("interactionCreate", async (interaction) => {
                 .setLabel('Banshare')
                 .setStyle(ButtonStyle.Success)
             const blanketBanButton = new ButtonBuilder()
-                .setCustomId(`${BanShareButtonArg.BLANKET_BAN} ${userId} ${approvers.length} ${approvers.join(' ')}`)
+                .setCustomId(`${BanShareButtonArg.BLANKET_BAN} ${userId} ${approvers.join(':')}`)
                 .setLabel(`Blanket Ban ${approvers.length}/${config.approvalCountNeededForBlanketBan}`)
                 .setStyle(ButtonStyle.Success)
             const reject = new ButtonBuilder()
@@ -199,8 +202,8 @@ export default new Event("interactionCreate", async (interaction) => {
 
             const rejectButton = new ButtonBuilder()
                 .setCustomId(`${BanShareButtonArg.REJECT_SUB}`)
-                .setLabel('Reject')
-                .setStyle(ButtonStyle.Success)
+                .setLabel('Rejected')
+                .setStyle(ButtonStyle.Danger)
                 .setDisabled(true)
 
             banshareActionRow.addComponents(rejectButton);
