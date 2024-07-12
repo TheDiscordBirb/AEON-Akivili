@@ -11,10 +11,9 @@ const logger = new Logger('MessageCreated');
 
 export default new Event("messageCreate", async (interaction) => {
     if (interaction.webhookId) return;
-    if (interaction.member?.user === client.user) return;
+    if (interaction.member?.user.id === client.user?.id) return;
     
     const channel = interaction.channel as BaseGuildTextChannel;
-    
     
     const broadcastRecords = await databaseManager.getBroadcasts();
     const broadcastWebhookIds = broadcastRecords.map((broadcast) => broadcast.webhookId);
@@ -99,7 +98,7 @@ export default new Event("messageCreate", async (interaction) => {
                 .setCustomId('Teapot')
                 
             const replyButtonLink = new ButtonBuilder()
-                .setURL(`https://discord.com/channels/${referencedMessageOnChannel?.guildId}/${referencedMessageOnChannel?.channelId}/${referencedMessageOnChannel.userMessageId}`)
+                .setURL(`https://discord.com/channels/${referencedMessageOnChannel?.guildId}/${referencedMessageOnChannel?.channelId}/${referencedMessageOnChannel.channelMessageId}`)
                 .setLabel(referenceMessage.content)
                 .setStyle(ButtonStyle.Link);
                     
@@ -131,6 +130,7 @@ export default new Event("messageCreate", async (interaction) => {
                 content: interaction.content,
                 files: files,
                 username: `${interaction.member.user.displayName} | ${interaction.guild.name}`,
+                allowedMentions: {parse: []},
                 ...sendOptions,
             },
             guildId: broadcastRecord.guildId,

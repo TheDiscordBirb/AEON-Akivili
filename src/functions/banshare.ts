@@ -8,12 +8,7 @@ class BanshareManager {
     constructor() { }
     
     public async requestBanshare(data: BanshareData, client: Client, submitter: User, guildOfOrigin: Guild) {
-        const mainGuild = client.guilds.cache.get(config.aeonBanshareGuildId);
-        if (!mainGuild) {
-            // TODO: write log
-            return;
-        }
-        const mainChannel = mainGuild?.channels.cache.get(config.aeonBanshareChannelId);
+        const mainChannel = client.channels.cache.get(config.aeonBanshareChannelId);
         if (!mainChannel) {
             // TODO: write log
             return;

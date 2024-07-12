@@ -1,5 +1,4 @@
 export const config = {
-    aeonBanshareGuildId: '',
     aeonBanshareChannelId: '',
     approvalCountNeededForBlanketBan: 2,
     maxConcurrentRequestCount: 10,
@@ -7,5 +6,4 @@ export const config = {
     nonChatWebhooks: [
         '',
     ],
-    repRoleId: '',
 }
