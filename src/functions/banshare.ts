@@ -39,16 +39,18 @@ class BanshareManager {
             .setCustomId(`${BanShareButtonArg.BANSHARE} ${data.user.id}`)
             .setLabel('Banshare')
             .setStyle(ButtonStyle.Success)
+        /*
         const blanketBanButton = new ButtonBuilder()
             .setCustomId(`${BanShareButtonArg.BLANKET_BAN} ${data.user.id}`)
             .setLabel(`Blanket Ban 0/${config.approvalCountNeededForBlanketBan}`)
             .setStyle(ButtonStyle.Success)
+        */
         const reject = new ButtonBuilder()
             .setCustomId(`${BanShareButtonArg.REJECT_MAIN} ${data.user.id}`)
             .setLabel('Reject')
             .setStyle(ButtonStyle.Danger)
         
-        banshareActionRow.addComponents(banshareButton, blanketBanButton, reject);
+        banshareActionRow.addComponents(banshareButton, /*blanketBanButton,*/ reject);
         
         await (mainChannel as TextChannel).send({ embeds, components: [banshareActionRow] });
     }

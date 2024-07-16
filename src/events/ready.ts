@@ -10,7 +10,7 @@ export default new Event("ready", async () => {
     const guilds = await client.guilds.fetch();
     logger.info('Loading guilds...');
     for await (const oauthGuild of guilds) {
-        let guild = client.guilds.cache.find((guild) => guild.id === oauthGuild[0]);
+        const guild = client.guilds.cache.find((guild) => guild.id === oauthGuild[0]);
         if (!guild) continue;
         logger.info(`Loaded guild "${guild.name}" (id: ${guild.id}).`);
         await Promise.allSettled([

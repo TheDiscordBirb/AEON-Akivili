@@ -1,4 +1,4 @@
-import { AttachmentBuilder, BaseGuildTextChannel, WebhookClient, APIMessage, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import { AttachmentBuilder, BaseGuildTextChannel, Collection, WebhookClient, WebhookType, Webhook, Snowflake, APIMessage, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } from "discord.js";
 import { Event } from "../structures/event";
 import axios from "axios";
 import { databaseManager } from '../structures/database';
@@ -6,6 +6,7 @@ import { ulid } from "ulid";
 import { config } from "../const";
 import { Logger } from "../logger";
 import { client } from "../structures/client";
+import { asyncRetry } from "../utils";
 
 const logger = new Logger('MessageCreated');
 
@@ -14,10 +15,18 @@ export default new Event("messageCreate", async (interaction) => {
     if (interaction.member?.user.id === client.user?.id) return;
     
     const channel = interaction.channel as BaseGuildTextChannel;
+    if (channel.type !== ChannelType.GuildText) return;
     
     const broadcastRecords = await databaseManager.getBroadcasts();
     const broadcastWebhookIds = broadcastRecords.map((broadcast) => broadcast.webhookId);
-    const webhooks = await channel.fetchWebhooks();
+    let webhooks;
+    try {
+        webhooks = await channel.fetchWebhooks();
+    } catch (error) { 
+        logger.warn(`Could not fetch webhooks at message-create. Error: ${(error as Error).message}`)
+        return;
+    };
+
     const webhook = webhooks.find((webhook) => broadcastWebhookIds.includes(webhook.id));
     
     if (!webhook) return;
@@ -86,34 +95,51 @@ export default new Event("messageCreate", async (interaction) => {
             const referencedMessages = await databaseManager.getMessages(referenceMessage.channelId, referenceMessage.id);
             const referencedMessageOnChannel = referencedMessages.find((referencedMessage) => referencedMessage.channelId === broadcastRecord.channelId);
             
-            if (!referencedMessageOnChannel) {
-                logger.warn('Could not find referenced message on channel.');
-                return undefined;
-            }
-
-            const replyButtonUser = new ButtonBuilder()
-                .setLabel(referenceMessage.author.displayName)
-                .setDisabled(true)
-                .setStyle(ButtonStyle.Primary)
-                .setCustomId('Teapot')
-                
-            const replyButtonLink = new ButtonBuilder()
-                .setURL(`https://discord.com/channels/${referencedMessageOnChannel?.guildId}/${referencedMessageOnChannel?.channelId}/${referencedMessageOnChannel.channelMessageId}`)
-                .setLabel(referenceMessage.content)
-                .setStyle(ButtonStyle.Link);
+            if (referencedMessageOnChannel) {
+                const replyButtonUser = new ButtonBuilder()
+                    .setLabel(referenceMessage.author.displayName)
+                    .setDisabled(true)
+                    .setStyle(ButtonStyle.Primary)
+                    .setCustomId('Teapot')
                     
-            replyButtonRow.addComponents(replyButtonUser, replyButtonLink);
-
-            if (interaction.member.user.bot) {
-                sendOptions = {
-                    components: [replyButtonRow, ...interaction.components],
-                    embeds: interaction.embeds,
+                const replyButtonLink = new ButtonBuilder()
+                    .setURL(`https://discord.com/channels/${referencedMessageOnChannel?.guildId}/${referencedMessageOnChannel?.channelId}/${referencedMessageOnChannel.channelMessageId}`)
+                    .setLabel(`${referenceMessage.content.slice(0, 25)}...`)
+                    .setStyle(ButtonStyle.Link);
+                        
+                replyButtonRow.addComponents(replyButtonUser, replyButtonLink);
+    
+                if (interaction.member.user.bot) {
+                    sendOptions = {
+                        components: [replyButtonRow, ...interaction.components],
+                        embeds: interaction.embeds,
+                    }
+                } else {
+                    sendOptions = {
+                        components: [replyButtonRow],
+                    };
                 }
             } else {
-                sendOptions = {
-                    components: [replyButtonRow],
-                };
+                const replyButtonUser = new ButtonBuilder()
+                    .setLabel("Can't load reply")
+                    .setDisabled(true)
+                    .setStyle(ButtonStyle.Primary)
+                    .setCustomId('Teapot')
+                        
+                replyButtonRow.addComponents(replyButtonUser);
+    
+                if (interaction.member.user.bot) {
+                    sendOptions = {
+                        components: [replyButtonRow, ...interaction.components],
+                        embeds: interaction.embeds,
+                    }
+                } else {
+                    sendOptions = {
+                        components: [replyButtonRow],
+                    };
+                } 
             }
+
         } else {
             if (interaction.member.user.bot) {
                 sendOptions = { 
@@ -126,10 +152,10 @@ export default new Event("messageCreate", async (interaction) => {
         return {
             webhookClient,
             messageData: {
-                avatarURL: interaction.member.user.displayAvatarURL() ?? undefined,
+                avatarURL: (interaction.member.avatarURL() ? interaction.member.avatarURL() : interaction.member.displayAvatarURL()) ?? undefined,
                 content: interaction.content,
                 files: files,
-                username: `${interaction.member.user.displayName} | ${interaction.guild.name}`,
+                username: `${interaction.member.nickname ? interaction.member.nickname : interaction.member.displayName} | ${interaction.guild.name}`,
                 allowedMentions: {parse: []},
                 ...sendOptions,
             },
@@ -140,13 +166,13 @@ export default new Event("messageCreate", async (interaction) => {
 
     await Promise.allSettled(webhookMessages.map(async (webhookMessagePromiseResult) => {
         if (webhookMessagePromiseResult.status !== 'fulfilled') {
-            logger.warn(`Could not create webhook message. Status: ${webhookMessagePromiseResult.status}`)
+            logger.warn(`Could not create webhook message. Status: ${webhookMessagePromiseResult.status} `)
             return;
         }
         const webhookMessage = webhookMessagePromiseResult.value;
         if (!webhookMessage) {
-            logger.warn(`Received empty webhook message. Status: ${webhookMessagePromiseResult.status}`)
-            return;
+            logger.warn(`Received empty webhook message. Status: ${webhookMessagePromiseResult.status}, Webhook guildId: ${webhookMessagePromiseResult.value?.guildId}`)
+            return undefined;
         }
         try {
             const message = await webhookMessage.webhookClient.send(webhookMessage.messageData);

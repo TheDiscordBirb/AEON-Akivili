@@ -11,6 +11,7 @@ import { RegisterCommandsOptions } from "../types/client";
 import { Event } from "./event";
 import * as path from 'path';
 import { Logger } from '../logger';
+import { getEnvVar } from "../utils";
 
 const logger = new Logger('Client');
 
@@ -31,7 +32,7 @@ export class ExtendedClient extends Client {
     start() {
         this.registerModules()
         .then(()=> {
-            this.login(process.env.DISCORD_TOKEN)
+            this.login(getEnvVar<string>("DISCORD_TOKEN"))
             .then(() => {
                 logger.info('Logged into Discord.');
             })

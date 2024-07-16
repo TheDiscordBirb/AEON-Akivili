@@ -51,7 +51,7 @@ class JoinHandler {
     }
 
     public async rejectNetworkAccessRequest(data: JoinData) {
-        await data.channel.send(`Sorry, but your application to join Aeon ${data.type} has been rejected, for more details please contact <@480956116482785299>`);
+        await data.channel.send({content: `Sorry, but your application to join Aeon ${data.type} has been rejected, for more details please contact <@480956116482785299>`, allowedMentions: {parse: []}});
     }
 }
 

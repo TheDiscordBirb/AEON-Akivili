@@ -1,9 +1,9 @@
+import { getEnvVar } from "./utils"
+
 export const config = {
-    aeonBanshareChannelId: '',
+    aeonBanshareChannelId: getEnvVar<string>("AEON_BANSHARE_CHANNEL_ID"),
     approvalCountNeededForBlanketBan: 2,
     maxConcurrentRequestCount: 10,
-    networkJoinChannelId: '',
-    nonChatWebhooks: [
-        '',
-    ],
+    networkJoinChannelId: getEnvVar<string>("NETWORK_JOIN_CHANNEL_ID"),
+    nonChatWebhooks: getEnvVar<string>("NON_CHAT_WEBHOOKS").split(','),
 }
