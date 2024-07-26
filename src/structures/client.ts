@@ -26,7 +26,10 @@ export class ExtendedClient extends Client {
                 IntentsBitField.Flags.GuildMessages,
                 IntentsBitField.Flags.MessageContent,
                 IntentsBitField.Flags.DirectMessages,
-                IntentsBitField.Flags.DirectMessageReactions] });
+                IntentsBitField.Flags.DirectMessageReactions,
+                IntentsBitField.Flags.GuildMessageReactions
+            ]
+        });
     }
 
     start() {

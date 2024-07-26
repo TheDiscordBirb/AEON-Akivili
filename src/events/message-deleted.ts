@@ -9,7 +9,7 @@ const logger = new Logger("MessageDeleted");
 export default new Event("messageDelete", async (interaction) => {
     if (!interaction.webhookId) return;
     const referencedMessages = await databaseManager.getMessages(interaction.channelId, interaction.id, true);
-    const webhookMessages = await Promise.allSettled(referencedMessages.map(async (referencedMessage) => {
+    await Promise.allSettled(referencedMessages.map(async (referencedMessage) => {
         const channel = client.channels.cache.get(referencedMessage.channelId);
         if (!channel) {
             logger.warn('Could not find channel while trying to delete message.');
