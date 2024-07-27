@@ -11,3 +11,7 @@ export enum BanShareButtonArg {
 export enum CustomId {
     REPLY = 'Reply',
 }
+
+export enum StartUpOptions {
+    NUMBER_OF_MESSAGES_TO_LOAD = 100
+}
