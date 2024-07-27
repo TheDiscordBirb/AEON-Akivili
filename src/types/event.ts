@@ -7,3 +7,7 @@ export enum BanShareButtonArg {
     ACCEPT_REQUEST = 'acceptRequest',
     REJECT_REQUEST = 'rejectRequest'
 }
+
+export enum CustomId {
+    REPLY = 'Reply',
+}

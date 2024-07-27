@@ -17,6 +17,12 @@ export interface MessagesRecord {
     userMessageId: string,
 }
 
+export interface UserReactionRecord {
+    userMessageId: string,
+    userId: string,
+    reactionName: string
+}
+
 export interface BanshareData {
     user: User,
     reason: string,

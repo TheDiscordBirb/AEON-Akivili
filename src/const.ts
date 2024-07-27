@@ -6,4 +6,5 @@ export const config = {
     maxConcurrentRequestCount: 10,
     networkJoinChannelId: getEnvVar<string>("NETWORK_JOIN_CHANNEL_ID"),
     nonChatWebhooks: getEnvVar<string>("NON_CHAT_WEBHOOKS").split(','),
+    deleteLogsOnStartup: true,
 }

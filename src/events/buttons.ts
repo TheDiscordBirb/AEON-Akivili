@@ -1,20 +1,21 @@
 import { banshareManager } from "../functions/banshare";
 import { Event } from "../structures/event";
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, GuildMember, TextChannel, Guild } from "discord.js";
-import { hasModerationRights } from "../utils";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, GuildMember, TextChannel, ButtonComponent, BaseGuildTextChannel, WebhookClient } from "discord.js";
+import { hasModerationRights, rebuildMessageComponentAfterUserInteraction } from "../utils";
 import { client } from "../structures/client";
 import { joinHandler } from "../functions/join-handler";
 import { Logger } from "../logger";
 import { BanShareButtonArg } from "../types/event";
 import { config } from "../const";
 import { databaseManager } from "../structures/database";
+import { ChannelType } from "discord.js";
 
 const logger = new Logger("Buttons");
 
 export default new Event("interactionCreate", async (interaction) => {
     if (!interaction.isButton()) return;
 
-    interaction.deferUpdate();
+    await interaction.deferUpdate();
     const guildMember = interaction.member ? interaction.member as GuildMember : null;
 
     if (!guildMember) {
@@ -22,14 +23,80 @@ export default new Event("interactionCreate", async (interaction) => {
         return;
     }
 
+    if (interaction.component.emoji) {
+        const userMessageId = await databaseManager.getMessageUid(interaction.channelId, interaction.message.id);
+        const userId = interaction.user.id;
+        const reactionName = (interaction.component as ButtonComponent).customId;
+        if (!userMessageId) {
+            // TODO: write log
+            return;
+        }
+        if (!userId) {
+            // TODO: write log
+            return;
+        }
+        if (!reactionName) {
+            // TODO: write log
+            return;
+        }
+
+        const channel = interaction.message.channel as BaseGuildTextChannel;
+        if (channel.type !== ChannelType.GuildText) return;
+        
+        const broadcastRecords = await databaseManager.getBroadcasts();
+        const broadcastWebhookIds = broadcastRecords.map((broadcast) => broadcast.webhookId);
+        
+        let webhooks;
+        try {
+            webhooks = await channel.fetchWebhooks();
+        } catch (error) { 
+            logger.warn(`Could not fetch webhooks at message-create. Error: ${(error as Error).message}`)
+            return;
+        };
+        
+        const webhook = webhooks.find((webhook) => broadcastWebhookIds.includes(webhook.id));
+        
+        if (!webhook) return;
+        if (config.nonChatWebhooks.includes(webhook.name)) return;
+        
+        const webhookNameParts = webhook.name.split(' ');
+        const webhookChannelType = webhookNameParts[webhookNameParts.length - 1];
+        const matchingBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === webhookChannelType);
+        const actionRows = await rebuildMessageComponentAfterUserInteraction(interaction.message.components, { userId, userMessageId, reactionName });
+
+        await Promise.allSettled(matchingBroadcastRecords.map(async (broadcastRecord) => {
+            const webhookClient = new WebhookClient({ id: broadcastRecord.webhookId, token: broadcastRecord.webhookToken });
+            const messagesOnNetwork = await databaseManager.getMessages(interaction.message.channel.id, interaction.message.id);
+            const correctMessageOnNetwork = messagesOnNetwork.find((messageOnNetwork) => messageOnNetwork.channelId === broadcastRecord.channelId);
+            if (!correctMessageOnNetwork) {
+                // TODO: write log
+                return;
+            }
+            
+            const channel = client.channels.cache.find((ch) => ch.id === correctMessageOnNetwork.channelId) as TextChannel;
+            const message = await channel.messages.fetch({ message: correctMessageOnNetwork.channelMessageId });
+            if (!message.components) {
+                logger.warn(`No message components, message id: ${message.id}`)
+                return;
+            }
+            await webhookClient.editMessage(message, { components: [...actionRows] });
+        }))
+        return;
+    }
+
     if (!hasModerationRights(guildMember)) {
-        (await interaction.user.createDM(true)).send('You do not have permission to use this.');
+        if (!interaction.user.dmChannel) {
+            await interaction.user.createDM(true);
+        }
+        
+        interaction.user.send('You do not have permission to use this.')
+        .catch();
         return;
     };
     const customIdArgs = interaction.customId.split(' ');
 
     if (!customIdArgs.length) {
-
+        // TODO: write log
         return;
     }
     const command = customIdArgs.shift();
@@ -283,7 +350,7 @@ export default new Event("interactionCreate", async (interaction) => {
             break
         }
         default: {
-            logger.warn(`Unsupported button argument provided ${command}`);
+            return;
         }
     }
 })

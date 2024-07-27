@@ -1,6 +1,6 @@
 import sqlite3 from 'sqlite3';
 import { Database, open } from 'sqlite';
-import { BroadcastRecord, MessagesRecord } from './types';
+import { BroadcastRecord, MessagesRecord, UserReactionRecord } from './types';
 import { Logger } from "../logger";
 
 const logger = new Logger('Database');
@@ -44,6 +44,15 @@ class DatabaseManager {
                 webhookToken TEXT,
                 guildId TEXT,
                 PRIMARY KEY (webhookId)
+            )`
+        )
+
+        await this._db.run(
+            `CREATE TABLE IF NOT EXISTS UserReaction (
+                userMessageId TEXT,
+                userId TEXT,
+                reactionName TEXT,
+                PRIMARY KEY (userMessageId, userId, reactionName)
             )`
         )
 
@@ -158,6 +167,27 @@ class DatabaseManager {
         return result;
     }
 
+    public async toggleUserReaction(userReactionRecord: UserReactionRecord): Promise<void> {
+        const db = await this.db();
+        const result = await db.get<UserReactionRecord>(`SELECT * FROM UserReaction WHERE userId = "${userReactionRecord.userId}" AND userMessageId="${userReactionRecord.userMessageId}" and reactionName="${userReactionRecord.reactionName}"`)
+        if (!result) {
+            await db.run(`INSERT OR REPLACE INTO UserReaction (userId, userMessageId, reactionName) VALUES ("${userReactionRecord.userId}", "${userReactionRecord.userMessageId}", "${userReactionRecord.reactionName}")`)
+        } else {
+            await db.run(`DELETE FROM UserReaction WHERE userId = "${userReactionRecord.userId}" AND userMessageId="${userReactionRecord.userMessageId}" and reactionName="${userReactionRecord.reactionName}"`);
+        }
+    }
+
+    public async hasUserReactedToMessage(userReactionRecord: UserReactionRecord): Promise<boolean> {
+        const db = await this.db();
+        const result = await db.get<UserReactionRecord>(`SELECT * FROM UserReaction WHERE userId = "${userReactionRecord.userId}" AND userMessageId="${userReactionRecord.userMessageId}" and reactionName="${userReactionRecord.reactionName}"`)
+        return (!!result);
+    }
+
+    public async getReactionCountForMessage(userMessageId: string): Promise<number> {
+        const db = await this.db();
+        const result = await db.all<UserReactionRecord[]>(`SELECT * FROM UserReaction WHERE userId = "${userMessageId}"`)
+        return result.length;
+    }
 }
 
 export const databaseManager = new DatabaseManager();

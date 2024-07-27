@@ -7,6 +7,7 @@ import { config } from "../const";
 import { Logger } from "../logger";
 import { client } from "../structures/client";
 import { asyncRetry } from "../utils";
+import { CustomId } from "../types/event";
 
 const logger = new Logger('MessageCreated');
 
@@ -100,7 +101,7 @@ export default new Event("messageCreate", async (interaction) => {
                     .setLabel(referenceMessage.author.displayName)
                     .setDisabled(true)
                     .setStyle(ButtonStyle.Primary)
-                    .setCustomId('Teapot')
+                    .setCustomId(CustomId.REPLY)
                     
                 const replyButtonLink = new ButtonBuilder()
                     .setURL(`https://discord.com/channels/${referencedMessageOnChannel?.guildId}/${referencedMessageOnChannel?.channelId}/${referencedMessageOnChannel.channelMessageId}`)
@@ -124,7 +125,7 @@ export default new Event("messageCreate", async (interaction) => {
                     .setLabel("Can't load reply")
                     .setDisabled(true)
                     .setStyle(ButtonStyle.Primary)
-                    .setCustomId('Teapot')
+                    .setCustomId(CustomId.REPLY)
                         
                 replyButtonRow.addComponents(replyButtonUser);
     

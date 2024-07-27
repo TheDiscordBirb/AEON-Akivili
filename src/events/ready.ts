@@ -28,4 +28,5 @@ export default new Event("ready", async () => {
         }],
         status: 'online'
     });
+
 });

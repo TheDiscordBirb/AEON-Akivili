@@ -26,12 +26,8 @@ export class Logger {
         protected fileName?: string,
         protected logFileBatchSize = 1,
         protected defaultLogLevel = 4,
-        protected deleteLogFileAtStartup = true,
     ) {
         this.moduleName = this.moduleName.padEnd(15,' ');
-        if (this.deleteLogFileAtStartup) {
-            // unlinkSync(path.join(__dirname, '..', 'bot.log'));
-        }
     }
 
     public wtf(message: string) {
