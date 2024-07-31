@@ -1,9 +1,8 @@
 import { Logger } from "../logger"
 import { Event } from "../structures/event";
-import { ActionRowBuilder, BaseGuildTextChannel, ButtonBuilder, ButtonComponent, ButtonStyle, ChannelType, WebhookClient, ReactionEmoji } from "discord.js";
+import { BaseGuildTextChannel, ChannelType, WebhookClient } from "discord.js";
 import { databaseManager } from "../structures/database";
 import { config } from "../const";
-import { CustomId } from "../types/event";
 import { rebuildMessageComponentAfterUserInteraction } from "../utils";
 
 const logger = new Logger("reactionCreated");

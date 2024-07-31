@@ -1,6 +1,15 @@
 import { banshareManager } from "../functions/banshare";
 import { Event } from "../structures/event";
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, GuildMember, TextChannel, ButtonComponent, BaseGuildTextChannel, WebhookClient } from "discord.js";
+import {
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    GuildMember,
+    TextChannel,
+    ButtonComponent,
+    BaseGuildTextChannel,
+    WebhookClient
+} from "discord.js";
 import { hasModerationRights, rebuildMessageComponentAfterUserInteraction } from "../utils";
 import { client } from "../structures/client";
 import { joinHandler } from "../functions/join-handler";

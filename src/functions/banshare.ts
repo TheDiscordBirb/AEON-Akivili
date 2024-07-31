@@ -1,4 +1,14 @@
-import { Client, EmbedBuilder, Guild, GuildTextBasedChannel, User, ButtonBuilder, ActionRowBuilder, ButtonStyle, WebhookClient, TextChannel } from "discord.js";
+import {
+    Client,
+    EmbedBuilder,
+    Guild,
+    User,
+    ButtonBuilder,
+    ActionRowBuilder,
+    ButtonStyle,
+    WebhookClient,
+    TextChannel
+} from "discord.js";
 import { BanshareData } from "../structures/types";
 import { config } from "../const";
 import { databaseManager } from "../structures/database";

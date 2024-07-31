@@ -1,9 +1,17 @@
-import { GuildMember, PermissionFlagsBits, ActionRow, MessageActionRowComponent, ActionRowBuilder, ButtonBuilder, ButtonComponent, ButtonStyle } from 'discord.js';
+import {
+    GuildMember,
+    PermissionFlagsBits,
+    ActionRow,
+    MessageActionRowComponent,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonComponent,
+    ButtonStyle
+} from 'discord.js';
 import { UserReactionRecord } from './structures/types';
 import { databaseManager } from './structures/database';
 import { CustomId } from './types/event';
 import { Logger } from './logger';
-import { client } from './structures/client';
 
 const logger = new Logger("Utils");
 

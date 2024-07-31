@@ -1,4 +1,4 @@
-import { unlinkSync, writeFileSync } from 'fs';
+import { writeFileSync } from 'fs';
 import * as path from 'path';
 
 export enum LogLevel {

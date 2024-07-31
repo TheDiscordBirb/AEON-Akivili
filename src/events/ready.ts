@@ -5,7 +5,6 @@ import { Logger } from '../logger';
 import { databaseManager } from "../structures/database";
 import { NetworkJoinOptions } from "../types/command";
 import { config } from "../const";
-import { time } from "console";
 
 const logger = new Logger('Ready');
 

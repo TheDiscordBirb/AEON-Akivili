@@ -1,4 +1,10 @@
-import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, TextChannel } from "discord.js";
+import {
+    EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    TextChannel
+} from "discord.js";
 import { JoinData } from "../structures/types";
 import { client } from "../structures/client";
 import { config } from "../const";
