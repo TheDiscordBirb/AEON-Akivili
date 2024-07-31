@@ -23,14 +23,18 @@ export default new Event("interactionCreate", async (interaction) => {
         return;
     }
 
-    if (interaction.component.emoji) {
+    const customEmojiRegex = new RegExp(/.*:[0-9]*/gm);
+    const standardEmojiRegex = new RegExp(/%[A-Z0-9][A-Z0-9]/gm);
+    const buttonComponent = (interaction.component as ButtonComponent);
+
+    if (!!buttonComponent.customId?.match(customEmojiRegex) || !!buttonComponent.customId?.match(standardEmojiRegex)) {
         const userMessageId = await databaseManager.getMessageUid(interaction.channelId, interaction.message.id);
         const userId = interaction.user.id;
         const reactionName = (interaction.component as ButtonComponent).customId;
         if (!userMessageId) {
             // TODO: write log
             return;
-        }
+        }   
         if (!userId) {
             // TODO: write log
             return;

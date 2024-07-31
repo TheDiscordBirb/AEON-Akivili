@@ -123,18 +123,24 @@ export const rebuildMessageComponentAfterUserInteraction = async (component: Act
             const replyButton = replyComponent as ButtonComponent;
             const url = replyButton.url;
             const customId = replyButton.customId;
+            const emoji = replyButton.emoji;
             if (!replyButton.label) {
                 logger.warn(`No reply button label`);
                 return;
             }
+
             const replyButtonBuilder = new ButtonBuilder()
                 .setStyle(replyButton.style)
-                .setLabel(replyButton.label);
+                .setLabel(replyButton.label)
+                .setDisabled(replyButton.disabled);
             if (url) {
                 replyButtonBuilder.setURL(url);
             }
             if (customId) {
                 replyButtonBuilder.setCustomId(customId);
+            }
+            if (emoji) {
+                replyButtonBuilder.setEmoji(replyButton.emoji);
             }
             replyButtons.push(replyButtonBuilder);
         })
@@ -150,7 +156,7 @@ export const rebuildMessageComponentAfterUserInteraction = async (component: Act
             logger.warn(`More rows than max row count`);
             return;
         }
-        if (row >= resultComponent.length) {
+        if (row >= resultComponent.length - (hasReplyRow ? 1 : 0)) {
             const newActionRow = new ActionRowBuilder<ButtonBuilder>();
             resultComponent.push(newActionRow);
         }

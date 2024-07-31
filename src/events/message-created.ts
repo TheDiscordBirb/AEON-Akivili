@@ -1,4 +1,4 @@
-import { AttachmentBuilder, BaseGuildTextChannel, Collection, WebhookClient, WebhookType, Webhook, Snowflake, APIMessage, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } from "discord.js";
+import { AttachmentBuilder, BaseGuildTextChannel, Collection, WebhookClient, WebhookType, Webhook, Snowflake, APIMessage, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, Emoji, BaseGuildEmoji, ComponentEmojiResolvable, EmojiResolvable } from "discord.js";
 import { Event } from "../structures/event";
 import axios from "axios";
 import { databaseManager } from '../structures/database';
@@ -8,6 +8,7 @@ import { Logger } from "../logger";
 import { client } from "../structures/client";
 import { asyncRetry } from "../utils";
 import { CustomId } from "../types/event";
+import interactionReady from "./interaction-ready";
 
 const logger = new Logger('MessageCreated');
 
@@ -18,16 +19,16 @@ export default new Event("messageCreate", async (interaction) => {
     const channel = interaction.channel as BaseGuildTextChannel;
     if (channel.type !== ChannelType.GuildText) return;
     
-    const broadcastRecords = await databaseManager.getBroadcasts();
-    const broadcastWebhookIds = broadcastRecords.map((broadcast) => broadcast.webhookId);
     let webhooks;
     try {
         webhooks = await channel.fetchWebhooks();
     } catch (error) { 
-        logger.warn(`Could not fetch webhooks at message-create. Error: ${(error as Error).message}`)
+        logger.error(`Could not fetch webhooks in guild: ${interaction.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`, error as Error)
         return;
     };
-
+    
+    const broadcastRecords = await databaseManager.getBroadcasts();
+    const broadcastWebhookIds = broadcastRecords.map((broadcast) => broadcast.webhookId);
     const webhook = webhooks.find((webhook) => broadcastWebhookIds.includes(webhook.id));
     
     if (!webhook) return;
@@ -97,16 +98,38 @@ export default new Event("messageCreate", async (interaction) => {
             const referencedMessageOnChannel = referencedMessages.find((referencedMessage) => referencedMessage.channelId === broadcastRecord.channelId);
             
             if (referencedMessageOnChannel) {
+                const replyArrowEmoji = client.emojis.cache.find((emoji) => emoji.id === config.replyArrowEmojiId);
+                if (!replyArrowEmoji) {
+                    // TODO: write log
+                    return;
+                }
+
                 const replyButtonUser = new ButtonBuilder()
                     .setLabel(referenceMessage.author.displayName)
                     .setDisabled(true)
                     .setStyle(ButtonStyle.Primary)
                     .setCustomId(CustomId.REPLY)
+                    .setEmoji(replyArrowEmoji.identifier)
+                
+                let referenceMessageContent = referenceMessage.content;
+                const referenceMessageTooLong = referenceMessageContent.length > 25;
+                
                     
                 const replyButtonLink = new ButtonBuilder()
                     .setURL(`https://discord.com/channels/${referencedMessageOnChannel?.guildId}/${referencedMessageOnChannel?.channelId}/${referencedMessageOnChannel.channelMessageId}`)
-                    .setLabel(`${referenceMessage.content.slice(0, 25)}...`)
                     .setStyle(ButtonStyle.Link);
+                
+                if (referenceMessageContent) {
+                    replyButtonLink.setLabel(`${referenceMessage.content.slice(0, 25)}${referenceMessageTooLong ? '...' : ''}`)
+                }
+                if (!!referenceMessage.attachments.size || !referenceMessageContent) {
+                    const replyPictureEmoji = client.emojis.cache.find((emoji) => emoji.id === config.replyPictureEmojiId);
+                    if (!replyPictureEmoji) {
+                        // TODO: write log
+                        return;
+                    }
+                    replyButtonLink.setEmoji(replyPictureEmoji.identifier);
+                }
                         
                 replyButtonRow.addComponents(replyButtonUser, replyButtonLink);
     

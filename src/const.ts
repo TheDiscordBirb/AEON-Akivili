@@ -8,4 +8,6 @@ export const config = {
     nonChatWebhooks: getEnvVar<string>("NON_CHAT_WEBHOOKS").split(','),
     deleteLogsOnStartup: true,
     numberOfMessagesToLoad: 100,
+    replyPictureEmojiId: getEnvVar<string>("REPLY_PICTURE_EMOJI_ID"),
+    replyArrowEmojiId: getEnvVar<string>("REPLY_ARROW_EMOJI_ID"),
 }
