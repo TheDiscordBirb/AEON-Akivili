@@ -1,11 +1,11 @@
 import { Command } from '../../structures/command';
-import { ApplicationCommandOptionType, GuildMember, User, Guild } from 'discord.js'
+import { ApplicationCommandOptionType } from 'discord.js'
 import { hasModerationRights } from '../../utils';
 import { banshareManager } from '../../functions/banshare';
 import { BanshareData } from '../../structures/types';
 import { Logger } from '../../logger';
 
-const logger = new Logger('RequestBanshareCommand');
+const logger = new Logger('RequestBanshareCmd');
 
 export default new Command({
     name: 'request-banshare',

@@ -1,10 +1,12 @@
-import { ActivityType, GuildMember, GuildTextBasedChannel, Collection } from "discord.js";
+import { GuildMember, GuildTextBasedChannel, Collection } from "discord.js";
 import { client } from "../structures/client";
 import { Event } from "../structures/event";
 import { Logger } from '../logger';
 import { databaseManager } from "../structures/database";
 import { NetworkJoinOptions } from "../types/command";
 import { config } from "../const";
+import { statusUpdate } from "../utils";
+import cron from 'node-cron';
 
 const logger = new Logger('Ready');
 
@@ -12,8 +14,8 @@ export default new Event("ready", async () => {
     logger.info("Bot is online");
     const guilds = await client.guilds.fetch();
     const broadcasts = await databaseManager.getBroadcasts();
-    let guildCount = 0;
     let memberObjects: Collection<string, GuildMember> = new Collection();
+    let guildCount = 0;
     logger.info('Loading guilds...');
     for await (const oauthGuild of guilds) {
         const guild = client.guilds.cache.find((guild) => guild.id === oauthGuild[0]);
@@ -21,12 +23,12 @@ export default new Event("ready", async () => {
         const guildBroadcasts = broadcasts.filter((broadcast) => broadcast.guildId === guild.id);
         if (!guildBroadcasts.length) continue;
         guildCount++;
+        memberObjects = memberObjects.concat(guild.members.cache);
         logger.info(`Loaded guild "${guild.name}" (id: ${guild.id}).`);
         await Promise.allSettled([
             guild.channels.fetch(),
             guild.members.fetch(),
         ]);
-        memberObjects = memberObjects.concat(guild.members.cache);
         for await (const guildBroadcast of guildBroadcasts) {
             try {
                 const aeonChannel = guild.channels.cache.find((channel) => channel.id === guildBroadcast.channelId && guildBroadcast.channelType !== NetworkJoinOptions.BANSHARE) as GuildTextBasedChannel;
@@ -41,21 +43,12 @@ export default new Event("ready", async () => {
             }
         }
     }
+
     logger.info(`Loaded ${guildCount} guild${guildCount === 1 ? '' : 's'}`);
-    logger.info(`Loaded ${broadcasts.filter((broadcast) => broadcast.channelType === NetworkJoinOptions.BANSHARE).length} ${NetworkJoinOptions.BANSHARE} channels`);
-    logger.info(`Loaded ${broadcasts.filter((broadcast) => broadcast.channelType === NetworkJoinOptions.STAFF).length} ${NetworkJoinOptions.STAFF} channels`);
-    logger.info(`Loaded ${broadcasts.filter((broadcast) => broadcast.channelType === NetworkJoinOptions.GENERAL).length} ${NetworkJoinOptions.GENERAL} channels`);
 
-    if (!client.user) {
-        // TODO: write log
-        return;
-    }
-    client.user.setPresence({
-        activities: [{
-            name: `over ${memberObjects.size} trailblazers in ${guildCount} train cars`,
-            type: ActivityType.Watching
-        }],
-        status: 'online'
+    
+    statusUpdate(guilds);
+    cron.schedule('*/5 * * * *', () => {
+        statusUpdate(guilds);
     });
-
 });

@@ -110,8 +110,13 @@ export default new Event("messageCreate", async (interaction) => {
                     return;
                 }
 
+                let labelName = referencedMessageOnChannel.userName;
+                if (!labelName) {
+                    labelName = referenceMessage.author.displayName.split("||")[0];
+                }
+
                 const replyButtonUser = new ButtonBuilder()
-                    .setLabel(referenceMessage.author.displayName)
+                    .setLabel(labelName)
                     .setDisabled(true)
                     .setStyle(ButtonStyle.Primary)
                     .setCustomId(CustomId.REPLY)
@@ -185,7 +190,7 @@ export default new Event("messageCreate", async (interaction) => {
                 avatarURL: (interaction.member.avatarURL() ? interaction.member.avatarURL() : interaction.member.displayAvatarURL()) ?? undefined,
                 content: interaction.content,
                 files: files,
-                username: `${interaction.member.nickname ? interaction.member.nickname : interaction.member.displayName} | ${interaction.guild.name}`,
+                username: `${interaction.member.nickname ? interaction.member.nickname : interaction.member.displayName} || ${interaction.guild.name}`,
                 allowedMentions: {parse: []},
                 ...sendOptions,
             },
@@ -217,6 +222,7 @@ export default new Event("messageCreate", async (interaction) => {
                 timestamp: interaction.createdAt.getTime(),
                 userId: webhookMessage.userId,
                 userMessageId: uid,
+                userName: interaction.author.displayName
             })
         } catch (error) {
             logger.warn('Could not send message, deleting broadcast record.');

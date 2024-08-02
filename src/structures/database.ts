@@ -28,6 +28,7 @@ class DatabaseManager {
             `CREATE TABLE IF NOT EXISTS Messages (
                 userId TEXT,
                 userMessageId TEXT,
+                userName TEXT,
                 channelId TEXT,
                 channelMessageId TEXT,
                 guildId TEXT,
@@ -109,7 +110,7 @@ class DatabaseManager {
     public async logMessage(messagesRecord: MessagesRecord): Promise<void> {
         const db = await this.db();
         await db.run(
-            `INSERT OR REPLACE INTO Messages (userId, userMessageId, channelId, channelMessageId, guildId, timestamp) VALUES ("${messagesRecord.userId}", "${messagesRecord.userMessageId}", "${messagesRecord.channelId}", "${messagesRecord.channelMessageId}", "${messagesRecord.guildId}", ${messagesRecord.timestamp})`,
+            `INSERT OR REPLACE INTO Messages (userId, userMessageId, userName, channelId, channelMessageId, guildId, timestamp) VALUES ("${messagesRecord.userId}", "${messagesRecord.userMessageId}", "${messagesRecord.userName}", "${messagesRecord.channelId}", "${messagesRecord.channelMessageId}", "${messagesRecord.guildId}", ${messagesRecord.timestamp})`,
             (error: Error) => {
                 throw new Error(`Could not save record to the Messages table. Error: ${error.message}`);
             }

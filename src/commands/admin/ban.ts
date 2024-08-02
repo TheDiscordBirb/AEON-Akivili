@@ -6,8 +6,9 @@ import { banshareManager } from '../../functions/banshare';
 import { BanshareData } from '../../structures/types';
 import { BanShareOption } from '../../types/command';
 import { Logger } from '../../logger';
+import { client } from '../../structures/client';
 
-const logger = new Logger('BanCommand');
+const logger = new Logger('BanCmd');
 
 export default new Command({
     name: 'ban',
@@ -74,8 +75,19 @@ export default new Command({
             await options.interaction.reply({ content: 'No message id provided.', ephemeral: true });
             return;
         }
-        
-        const userId = await databaseManager.getUserId(options.interaction.channel.id, messageId);
+
+        let userId: string;
+        try {
+            userId = await databaseManager.getUserId(options.interaction.channel.id, messageId);
+        } catch (error) {
+            const user = client.users.cache.find((user) => user.id === messageId);
+            if (!user) {
+                await options.interaction.reply({ content: 'There was an error fetching this user.', ephemeral: true });
+                logger.error(`There was an error fetching this user: ${messageId}`, error as Error);
+                return;
+            }
+            userId = user.id;
+        }
         const broadcasts = await databaseManager.getBroadcasts();
         const guilds: Record<string, Guild> = {};
         const guildIdsFromCache = Object.keys(options.client.guilds.cache);

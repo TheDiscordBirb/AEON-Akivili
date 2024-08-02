@@ -5,7 +5,7 @@ import { databaseManager } from "../structures/database";
 import { config } from "../const";
 import { rebuildMessageComponentAfterUserInteraction } from "../utils";
 
-const logger = new Logger("reactionCreated");
+const logger = new Logger("ReactionCreated");
 
 export default new Event("messageReactionAdd", async (interaction, user) => {
     if (user.bot) return;

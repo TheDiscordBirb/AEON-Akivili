@@ -1,4 +1,5 @@
 import {
+    ActivityType,
     GuildMember,
     PermissionFlagsBits,
     ActionRow,
@@ -6,17 +7,24 @@ import {
     ActionRowBuilder,
     ButtonBuilder,
     ButtonComponent,
-    ButtonStyle
+    ButtonStyle,
+    Collection,
+    OAuth2Guild
 } from 'discord.js';
 import { UserReactionRecord } from './structures/types';
 import { databaseManager } from './structures/database';
 import { CustomId } from './types/event';
 import { Logger } from './logger';
+import { client } from './structures/client';
 
 const logger = new Logger("Utils");
 
 export const hasModerationRights = (guildUser: GuildMember): boolean => {
     return !!(guildUser.roles.cache.find((role) => role.permissions.has(PermissionFlagsBits.BanMembers)));
+}
+
+export const doesUserOwnMessage = (userIdInDb: string | undefined, userId: string): boolean => {
+    return userIdInDb === userId;
 }
 
 export namespace Time {
@@ -52,7 +60,7 @@ export const getEnvVar = <T>(id: string): T => {
     try {
         result = process.env[id] as T;
     } catch (error) {
-        throw Error(`Could not obtain evironment variable. Id:${id}. Error: ${(error as Error).message}`);
+        throw Error(`Could not obtain environment variable. Id:${id}. Error: ${(error as Error).message}`);
     }
     if (!result) {
         throw Error('Requested environment variable is undefined');
@@ -173,4 +181,33 @@ export const rebuildMessageComponentAfterUserInteraction = async (component: Act
 
     await databaseManager.toggleUserReaction(userReactionRecord);
     return resultComponent;
+}
+
+export const statusUpdate = async (guilds: Collection<string, OAuth2Guild>): Promise<void> => {
+    let memberObjects: Collection<string, GuildMember> = new Collection();
+    let guildCount = 0;
+    const broadcasts = await databaseManager.getBroadcasts();
+    for await (const oauthGuild of guilds) {
+        const guild = client.guilds.cache.find((guild) => guild.id === oauthGuild[0]);
+        if (!guild) continue;
+        const guildBroadcasts = broadcasts.filter((broadcast) => broadcast.guildId === guild.id);
+        if (!guildBroadcasts.length) continue;
+
+        guildCount++;
+        memberObjects = memberObjects.concat(guild.members.cache);
+    }
+
+    if (!client.user) {
+        // TODO: write log
+        return;
+    }
+
+    client.user.setPresence({
+        activities: [{
+            name: `over ${memberObjects.size} trailblazers in ${guildCount} train cars`,
+            type: ActivityType.Watching
+        }],
+        status: 'online'
+    });
+    return;
 }

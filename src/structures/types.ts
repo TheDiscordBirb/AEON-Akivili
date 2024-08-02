@@ -15,6 +15,7 @@ export interface MessagesRecord {
     timestamp: number,
     userId: string,
     userMessageId: string,
+    userName: string
 }
 
 export interface UserReactionRecord {

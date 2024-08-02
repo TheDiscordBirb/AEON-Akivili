@@ -4,7 +4,7 @@ import { databaseManager } from '../../structures/database';
 import { hasModerationRights } from '../../utils';
 import { Logger } from '../../logger';
 
-const logger = new Logger('GetUidCommand');
+const logger = new Logger('GetUidCmd');
 
 export default new Command({
     name: 'get-uid',
@@ -45,11 +45,14 @@ export default new Command({
             await options.interaction.reply({ content: 'No message id provided.', ephemeral: true });
             return;
         }
+        let userId: string;
         try {
-            const userId = await databaseManager.getUserId(options.interaction.channel.id, messageId);
-            await options.interaction.reply({ content: userId, ephemeral: true });
+            userId = await databaseManager.getUserId(options.interaction.channel.id, messageId);
         } catch (error) {
-            logger.error('Could not send uid', error as Error);
+            await options.interaction.reply({ content: 'There was an error fetching this user.', ephemeral: true });
+            logger.error(`There was an error fetching this user: ${messageId}`, error as Error);
+            return;
         }
+        await options.interaction.reply({ content: userId, ephemeral: true });
     }
 });

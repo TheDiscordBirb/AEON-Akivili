@@ -72,8 +72,8 @@ export class ExtendedClient extends Client {
             if (!command.name) return;
 
             try {
-            this.commands.set(command.name, command);
-            slashCommands.push(command);
+                this.commands.set(command.name, command);
+                slashCommands.push(command);
             } catch (error) {
                 logger.warn(`Could not push command to bot: ${command.name}`)
             }

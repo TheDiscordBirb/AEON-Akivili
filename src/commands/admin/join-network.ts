@@ -1,12 +1,12 @@
 import { Command } from '../../structures/command';
-import { ApplicationCommandOptionType, GuildMember, TextChannel } from 'discord.js'
+import { ApplicationCommandOptionType, TextChannel } from 'discord.js'
 import { hasModerationRights } from '../../utils';
 import { joinHandler } from '../../functions/join-handler';
 import { databaseManager } from '../../structures/database';
 import { NetworkJoinOptions } from '../../types/command';
 import { Logger } from '../../logger';
 
-const logger = new Logger('JoinNetworkCommand');
+const logger = new Logger('JoinNetworkCmd');
 
 export default new Command({
     name: 'join-network',

@@ -27,7 +27,7 @@ export class Logger {
         protected logFileBatchSize = 1,
         protected defaultLogLevel = 4,
     ) {
-        this.moduleName = this.moduleName.padEnd(15,' ');
+        this.moduleName = this.moduleName.padEnd(20,' ');
     }
 
     public wtf(message: string) {
