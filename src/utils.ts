@@ -105,7 +105,7 @@ export const rebuildMessageComponentAfterUserInteraction = async (component: Act
             .setStyle(buttonComponent.style);
 
         let label;
-        if (buttonComponent.customId === userReactionRecord.reactionName) {
+        if (buttonComponent.customId === userReactionRecord.reactionIdentifier) {
             emojiFoundInActionRows = true;
             const count = buttonLabelNumber + (hasUserReactedToMessage ? -1 : 1);
             if (count === 0) {
@@ -123,8 +123,8 @@ export const rebuildMessageComponentAfterUserInteraction = async (component: Act
     
     if (!emojiFoundInActionRows) {
         const newButton = new ButtonBuilder()
-            .setCustomId(userReactionRecord.reactionName)
-            .setEmoji(userReactionRecord.reactionName)
+            .setCustomId(userReactionRecord.reactionIdentifier)
+            .setEmoji(userReactionRecord.reactionIdentifier)
             .setStyle(ButtonStyle.Secondary)
             .setLabel("1");
             

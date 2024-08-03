@@ -52,8 +52,8 @@ class DatabaseManager {
             `CREATE TABLE IF NOT EXISTS UserReaction (
                 userMessageId TEXT,
                 userId TEXT,
-                reactionName TEXT,
-                PRIMARY KEY (userMessageId, userId, reactionName)
+                reactionIdentifier TEXT,
+                PRIMARY KEY (userMessageId, userId, reactionIdentifier)
             )`
         )
 
@@ -91,7 +91,12 @@ class DatabaseManager {
     public async getBroadcasts(): Promise<BroadcastRecord[]> {
         if (this._broadcastCache) return this._broadcastCache;
         const db = await this.db();
-        this._broadcastCache = await this.getBroadcastsFromDb();
+        try {
+            this._broadcastCache = await this.getBroadcastsFromDb();
+        } catch (error) {
+            logger.error(`Could not get broadcast records. Error: `, error as Error);
+            return [];
+        }
         return this._broadcastCache;
 
     }
@@ -170,17 +175,17 @@ class DatabaseManager {
 
     public async toggleUserReaction(userReactionRecord: UserReactionRecord): Promise<void> {
         const db = await this.db();
-        const result = await db.get<UserReactionRecord>(`SELECT * FROM UserReaction WHERE userId = "${userReactionRecord.userId}" AND userMessageId="${userReactionRecord.userMessageId}" and reactionName="${userReactionRecord.reactionName}"`)
+        const result = await db.get<UserReactionRecord>(`SELECT * FROM UserReaction WHERE userId = "${userReactionRecord.userId}" AND userMessageId="${userReactionRecord.userMessageId}" and reactionIdentifier="${userReactionRecord.reactionIdentifier}"`)
         if (!result) {
-            await db.run(`INSERT OR REPLACE INTO UserReaction (userId, userMessageId, reactionName) VALUES ("${userReactionRecord.userId}", "${userReactionRecord.userMessageId}", "${userReactionRecord.reactionName}")`)
+            await db.run(`INSERT OR REPLACE INTO UserReaction (userId, userMessageId, reactionIdentifier) VALUES ("${userReactionRecord.userId}", "${userReactionRecord.userMessageId}", "${userReactionRecord.reactionIdentifier}")`)
         } else {
-            await db.run(`DELETE FROM UserReaction WHERE userId = "${userReactionRecord.userId}" AND userMessageId="${userReactionRecord.userMessageId}" and reactionName="${userReactionRecord.reactionName}"`);
+            await db.run(`DELETE FROM UserReaction WHERE userId = "${userReactionRecord.userId}" AND userMessageId="${userReactionRecord.userMessageId}" and reactionIdentifier="${userReactionRecord.reactionIdentifier}"`);
         }
     }
 
     public async hasUserReactedToMessage(userReactionRecord: UserReactionRecord): Promise<boolean> {
         const db = await this.db();
-        const result = await db.get<UserReactionRecord>(`SELECT * FROM UserReaction WHERE userId = "${userReactionRecord.userId}" AND userMessageId="${userReactionRecord.userMessageId}" and reactionName="${userReactionRecord.reactionName}"`)
+        const result = await db.get<UserReactionRecord>(`SELECT * FROM UserReaction WHERE userId = "${userReactionRecord.userId}" AND userMessageId="${userReactionRecord.userMessageId}" and reactionIdentifier="${userReactionRecord.reactionIdentifier}"`)
         return (!!result);
     }
 

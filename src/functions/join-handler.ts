@@ -10,10 +10,11 @@ import { client } from "../structures/client";
 import { config } from "../const";
 import { databaseManager } from "../structures/database";
 import { BanShareButtonArg } from "../types/event";
+import { Logger } from "../logger";
+
+const logger = new Logger('JoinHandler');
 
 class JoinHandler {
-    constructor() { }
-    
     public async requestNetworkAccess(data: JoinData) {
         let requestEmbed = new EmbedBuilder()
             .setTitle(`New join request`)
@@ -49,8 +50,13 @@ class JoinHandler {
             avatar: client.user?.displayAvatarURL()
         })
             .then(async (webhook) => {
-                await webhook.send(`This channel is now connected to ${webhook.name}.`)
-                databaseManager.saveBroadcast({ guildId: webhook.guildId, channelId: data.channel.id, channelType: data.type, webhookId: webhook.id, webhookToken: webhook.token });
+                await webhook.send(`This channel is now connected to ${webhook.name}.`);
+                try {
+                    await databaseManager.saveBroadcast({ guildId: webhook.guildId, channelId: data.channel.id, channelType: data.type, webhookId: webhook.id, webhookToken: webhook.token });
+                } catch (error) {
+                    logger.error(`Could not save broadcast. Error: `, error as Error);
+                    return;
+                }
             });
         
 

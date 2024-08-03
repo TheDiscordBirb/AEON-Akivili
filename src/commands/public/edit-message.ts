@@ -1,10 +1,12 @@
 import {
+    APIMessage,
     ApplicationCommandOptionType,
     BaseGuildTextChannel,
     ChannelType,
     GuildTextBasedChannel,
     WebhookClient,
-    Message
+    Message,
+    User
 } from "discord.js";
 import { Command } from "../../structures/command"; 
 import { Logger } from "../../logger";
@@ -12,6 +14,9 @@ import { databaseManager } from "../../structures/database";
 import { config } from "../../const";
 import { client } from "../../structures/client";
 import { doesUserOwnMessage } from "../../utils";
+import { MessagesRecord } from "../../structures/types";
+import { notificationManager } from "../../functions/notification";
+import { NotificationType } from "../../types/event";
 
 const logger = new Logger('EditMessageCmd');
 
@@ -33,6 +38,10 @@ export default new Command({
     }],
 
     run: async (options) => {
+        if (!options.interaction.guild) {
+            await options.interaction.reply(`You cant use this here`);
+            return;
+        }
         const channel = options.interaction.channel as BaseGuildTextChannel;
         if (!channel) {
             await options.interaction.reply({ content: `Could not find channel`, ephemeral: true });
@@ -85,14 +94,22 @@ export default new Command({
         
         //This breaks
         //relatedMessageRecords.find((relatedMessage) => relatedMessage.channelId === message.channel.id);
-        
-        const relatedMessageRecords = await databaseManager.getMessages(messageChannelId, message.id);
+
+        let relatedMessageRecords: MessagesRecord[];
+        try {
+            relatedMessageRecords = await databaseManager.getMessages(messageChannelId, message.id);
+        } catch (error) {
+            logger.error(`Could not get messages. Error: `, error as Error);
+            return;
+        }
         const matchingBroadcastRecords = (await databaseManager.getBroadcasts()).filter((broadcast) => broadcast.channelType === webhookChannelType);
 
         if (!doesUserOwnMessage(relatedMessageRecords.find((relatedMessage) => relatedMessage.channelId === messageChannelId)?.userId, options.interaction.user.id)) {
             await options.interaction.reply({ content: "You do not have permission to edit this message.", ephemeral: true });
             return;
         }
+
+        const oldMessageContent = message.content;
 
         await Promise.allSettled(matchingBroadcastRecords.map(async (matchingBroadcastRecord) => {
             let networkMessage;
@@ -113,7 +130,7 @@ export default new Command({
                 networkMessage = guildNetworkChannel.messages.cache.find((guildMessage) => guildMessage.id === networkMessageRecord.channelMessageId);
             }
             catch (error) {
-                    await options.interaction.reply({ content: `Got an error during getting network message`, ephemeral: true });
+                await options.interaction.reply({ content: `Got an error during getting network message`, ephemeral: true });
                 logger.error(`Got an error during getting network message: `, error as Error);
             }
             if (!networkMessage) {
@@ -125,6 +142,18 @@ export default new Command({
 
             await webhookClient.editMessage(networkMessage, { content: options.args.getString('content') });
             await options.interaction.reply({ content: `Successfully edited message.`, ephemeral: true });
-        }))
+        }));
+        
+        const targetUser = client.users.cache.find((clientUser) => clientUser.id === relatedMessageRecords[0].userId);
+        await notificationManager.sendNotification({
+            executingUser: targetUser as User,
+            targetUser: targetUser,
+            channelType: webhookChannelType,
+            oldContent: oldMessageContent,
+            newContent: options.args.getString('content') ?? undefined,
+            notificationType: NotificationType.MESSAGE_EDIT,
+            time: Date.now(),
+            guild: options.interaction.guild
+        });
     }
 })

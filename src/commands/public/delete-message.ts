@@ -4,7 +4,8 @@ import {
     ChannelType,
     GuildTextBasedChannel,
     WebhookClient,
-    Message
+    Message,
+    User
 } from "discord.js";
 import { Command } from "../../structures/command"; 
 import { Logger } from "../../logger";
@@ -12,6 +13,9 @@ import { databaseManager } from "../../structures/database";
 import { config } from "../../const";
 import { client } from "../../structures/client";
 import { doesUserOwnMessage, hasModerationRights } from "../../utils";
+import { MessagesRecord } from "../../structures/types";
+import { NotificationType } from "../../types/event";
+import { notificationManager } from "../../functions/notification";
 
 const logger = new Logger('DeleteMessageCmd');
 
@@ -27,6 +31,10 @@ export default new Command({
     }],
 
     run: async (options) => {
+        if (!options.interaction.guild) {
+            await options.interaction.reply(`You cant use this here`);
+            return;
+        }
         const channel = options.interaction.channel as BaseGuildTextChannel;
         if (!channel) {
             await options.interaction.reply({ content: `Could not find channel`, ephemeral: true });
@@ -80,10 +88,19 @@ export default new Command({
         //This breaks
         //relatedMessageRecords.find((relatedMessage) => relatedMessage.channelId === message.channel.id);
         
-        const relatedMessageRecords = await databaseManager.getMessages(messageChannelId, message.id);
+
+        let relatedMessageRecords: MessagesRecord[];
+        try {
+            relatedMessageRecords = await databaseManager.getMessages(messageChannelId, message.id, true);
+        } catch (error) {
+            logger.error(`Could not get messages. Error: `, error as Error);
+            return;
+        }
         const matchingBroadcastRecords = (await databaseManager.getBroadcasts()).filter((broadcast) => broadcast.channelType === webhookChannelType);
 
-        if(!hasModerationRights(options.interaction.member)) {
+        let deletedByMod = (relatedMessageRecords[0].userId === options.interaction.user.id) ? false : true;
+        if (!hasModerationRights(options.interaction.member)) {
+            deletedByMod = false;
             if (!doesUserOwnMessage(relatedMessageRecords.find((relatedMessage) => relatedMessage.channelId === messageChannelId)?.userId, options.interaction.user.id)) {
                 await options.interaction.reply({ content: "You do not have permission to delete this message.", ephemeral: true });
                 return;
@@ -123,5 +140,17 @@ export default new Command({
             await webhookClient.deleteMessage(networkMessage);
             await options.interaction.reply({ content: `Successfully deleted message.`, ephemeral: true });
         }))
+
+        const targetUser = client.users.cache.find((clientUser) => clientUser.id === relatedMessageRecords[0].userId);
+        await notificationManager.sendNotification({
+            executingUser: targetUser as User,
+            targetUser: targetUser,
+            message: message,
+            notificationType: NotificationType.MESSAGE_DELETE,
+            channelType: webhookChannelType,
+            time: Date.now(),
+            guild: options.interaction.guild,
+            deletedByMod: deletedByMod
+        });
     }
 })

@@ -15,6 +15,7 @@ import { config } from "../const";
 import { Logger } from "../logger";
 import { client } from "../structures/client";
 import { CustomId } from "../types/event";
+import { MessagesRecord } from "../structures/types";
 
 const logger = new Logger('MessageCreated');
 
@@ -73,7 +74,7 @@ export default new Event("messageCreate", async (interaction) => {
     
     files.push(...downloadedAttachments, ...downloadedStickers);
 
-    interaction.delete();
+    await interaction.delete();
     
     const matchingBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === webhookChannelType);
     const uid = ulid();
@@ -100,7 +101,13 @@ export default new Event("messageCreate", async (interaction) => {
                 // TODO: write log
                 return;
             }
-            const referencedMessages = await databaseManager.getMessages(referenceMessage.channelId, referenceMessage.id);
+            let referencedMessages: MessagesRecord[];
+            try {
+                referencedMessages = await databaseManager.getMessages(referenceMessage.channelId, referenceMessage.id);
+            } catch (error) {
+                logger.error(`Could not get messages. Error: `, error as Error);
+                return;
+            }
             const referencedMessageOnChannel = referencedMessages.find((referencedMessage) => referencedMessage.channelId === broadcastRecord.channelId);
             
             if (referencedMessageOnChannel) {

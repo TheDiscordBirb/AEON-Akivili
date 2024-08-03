@@ -15,8 +15,6 @@ import { databaseManager } from "../structures/database";
 import { BanShareButtonArg } from "../types/event";
 
 class BanshareManager {
-    constructor() { }
-    
     public async requestBanshare(data: BanshareData, client: Client, submitter: User, guildOfOrigin: Guild) {
         const mainChannel = client.channels.cache.get(config.aeonBanshareChannelId);
         if (!mainChannel) {

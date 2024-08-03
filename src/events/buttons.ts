@@ -18,6 +18,7 @@ import { BanShareButtonArg } from "../types/event";
 import { config } from "../const";
 import { databaseManager } from "../structures/database";
 import { ChannelType } from "discord.js";
+import { MessagesRecord } from "../structures/types";
 
 const logger = new Logger("Buttons");
 
@@ -37,9 +38,16 @@ export default new Event("interactionCreate", async (interaction) => {
     const buttonComponent = (interaction.component as ButtonComponent);
 
     if (!!buttonComponent.customId?.match(customEmojiRegex) || !!buttonComponent.customId?.match(standardEmojiRegex)) {
-        const userMessageId = await databaseManager.getMessageUid(interaction.channelId, interaction.message.id);
+        let userMessageId: string;
+        try {
+            userMessageId = await databaseManager.getMessageUid(interaction.channelId, interaction.message.id);
+        } catch (error) {
+            logger.error(`Could not get messages. Error: `, error as Error);
+            return;
+        }
+        
         const userId = interaction.user.id;
-        const reactionName = (interaction.component as ButtonComponent).customId;
+        const reactionIdentifier = (interaction.component as ButtonComponent).customId;
         if (!userMessageId) {
             // TODO: write log
             return;
@@ -48,7 +56,7 @@ export default new Event("interactionCreate", async (interaction) => {
             // TODO: write log
             return;
         }
-        if (!reactionName) {
+        if (!reactionIdentifier) {
             // TODO: write log
             return;
         }
@@ -75,11 +83,17 @@ export default new Event("interactionCreate", async (interaction) => {
         const webhookNameParts = webhook.name.split(' ');
         const webhookChannelType = webhookNameParts[webhookNameParts.length - 1];
         const matchingBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === webhookChannelType);
-        const actionRows = await rebuildMessageComponentAfterUserInteraction(interaction.message.components, { userId, userMessageId, reactionName });
+        const actionRows = await rebuildMessageComponentAfterUserInteraction(interaction.message.components, { userId, userMessageId, reactionIdentifier });
 
         await Promise.allSettled(matchingBroadcastRecords.map(async (broadcastRecord) => {
             const webhookClient = new WebhookClient({ id: broadcastRecord.webhookId, token: broadcastRecord.webhookToken });
-            const messagesOnNetwork = await databaseManager.getMessages(interaction.message.channel.id, interaction.message.id);
+            let messagesOnNetwork: MessagesRecord[];
+            try {
+                messagesOnNetwork = await databaseManager.getMessages(interaction.message.channel.id, interaction.message.id);
+            } catch (error) {
+                logger.error(`Could not get messages. Error: `, error as Error);
+                return;
+            }
             const correctMessageOnNetwork = messagesOnNetwork.find((messageOnNetwork) => messageOnNetwork.channelId === broadcastRecord.channelId);
             if (!correctMessageOnNetwork) {
                 // TODO: write log

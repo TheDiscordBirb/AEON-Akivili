@@ -3,10 +3,11 @@ import { ApplicationCommandOptionType, GuildMember, Guild } from 'discord.js'
 import { databaseManager } from '../../structures/database'; 
 import { hasModerationRights } from '../../utils';
 import { banshareManager } from '../../functions/banshare';
-import { BanshareData } from '../../structures/types';
+import { BanshareData, MessagesRecord } from '../../structures/types';
 import { BanShareOption } from '../../types/command';
 import { Logger } from '../../logger';
-import { client } from '../../structures/client';
+import { notificationManager } from '../../functions/notification';
+import { NotificationType } from '../../types/event';
 
 const logger = new Logger('BanCmd');
 
@@ -75,18 +76,18 @@ export default new Command({
             await options.interaction.reply({ content: 'No message id provided.', ephemeral: true });
             return;
         }
-
+        const message = await options.interaction.channel.messages.fetch(messageId);
+        if (!message) {
+            await options.interaction.reply({ content: 'This message does not exist.', ephemeral: true });
+            return;
+        }
+        
         let userId: string;
         try {
             userId = await databaseManager.getUserId(options.interaction.channel.id, messageId);
         } catch (error) {
-            const user = client.users.cache.find((user) => user.id === messageId);
-            if (!user) {
-                await options.interaction.reply({ content: 'There was an error fetching this user.', ephemeral: true });
-                logger.error(`There was an error fetching this user: ${messageId}`, error as Error);
-                return;
-            }
-            userId = user.id;
+            logger.error(`There was an error fetching this user: ${messageId}`, error as Error);
+            return;
         }
         const broadcasts = await databaseManager.getBroadcasts();
         const guilds: Record<string, Guild> = {};
@@ -102,6 +103,22 @@ export default new Command({
                 guilds[broadcast.guildId] = guild;
             }
         }
+
+        let messageRecords: MessagesRecord[];
+        try {
+            messageRecords = await databaseManager.getMessages(message.channel.id, message.id);
+        } catch (error) {
+            logger.error(`There was an error getting the message record. Error: `, error as Error);
+            return;
+        }
+
+        let messageChannelType = '';
+        broadcasts.forEach((broadcast) => {
+            if (broadcast.channelId === messageRecords[0].channelId) {
+                messageChannelType = broadcast.channelType;
+                return;
+            }
+        })
         
         const userInfo = Object.values(guilds).reduce<{guildMember?:GuildMember, userIsModerator:boolean}>((acc, guild) => {
             if (acc.userIsModerator) return acc;
@@ -127,7 +144,20 @@ export default new Command({
         await options.interaction.reply({ content: `${userInfo.guildMember} has been banned. (For now this feature is only a proof of concept, it will be functional after open beta)`, ephemeral: true });
         // TODO: ban user
 
-        if (!banshareResponse || (banshareResponse == BanShareOption.NO)) return;
+        
+        
+        if (!banshareResponse || (banshareResponse == BanShareOption.NO)) {
+            notificationManager.sendNotification({
+                executingUser: options.interaction.user,
+                targetUser: userInfo.guildMember.user,
+                channelType: messageChannelType,
+                message: message,
+                notificationType: NotificationType.BAN,
+                time: Date.now(),
+                guild: options.interaction.guild
+            });
+            return;
+        }
         if (!attachment) {
             await options.interaction.reply({ content: 'There was a problem with the attachment provided.', ephemeral: true });
             return;
@@ -140,11 +170,6 @@ export default new Command({
         }
         
         
-        const message = await options.interaction.channel.messages.fetch(messageId);
-        if (!message) {
-            await options.interaction.reply({ content: 'This message does not exist.', ephemeral: true });
-            return;
-        }
         
         const data: BanshareData = {
             user: targetUser,
@@ -155,6 +180,15 @@ export default new Command({
         try {
             await banshareManager.requestBanshare(data, options.client, options.interaction.member.user, options.interaction.guild);
             await options.interaction.editReply({ content: `${targetUser} has been banned and banshare has been submitted. (For now this feature is only a proof of concept, it will be functional after open beta)` });
+            notificationManager.sendNotification({
+                executingUser: options.interaction.user,
+                targetUser: userInfo.guildMember.user,
+                channelType: messageChannelType,
+                message: message,
+                notificationType: NotificationType.BAN,
+                time: Date.now(), guild: options.interaction.guild,
+                images: [attachment.url]
+            });
         } catch (error) {
             logger.error('Could not ban user / share ban', error as Error)
         }
