@@ -43,7 +43,17 @@ export class ExtendedClient extends Client {
     }  
 
     async importFile(filePath: string) {
-        return (await import(filePath))?.default;
+        let importFile;
+        try {
+            importFile = await import(filePath);
+        } catch (error) {
+            logger.error(`Could not import file. Error: `, (error as Error));
+        }
+        if (!importFile) {
+            logger.warn(`Could not import command file. FilePath: ${filePath}`);
+            return;
+        }
+        return importFile.default;
     }
 
     async registerCommands({ commands, guildId }: RegisterCommandsOptions) {
@@ -64,14 +74,16 @@ export class ExtendedClient extends Client {
         // Commands
         const slashCommands: ApplicationCommandDataResolvable[] = [];
         const commandsPath = path.join(__dirname, '..', 'commands', '**', '*{.ts,.js}').replace(/\\/g, '/');
-        const commandFiles = glob.sync(
-            commandsPath,
-        );
-        await Promise.allSettled(commandFiles.map(async (filePath) => {
+        const commandFiles = glob.sync(commandsPath);
+        await Promise.all(commandFiles.map(async (filePath) => {
             const command: CommandType = await this.importFile(filePath);
-            if (!command.name) return;
+            if (!command.name) {
+                logger.warn(`Could not find command name for file. FilePath: ${filePath}`);
+                return;
+            }
 
             try {
+                logger.info(`Registering command: ${command.name}`);
                 this.commands.set(command.name, command);
                 slashCommands.push(command);
             } catch (error) {
@@ -92,9 +104,7 @@ export class ExtendedClient extends Client {
             eventsPath,
         );
         eventFiles.forEach(async (filePath) => {
-            const event: Event<keyof ClientEvents> = await this.importFile(
-                filePath
-            );
+            const event: Event<keyof ClientEvents> = await this.importFile(filePath);
             this.on(event.event, event.run);
         });
     }

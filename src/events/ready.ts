@@ -25,10 +25,12 @@ export default new Event("ready", async () => {
         guildCount++;
         memberObjects = memberObjects.concat(guild.members.cache);
         logger.info(`Loaded guild "${guild.name}" (id: ${guild.id}).`);
-        await Promise.allSettled([
+        logger.info(`Fetching channels and members. Guild id: ${guild.id}`);
+        await Promise.all([
             guild.channels.fetch(),
             guild.members.fetch(),
         ]);
+        logger.info(`Finished fetching channels and members for guild ${guild.id}. Channel cache size: ${guild.channels.cache.size} Members cache size: ${guild.members.cache.size}`);
         for await (const guildBroadcast of guildBroadcasts) {
             try {
                 const aeonChannel = guild.channels.cache.find((channel) => channel.id === guildBroadcast.channelId && guildBroadcast.channelType !== NetworkJoinOptions.BANSHARE) as GuildTextBasedChannel;
@@ -47,8 +49,8 @@ export default new Event("ready", async () => {
     logger.info(`Loaded ${guildCount} guild${guildCount === 1 ? '' : 's'}`);
 
     
-    statusUpdate(guilds);
-    cron.schedule('*/5 * * * *', () => {
-        statusUpdate(guilds);
+    await statusUpdate(guilds);
+    cron.schedule('*/5 * * * *', async () => {
+        await statusUpdate(guilds);
     });
 });

@@ -17,7 +17,6 @@ export const LogLevelName: Record<LogLevel, string> = {
     [LogLevel.INFO] : '[INFO ]',
 }
 
-
 export class Logger {
     private logFileBuffer: string[] = [];
 
@@ -25,7 +24,7 @@ export class Logger {
         protected moduleName: string,
         protected fileName?: string,
         protected logFileBatchSize = 1,
-        protected defaultLogLevel = 4,
+        protected defaultLogLevel = 3,
     ) {
         this.moduleName = this.moduleName.padEnd(20,' ');
     }

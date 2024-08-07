@@ -13,7 +13,7 @@ import { databaseManager } from "../../structures/database";
 import { config } from "../../const";
 import { client } from "../../structures/client";
 import { doesUserOwnMessage, hasModerationRights } from "../../utils";
-import { MessagesRecord } from "../../structures/types";
+import { MessagesRecord } from "../../types/database";
 import { NotificationType } from "../../types/event";
 import { notificationManager } from "../../functions/notification";
 
@@ -58,24 +58,29 @@ export default new Command({
             return;
         }
 
-        let webhooks;
+        const broadcastRecords = await databaseManager.getBroadcasts();
+        const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
+        if (!channelWebhook) {
+            await options.interaction.reply({ content: `No channel webhook.`, ephemeral: true });
+            return;
+        }
+
+        let webhook;
         try {
-            webhooks = await channel.fetchWebhooks();
+            webhook = await client.fetchWebhook(channelWebhook.webhookId);
         } catch (error) { 
-            await options.interaction.reply({ content: `Could not fetch webhooks in guild`, ephemeral: true });
-            logger.error(`Could not fetch webhooks in guild: ${message.guild.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`, error as Error)
+            logger.error(`Could not fetch webhook in guild: ${options.interaction.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`, error as Error)
             return;
         };
-
-        const broadcastRecords = await databaseManager.getBroadcasts();
-        const broadcastWebhookIds = broadcastRecords.map((broadcast) => broadcast.webhookId);
-        const webhook = webhooks.find((webhook) => broadcastWebhookIds.includes(webhook.id));
         
-        if (!webhook) return;
+        if (!webhook) {
+            await options.interaction.reply({ content: `No webhook in this channel`, ephemeral: true });
+            return;
+        }
         if (config.nonChatWebhooks.includes(webhook.name)) return;
         
-        const webhookNameParts = webhook.name.split(' ');
-        const webhookChannelType = webhookNameParts[webhookNameParts.length - 1];
+        const webhookChannelType = channelWebhook.channelType;
+        
 
         //DO NOT TOUCH, THIS HOLDS THE WHOLE THING TOGETHER
         //WITHOUT THIS THE COMMAND DOESNT GET REGISTERED AND I DONT KNOW WHY

@@ -3,13 +3,160 @@ import { ApplicationCommandOptionType, GuildMember, Guild } from 'discord.js'
 import { databaseManager } from '../../structures/database'; 
 import { hasModerationRights } from '../../utils';
 import { banshareManager } from '../../functions/banshare';
-import { BanshareData, MessagesRecord } from '../../structures/types';
+import { BanshareData, MessagesRecord } from '../../types/database';
 import { BanShareOption } from '../../types/command';
 import { Logger } from '../../logger';
 import { notificationManager } from '../../functions/notification';
 import { NotificationType } from '../../types/event';
+import { metrics } from '../../structures/metrics';
+import { TimeSpanMetricLabel } from '../../types/metrics';
+import { RunOptions } from '../../types/command';
 
 const logger = new Logger('BanCmd');
+
+const banCommand = async (options: RunOptions): Promise<void> => {
+    if (!options.interaction.guild) {
+        await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
+        return;
+    }
+    
+    const user = options.interaction.guild.members.cache.find((member) => member.id === options.interaction.member.user.id);
+    if (!user) {
+        logger.wtf("Interaction's creator does not exist.");
+        return;
+    }
+    
+    if (!hasModerationRights(user)) {
+        await options.interaction.reply({ content: 'You do not have permission to use this!', ephemeral: true });
+        return;
+    }
+
+    const banshareResponse = options.args.getString('banshare');
+    const attachment = options.args.getAttachment('banshare-proof');
+    if (!attachment && (banshareResponse == BanShareOption.YES)) {
+        await options.interaction.reply({ content: 'If you want to automatically banshare this person please provide a screenshot of their message.', ephemeral: true });
+        return;
+    }
+    
+    
+    if (!options.interaction.channel) {
+        logger.wtf(`${options.interaction.member.user.username} has used a command without a channel.`);
+        return;
+    }
+        
+    const messageId = options.args.getString('message-id');
+    if (!messageId) {
+        logger.warn(`${options.interaction.member.user.username} has used a command without the required field 'message-id'.`);
+        await options.interaction.reply({ content: 'No message id provided.', ephemeral: true });
+        return;
+    }
+    const message = await options.interaction.channel.messages.fetch(messageId);
+    if (!message) {
+        await options.interaction.reply({ content: 'This message does not exist.', ephemeral: true });
+        return;
+    }
+    
+    let userId: string;
+    try {
+        userId = await databaseManager.getUserId(options.interaction.channel.id, messageId);
+    } catch (error) {
+        logger.error(`There was an error fetching this user: ${messageId}`, error as Error);
+        return;
+    }
+    const broadcasts = await databaseManager.getBroadcasts();
+
+    let messageRecords: MessagesRecord[];
+    try {
+        messageRecords = await databaseManager.getMessages(message.channel.id, message.id);
+    } catch (error) {
+        logger.error(`There was an error getting the message record. Error: `, error as Error);
+        return;
+    }
+
+    let messageChannelType = '';
+    broadcasts.forEach((broadcast) => {
+        if (broadcast.channelId === messageRecords[0].channelId) {
+            messageChannelType = broadcast.channelType;
+            return;
+        }
+    })
+    
+    const userInfo = Object.values(broadcasts).reduce<{ guildMember?: GuildMember, userIsModerator: boolean }>((acc, broadcast) => {
+        const guild = options.client.guilds.cache.get(broadcast.guildId);
+        if (!guild) return acc;
+        if (acc.userIsModerator) return acc;
+        const guildMember = guild.members.cache.find((user) => user.id === userId);
+        if (!guildMember) return acc;
+        if (hasModerationRights(guildMember)) {
+            return {guildMember, userIsModerator: true};
+        }
+        return { guildMember, userIsModerator: false };
+    }, {guildMember: undefined, userIsModerator: false});
+    
+    
+    if (userInfo.userIsModerator) {
+        await options.interaction.reply({ content: 'This user is a moderator on a server in the network, please submit a banshare request with a screenshot of the message.', ephemeral: true });
+        return;
+    }
+
+    if (!userInfo.guildMember) {
+        await options.interaction.reply({ content: 'Could not find that user.', ephemeral: true });
+        return;
+    }
+    
+    await options.interaction.reply({ content: `${userInfo.guildMember} has been banned. (For now this feature is only a proof of concept, it will be functional after open beta)`, ephemeral: true });
+    // TODO: ban user
+
+    
+    
+    if (!banshareResponse || (banshareResponse == BanShareOption.NO)) {
+        notificationManager.sendNotification({
+            executingUser: options.interaction.user,
+            targetUser: userInfo.guildMember.user,
+            channelType: messageChannelType,
+            message: message,
+            notificationType: NotificationType.BAN,
+            time: Date.now(),
+            guild: options.interaction.guild
+        });
+        return;
+    }
+    if (!attachment) {
+        await options.interaction.reply({ content: 'There was a problem with the attachment provided.', ephemeral: true });
+        return;
+    }
+    
+    const targetUser = options.client.users.cache.find((user) => user.id === userInfo.guildMember?.id);
+    if (!targetUser) {
+        await options.interaction.reply({ content: 'Could not find target user.', ephemeral: true });
+        return;
+    }
+    
+    
+    
+    const data: BanshareData = {
+        user: targetUser,
+        reason: `${targetUser.username} said in Aeon Chat:\n"${message.content}"`,
+        proof: [attachment.url]
+    };
+
+    try {
+        await banshareManager.requestBanshare(data, options.client, options.interaction.member.user, options.interaction.guild);
+        await options.interaction.editReply({ content: `${targetUser} has been banned and banshare has been submitted. (For now this feature is only a proof of concept, it will be functional after open beta)` });
+        notificationManager.sendNotification({
+            executingUser: options.interaction.user,
+            targetUser: userInfo.guildMember.user,
+            channelType: messageChannelType,
+            message: message,
+            notificationType: NotificationType.BAN,
+            time: Date.now(), guild: options.interaction.guild,
+            images: [attachment.url]
+        });
+    } catch (error) {
+        logger.error('Could not ban user / share ban', error as Error)
+    }
+}
+
 
 export default new Command({
     name: 'ban',
@@ -40,157 +187,12 @@ export default new Command({
     ],
     
     run: async (options) => {
-        if (!options.interaction.guild) {
-            await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
-            return;
-        }
-        
-        const user = options.interaction.guild.members.cache.find((member) => member.id === options.interaction.member.user.id);
-        if (!user) {
-            logger.wtf("Interaction's creator does not exist.");
-            return;
-        }
-        
-        if (!hasModerationRights(user)) {
-            await options.interaction.reply({ content: 'You do not have permission to use this!', ephemeral: true });
-            return;
-        }
-
-        const banshareResponse = options.args.getString('banshare');
-        const attachment = options.args.getAttachment('banshare-proof');
-        if (!attachment && (banshareResponse == BanShareOption.YES)) {
-            await options.interaction.reply({ content: 'If you want to automatically banshare this person please provide a screenshot of their message.', ephemeral: true });
-            return;
-        }
-        
-        
-        if (!options.interaction.channel) {
-            logger.wtf(`${options.interaction.member.user.username} has used a command without a channel.`);
-            return;
-        }
-        
-        
-        const messageId = options.args.getString('message-id');
-        if (!messageId) {
-            logger.warn(`${options.interaction.member.user.username} has used a command without the required field 'message-id'.`);
-            await options.interaction.reply({ content: 'No message id provided.', ephemeral: true });
-            return;
-        }
-        const message = await options.interaction.channel.messages.fetch(messageId);
-        if (!message) {
-            await options.interaction.reply({ content: 'This message does not exist.', ephemeral: true });
-            return;
-        }
-        
-        let userId: string;
+        const metricId = metrics.start(TimeSpanMetricLabel.CMD_BAN);
         try {
-            userId = await databaseManager.getUserId(options.interaction.channel.id, messageId);
+            await banCommand(options);
         } catch (error) {
-            logger.error(`There was an error fetching this user: ${messageId}`, error as Error);
-            return;
+            logger.warn('Could not execute ban command', error as Error);
         }
-        const broadcasts = await databaseManager.getBroadcasts();
-        const guilds: Record<string, Guild> = {};
-        const guildIdsFromCache = Object.keys(options.client.guilds.cache);
-        for (const broadcast of broadcasts) {
-            const guildIndex = guildIdsFromCache.findIndex((guildId) => guildId === broadcast.guildId);
-            if (guildIndex) {
-                const guild = options.client.guilds.cache.at(guildIndex);
-                if (!guild) {
-                    logger.wtf(`No guild at the guildIndex of ${guildIndex} was found.`);
-                    continue;
-                }
-                guilds[broadcast.guildId] = guild;
-            }
-        }
-
-        let messageRecords: MessagesRecord[];
-        try {
-            messageRecords = await databaseManager.getMessages(message.channel.id, message.id);
-        } catch (error) {
-            logger.error(`There was an error getting the message record. Error: `, error as Error);
-            return;
-        }
-
-        let messageChannelType = '';
-        broadcasts.forEach((broadcast) => {
-            if (broadcast.channelId === messageRecords[0].channelId) {
-                messageChannelType = broadcast.channelType;
-                return;
-            }
-        })
-        
-        const userInfo = Object.values(guilds).reduce<{guildMember?:GuildMember, userIsModerator:boolean}>((acc, guild) => {
-            if (acc.userIsModerator) return acc;
-            const guildMember = guild.members.cache.find((user) => user.id === userId);
-            if (!guildMember) return acc;
-            if (hasModerationRights(guildMember)) {
-                return {guildMember: guildMember, userIsModerator: true};
-            }
-            return { guildMember: guildMember, userIsModerator: acc.userIsModerator };
-        }, {guildMember: undefined, userIsModerator: false});
-        
-        
-        if (userInfo.userIsModerator) {
-            await options.interaction.reply({ content: 'This user is a moderator on a server in the network, please submit a banshare request with a screenshot of the message.', ephemeral: true });
-            return;
-        }
-
-        if (!userInfo.guildMember) {
-            await options.interaction.reply({ content: 'Could not find that user.', ephemeral: true });
-            return;
-        }
-        
-        await options.interaction.reply({ content: `${userInfo.guildMember} has been banned. (For now this feature is only a proof of concept, it will be functional after open beta)`, ephemeral: true });
-        // TODO: ban user
-
-        
-        
-        if (!banshareResponse || (banshareResponse == BanShareOption.NO)) {
-            notificationManager.sendNotification({
-                executingUser: options.interaction.user,
-                targetUser: userInfo.guildMember.user,
-                channelType: messageChannelType,
-                message: message,
-                notificationType: NotificationType.BAN,
-                time: Date.now(),
-                guild: options.interaction.guild
-            });
-            return;
-        }
-        if (!attachment) {
-            await options.interaction.reply({ content: 'There was a problem with the attachment provided.', ephemeral: true });
-            return;
-        }
-        
-        const targetUser = options.client.users.cache.find((user) => user.id === userInfo.guildMember?.id);
-        if (!targetUser) {
-            await options.interaction.reply({ content: 'Could not find target user.', ephemeral: true });
-            return;
-        }
-        
-        
-        
-        const data: BanshareData = {
-            user: targetUser,
-            reason: `${targetUser.username} said in Aeon Chat:\n"${message.content}"`,
-            proof: [attachment.url]
-        };
-
-        try {
-            await banshareManager.requestBanshare(data, options.client, options.interaction.member.user, options.interaction.guild);
-            await options.interaction.editReply({ content: `${targetUser} has been banned and banshare has been submitted. (For now this feature is only a proof of concept, it will be functional after open beta)` });
-            notificationManager.sendNotification({
-                executingUser: options.interaction.user,
-                targetUser: userInfo.guildMember.user,
-                channelType: messageChannelType,
-                message: message,
-                notificationType: NotificationType.BAN,
-                time: Date.now(), guild: options.interaction.guild,
-                images: [attachment.url]
-            });
-        } catch (error) {
-            logger.error('Could not ban user / share ban', error as Error)
-        }
+        metrics.stop(metricId);
     }
 });

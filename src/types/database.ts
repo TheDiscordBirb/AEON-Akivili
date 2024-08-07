@@ -1,4 +1,4 @@
-import { Guild, Message, TextChannel, User } from "discord.js"
+import { Guild, TextChannel, User } from "discord.js"
 
 export interface BroadcastRecord {
     channelId: string,
@@ -6,6 +6,8 @@ export interface BroadcastRecord {
     guildId: string,
     webhookId: string,
     webhookToken: string,
+    importantBanshareRoleId: string | null,
+    autoBanLevel: number
 }
 
 export interface MessagesRecord {
@@ -15,7 +17,8 @@ export interface MessagesRecord {
     timestamp: number,
     userId: string,
     userMessageId: string,
-    userName: string
+    userName: string,
+    messageOrigin: number
 }
 
 export interface UserReactionRecord {
@@ -34,20 +37,4 @@ export interface JoinData {
     guild: Guild,
     channel: TextChannel,
     type: string
-}
-
-export interface NotificationData {
-    executingUser: User,
-    channelType: string
-    notificationType: string,
-    time: number,
-    guild: Guild,
-    targetUser?: User,
-    message?: Message,
-    oldContent?: string,
-    newContent?: string,
-    deletedReacionIdentifier?: string,
-    images?: string[]
-    banshareReason?: string,
-    deletedByMod?: boolean,
 }

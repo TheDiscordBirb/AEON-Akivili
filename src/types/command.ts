@@ -11,7 +11,7 @@ export interface ExtendedInteraction extends CommandInteraction {
     member: GuildMember;
 }
 
-interface RunOptions {
+export interface RunOptions {
     client: ExtendedClient;
     interaction: ExtendedInteraction;
     args: CommandInteractionOptionResolver;
@@ -35,3 +35,8 @@ export enum NetworkJoinOptions {
     GENERAL = 'General'
 }
 
+export enum AutoBanLevelOptions {
+    NONE = '0',
+    IMPORTANT = '1',
+    ALL = '2'
+}

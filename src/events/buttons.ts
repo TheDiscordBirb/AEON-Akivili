@@ -6,7 +6,8 @@ import {
     TextChannel,
     ButtonComponent,
     BaseGuildTextChannel,
-    WebhookClient
+    WebhookClient,
+    User
 } from "discord.js";
 import { banshareManager } from "../functions/banshare";
 import { Event } from "../structures/event";
@@ -18,7 +19,7 @@ import { BanShareButtonArg } from "../types/event";
 import { config } from "../const";
 import { databaseManager } from "../structures/database";
 import { ChannelType } from "discord.js";
-import { MessagesRecord } from "../structures/types";
+import { MessagesRecord } from "../types/database";
 
 const logger = new Logger("Buttons");
 
@@ -49,15 +50,15 @@ export default new Event("interactionCreate", async (interaction) => {
         const userId = interaction.user.id;
         const reactionIdentifier = (interaction.component as ButtonComponent).customId;
         if (!userMessageId) {
-            // TODO: write log
+            logger.warn(`No user message id`);
             return;
         }   
         if (!userId) {
-            // TODO: write log
+            logger.warn(`No user id`);
             return;
         }
         if (!reactionIdentifier) {
-            // TODO: write log
+            logger.warn(`No reaction identifier`);
             return;
         }
 
@@ -65,19 +66,17 @@ export default new Event("interactionCreate", async (interaction) => {
         if (channel.type !== ChannelType.GuildText) return;
         
         const broadcastRecords = await databaseManager.getBroadcasts();
-        const broadcastWebhookIds = broadcastRecords.map((broadcast) => broadcast.webhookId);
-        
-        let webhooks;
+        const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
+        if (!channelWebhook) return;
+
+        let webhook;
         try {
-            webhooks = await channel.fetchWebhooks();
+            webhook = await client.fetchWebhook(channelWebhook.webhookId);
         } catch (error) { 
-            logger.warn(`Could not fetch webhooks at message-create. Error: ${(error as Error).message}`)
+            logger.error(`Could not fetch webhook in guild: ${interaction.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`, error as Error)
             return;
         };
         
-        const webhook = webhooks.find((webhook) => broadcastWebhookIds.includes(webhook.id));
-        
-        if (!webhook) return;
         if (config.nonChatWebhooks.includes(webhook.name)) return;
         
         const webhookNameParts = webhook.name.split(' ');
@@ -96,7 +95,7 @@ export default new Event("interactionCreate", async (interaction) => {
             }
             const correctMessageOnNetwork = messagesOnNetwork.find((messageOnNetwork) => messageOnNetwork.channelId === broadcastRecord.channelId);
             if (!correctMessageOnNetwork) {
-                // TODO: write log
+                logger.warn(`Could not get correct message on network`);
                 return;
             }
             
@@ -123,7 +122,7 @@ export default new Event("interactionCreate", async (interaction) => {
     const customIdArgs = interaction.customId.split(' ');
 
     if (!customIdArgs.length) {
-        // TODO: write log
+        logger.warn(`No custom id`);
         return;
     }
     const command = customIdArgs.shift();
@@ -133,7 +132,7 @@ export default new Event("interactionCreate", async (interaction) => {
         //Main server
         case BanShareButtonArg.BANSHARE: {
             if (customIdArgs.length !== 1) {
-                // TODO: write log
+                logger.warn(`Got wrong amount of arguments for ${BanShareButtonArg.BANSHARE}`);
                 return;
             }
             const userId = customIdArgs[0];
@@ -174,15 +173,32 @@ export default new Event("interactionCreate", async (interaction) => {
             }
             break;
         }
-        case BanShareButtonArg.BLANKET_BAN: {
+        case BanShareButtonArg.IMPORTANT_BANSHARE: {
             if ((customIdArgs.length < 1) || (customIdArgs.length > 2)) {
-                // TODO: write log
+                logger.warn(`Got wrong amount of arguments for ${BanShareButtonArg.IMPORTANT_BANSHARE}`);
                 return;
             }
-            const currentApprover = interaction.user;
             const userId = customIdArgs[0];
+            const user = interaction.client.users.cache.find((user) => user.id === userId);
+            if (!user) {
+                logger.wtf("Interaction's creator does not exist.");
+                return;
+            }
+
+            const reason = interaction.message.embeds[0].description;
+            if (!reason) {
+                logger.wtf(`${interaction.message.embeds[0].url} embed doesnt have a description.`);
+                return;
+            }
+
+            const proof: string[] = [];
+            interaction.message.embeds.forEach((embed) => {
+                if (embed.image) {
+                    proof.push(embed.image.url);
+                }
+            });
+            const currentApprover = interaction.user;
             const approvers = customIdArgs[1] ? customIdArgs[1].split(':') : [];
-            logger.debug(`Approvers: ${approvers}`);
 
             const currentApproverIndex = approvers.findIndex((approver) => approver === currentApprover.id);
             if (currentApproverIndex === -1) {
@@ -190,21 +206,24 @@ export default new Event("interactionCreate", async (interaction) => {
             } else {
                 approvers.splice(currentApproverIndex, 1);
             }
-            logger.debug(`Approvers: ${approvers}`);
-            logger.debug(`Approvals needed: ${config.approvalCountNeededForBlanketBan}`);
             
             const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
             
-            if (approvers.length === config.approvalCountNeededForBlanketBan) {
-                const blanketBanButton = new ButtonBuilder()
-                    .setCustomId(`${BanShareButtonArg.BLANKET_BAN}`)
-                    .setLabel('Blanket Banned')
+            if (approvers.length === config.approvalCountNeededForImportantBanshare) {
+                const importantBanshareButton = new ButtonBuilder()
+                    .setCustomId(`${BanShareButtonArg.IMPORTANT_BANSHARE}`)
+                    .setLabel(`Banshared ${config.approvalCountNeededForImportantBanshare}/${config.approvalCountNeededForImportantBanshare}`)
                     .setStyle(ButtonStyle.Success)
                     .setDisabled(true)
     
-                banshareActionRow.addComponents(blanketBanButton);
+                banshareActionRow.addComponents(importantBanshareButton);   
 
-                await interaction.message.edit({ components: [banshareActionRow] });
+                try {
+                    await interaction.message.edit({ components: [banshareActionRow] });
+                    await banshareManager.shareBanshare({ user, reason, proof }, true);
+                } catch (error) {
+                    logger.error('Failed to edit buttons/send banshare.',error as Error);
+                }
                 return;
             }
 
@@ -212,23 +231,23 @@ export default new Event("interactionCreate", async (interaction) => {
                 .setCustomId(`${BanShareButtonArg.BANSHARE} ${userId}`)
                 .setLabel('Banshare')
                 .setStyle(ButtonStyle.Success)
-            const blanketBanButton = new ButtonBuilder()
-                .setCustomId(`${BanShareButtonArg.BLANKET_BAN} ${userId} ${approvers.join(':')}`)
-                .setLabel(`Blanket Ban ${approvers.length}/${config.approvalCountNeededForBlanketBan}`)
+            const importantBanshareButton = new ButtonBuilder()
+                .setCustomId(`${BanShareButtonArg.IMPORTANT_BANSHARE} ${userId} ${approvers.join(':')}`)
+                .setLabel(`Important Banshare ${approvers.length}/${config.approvalCountNeededForImportantBanshare}`)
                 .setStyle(ButtonStyle.Success)
             const reject = new ButtonBuilder()
                 .setCustomId(`${BanShareButtonArg.REJECT_MAIN} ${userId}`)
                 .setLabel('Reject')
                 .setStyle(ButtonStyle.Danger)
 
-            banshareActionRow.addComponents(banshareButton, blanketBanButton, reject);
+            banshareActionRow.addComponents(banshareButton, importantBanshareButton, reject);
 
             await interaction.message.edit({ components: [banshareActionRow] });
             break;
         }
         case BanShareButtonArg.REJECT_MAIN: {
             if (customIdArgs.length !== 1) {
-                // TODO: write log
+                logger.warn(`Got wrong amount of arguments for ${BanShareButtonArg.REJECT_MAIN}`);
                 return;
             }
             const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
@@ -248,17 +267,28 @@ export default new Event("interactionCreate", async (interaction) => {
         //Network server 
         case BanShareButtonArg.BAN_FROM_SERVER: {
             if (customIdArgs.length !== 1) {
-                // TODO: write log
+                logger.warn(`Got wrong amount of arguments for ${BanShareButtonArg.BAN_FROM_SERVER}`);
                 return;
             }
-            const guildChannel = interaction.channel as TextChannel;
-            const broadcastWebhookIds = (await databaseManager.getBroadcasts()).map((broadcast) => broadcast.webhookId);
-            const webhooks = await guildChannel.fetchWebhooks();
-            const webhook = webhooks.find((webhook) => broadcastWebhookIds.includes(webhook.id));
-            if (!webhook) {
-                logger.warn('No webhook found accepting banshare on network server.');
+            const guildChannel = interaction.channel ? interaction.channel as TextChannel : undefined;
+            if (!guildChannel) {
+                logger.warn('Could not find guild channel during rejecting sub.');
                 return;
             }
+
+            const broadcastRecords = await databaseManager.getBroadcasts();
+            const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === guildChannel.id);
+            if (!channelWebhook) return;
+
+            let webhook;
+            try {
+                webhook = await client.fetchWebhook(channelWebhook.webhookId);
+            } catch (error) { 
+                logger.error(`Could not fetch webhook in guild: ${interaction.guild?.name ?? 'Unknown'} channel: ${guildChannel.name ?? 'Unknown'}`, error as Error)
+                return;
+            };
+            
+            if (config.nonChatWebhooks.includes(webhook.name)) return;
 
             const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
 
@@ -276,7 +306,7 @@ export default new Event("interactionCreate", async (interaction) => {
         }
         case BanShareButtonArg.REJECT_SUB: {
             if (customIdArgs.length !== 1) {
-                // TODO: write log
+                logger.warn(`Got wrong amount of arguments for ${BanShareButtonArg.REJECT_SUB}`);
                 return;
             }
             const guildChannel = interaction.channel ? interaction.channel as TextChannel : undefined;
@@ -284,13 +314,20 @@ export default new Event("interactionCreate", async (interaction) => {
                 logger.warn('Could not find guild channel during rejecting sub.');
                 return;
             }
-            const broadcastWebhookIds = (await databaseManager.getBroadcasts()).map((broadcast) => broadcast.webhookId);
-            const webhooks = await guildChannel.fetchWebhooks();
-            const webhook = webhooks.find((webhook) => broadcastWebhookIds.includes(webhook.id));
-            if (!webhook) {
-                logger.warn('No webhook found while rejecting banshare on network server.');
+
+            const broadcastRecords = await databaseManager.getBroadcasts();
+            const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === guildChannel.id);
+            if (!channelWebhook) return;
+
+            let webhook;
+            try {
+                webhook = await client.fetchWebhook(channelWebhook.webhookId);
+            } catch (error) { 
+                logger.error(`Could not fetch webhook in guild: ${interaction.guild?.name ?? 'Unknown'} channel: ${guildChannel.name ?? 'Unknown'}`, error as Error)
                 return;
-            }
+            };
+            
+            if (config.nonChatWebhooks.includes(webhook.name)) return;
 
             const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
 
@@ -309,7 +346,7 @@ export default new Event("interactionCreate", async (interaction) => {
         //Network  
         case BanShareButtonArg.ACCEPT_REQUEST: {
             if (customIdArgs.length !== 3) {
-                // TODO: write log
+                logger.warn(`Got wrong amount of arguments for ${BanShareButtonArg.ACCEPT_REQUEST}`);
                 return;
             }
             const guildId = customIdArgs[0];
@@ -344,7 +381,7 @@ export default new Event("interactionCreate", async (interaction) => {
         }
         case BanShareButtonArg.REJECT_REQUEST: {
             if (customIdArgs.length !== 3) {
-                // TODO: write log
+                logger.warn(`Got wrong amount of arguments for ${BanShareButtonArg.REJECT_REQUEST}`);
                 return;
             }
             const guildId = customIdArgs[0];

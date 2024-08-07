@@ -53,19 +53,16 @@ export default new Command({
             return;
         }
 
-        const broadcastWebhookIds = (await databaseManager.getBroadcasts()).map((broadcast) => broadcast.webhookId);
-
-        const webhooks = await channel.fetchWebhooks();
-        const webhook = webhooks.find((webhook) => broadcastWebhookIds.includes(webhook.id));
-
-        if (webhook && webhook.name.startsWith('Aeon')) {
-            await options.interaction.reply({ content: `This channel is already connected to ${webhook.name}, please select another channel!` });   
+        const broadcastRecords = await databaseManager.getBroadcasts();
+        const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
+        if (channelWebhook) {
+            await options.interaction.reply({ content: `This channel is already connected to Aeon ${channelWebhook.channelType}, please select another channel!` });   
             return;
         }
 
         const channelType = options.args.getString('type');
         if (!channelType) {
-            logger.warn(`${options.interaction.member.user.username} has used a command without the required field 'type'.`);
+            logger.wtf(`${options.interaction.member.user.username} has used a command without the required field 'type'.`);
             await options.interaction.reply({ content: `Network type not selected.`, ephemeral: true });
             return;
         }

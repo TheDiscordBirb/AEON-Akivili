@@ -9,19 +9,23 @@ import {
     WebhookClient,
     TextChannel
 } from "discord.js";
-import { BanshareData } from "../structures/types";
+import { BanshareData } from "../types/database";
 import { config } from "../const";
 import { databaseManager } from "../structures/database";
 import { BanShareButtonArg } from "../types/event";
+import { client } from "../structures/client";
+import { Logger } from "../logger";
+import { AutoBanLevelOptions } from "../types/command";
+
+const logger = new Logger("Banshare");
 
 class BanshareManager {
     public async requestBanshare(data: BanshareData, client: Client, submitter: User, guildOfOrigin: Guild) {
         const mainChannel = client.channels.cache.get(config.aeonBanshareChannelId);
         if (!mainChannel) {
-            // TODO: write log
+            logger.warn(`Could not get main channel`);
             return;
         }
-
 
         const banshareRequestEmbed = new EmbedBuilder()
             .setAuthor({ name: `${submitter.displayName} | ${guildOfOrigin.name}`, iconURL: submitter.displayAvatarURL() })
@@ -47,27 +51,25 @@ class BanshareManager {
             .setCustomId(`${BanShareButtonArg.BANSHARE} ${data.user.id}`)
             .setLabel('Banshare')
             .setStyle(ButtonStyle.Success)
-        /*
-        const blanketBanButton = new ButtonBuilder()
-            .setCustomId(`${BanShareButtonArg.BLANKET_BAN} ${data.user.id}`)
-            .setLabel(`Blanket Ban 0/${config.approvalCountNeededForBlanketBan}`)
+        const importantBanshareButton = new ButtonBuilder()
+            .setCustomId(`${BanShareButtonArg.IMPORTANT_BANSHARE} ${data.user.id}`)
+            .setLabel(`Important Banshare 0/${config.approvalCountNeededForImportantBanshare}`)
             .setStyle(ButtonStyle.Success)
-        */
         const reject = new ButtonBuilder()
             .setCustomId(`${BanShareButtonArg.REJECT_MAIN} ${data.user.id}`)
             .setLabel('Reject')
             .setStyle(ButtonStyle.Danger)
         
-        banshareActionRow.addComponents(banshareButton, /*blanketBanButton,*/ reject);
+        banshareActionRow.addComponents(banshareButton, importantBanshareButton, reject);
         
         await (mainChannel as TextChannel).send({ embeds, components: [banshareActionRow] });
     }
 
-    public async shareBanshare(data: BanshareData) {
+    public async shareBanshare(data: BanshareData, importantBansharePing = false) {
         const embeds: EmbedBuilder[] = [];
 
         const banshareRequestEmbed = new EmbedBuilder()
-            .setTitle(`**Banshare for ${data.user.username} | ${data.user.displayName}**`)
+            .setTitle(`**Banshare for ${data.user.username} | ${data.user.id}**`)
             .setDescription(`${data.reason}`)
             .setURL(`https://discord.com/users/${data.user.id}`);
         
@@ -78,34 +80,81 @@ class BanshareManager {
             .setURL(`https://discord.com/users/${data.user.id}`)
             .setImage(image);
         }));
-        
-        const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
-
-        const banFromServerButton = new ButtonBuilder()
-            .setCustomId(`${BanShareButtonArg.BAN_FROM_SERVER} ${data.user.id}`)
-            .setLabel('Ban')
-            .setStyle(ButtonStyle.Success)
-        const reject = new ButtonBuilder()
-            .setCustomId(`${BanShareButtonArg.REJECT_SUB} ${data.user.id}`)
-            .setLabel('Reject')
-            .setStyle(ButtonStyle.Danger)
-        
-        banshareActionRow.addComponents(banFromServerButton, reject);
 
         const broadcasts = await databaseManager.getBroadcasts();
+        const autoBannedContent = 'This user has been automatically banned';
 
-        const webhookMessages = broadcasts.map((broadcast) => {
-            if (broadcast.channelType !== 'Banshare') return undefined;
+        const webhookMessages = broadcasts.map(async (broadcast) => {
+            if (broadcast.channelType !== 'Banshare') return;
+            const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
+
+            const banFromServerButton = new ButtonBuilder()
+                .setCustomId(`${BanShareButtonArg.BAN_FROM_SERVER} ${data.user.id}`)
+                .setLabel('Ban')
+                .setStyle(ButtonStyle.Success)
+            const reject = new ButtonBuilder()
+                .setCustomId(`${BanShareButtonArg.REJECT_SUB} ${data.user.id}`)
+                .setLabel('Reject')
+                .setStyle(ButtonStyle.Danger)
+            
+            
+            
+            banshareActionRow.addComponents(banFromServerButton, reject);
+
+            let importantBanshareRole;
+            if (broadcast.autoBanLevel >= parseInt(AutoBanLevelOptions.ALL)) {
+                importantBanshareRole = autoBannedContent;
+
+                const autoBanned = new ButtonBuilder()
+                    .setCustomId(`Auto banned`)
+                    .setLabel('Auto banned')
+                    .setStyle(ButtonStyle.Success)
+                    .setDisabled(true)
+
+                banshareActionRow.setComponents(autoBanned);
+            }
+            
+            
+            if (importantBansharePing) {
+                const broadcastGuild = client.guilds.cache.find((guild) => guild.id === broadcast.guildId);
+                if (!broadcastGuild) {
+                    logger.warn(`Could not get broadcast guild`);
+                    return undefined;
+                }
+                if(broadcast.importantBanshareRoleId) {
+                    importantBanshareRole = await broadcastGuild.roles.fetch(broadcast.importantBanshareRoleId);
+                } else {
+                    importantBanshareRole = false;
+                }
+                if (broadcast.autoBanLevel >= parseInt(AutoBanLevelOptions.IMPORTANT)) {
+                    importantBanshareRole = autoBannedContent;
+
+                    const autoBanned = new ButtonBuilder()
+                        .setCustomId(`Auto banned`)
+                        .setLabel('Auto banned')
+                        .setStyle(ButtonStyle.Success)
+                        .setDisabled(true)
+
+                    banshareActionRow.setComponents(autoBanned);
+                }
+            }
+
             const webhookClient = new WebhookClient({ id: broadcast.webhookId, token: broadcast.webhookToken });
             return {
                 webhookClient,
-                data: { embeds, components: [banshareActionRow] },
+                data: { content: `${importantBanshareRole ? importantBanshareRole : ''}`, embeds, components: [banshareActionRow] },
             }
         });
 
         await Promise.allSettled(webhookMessages.map(async (webhookMessage) => {
-            if (!webhookMessage) return;
-            await webhookMessage.webhookClient.send(webhookMessage.data);
+            const awaitedWebhookMessage = await webhookMessage;
+            if (!awaitedWebhookMessage) return;
+            awaitedWebhookMessage.webhookClient.send(awaitedWebhookMessage.data)
+                .then((message) => {
+                    if (message.content === autoBannedContent) {
+                        // TODO: ban user
+                    }
+                });
         }))
     }
 }

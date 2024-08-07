@@ -5,12 +5,13 @@ import {
     ButtonStyle,
     TextChannel
 } from "discord.js";
-import { JoinData } from "../structures/types";
+import { JoinData } from "../types/database";
 import { client } from "../structures/client";
 import { config } from "../const";
 import { databaseManager } from "../structures/database";
 import { BanShareButtonArg } from "../types/event";
 import { Logger } from "../logger";
+import { NetworkJoinOptions } from "../types/command";
 
 const logger = new Logger('JoinHandler');
 
@@ -34,14 +35,14 @@ class JoinHandler {
         
         requestActionRow.addComponents(acceptButton, rejectButton);
         
-        let channel = client.channels.cache.find((channel) => channel.id === config.networkJoinChannelId);
+        let networkJoinChannel = client.channels.cache.find((channel) => channel.id === config.networkJoinChannelId);
 
-        if (!channel) {
-            // TODO: rep        
+        if (!networkJoinChannel) {
+            logger.warn(`Could not get network join channel`);   
             return;
         }
 
-        await (channel as TextChannel).send({ embeds: [requestEmbed], components: [requestActionRow] });
+        await (networkJoinChannel as TextChannel).send({ embeds: [requestEmbed], components: [requestActionRow] });
     }
 
     public async acceptNetworkAccessRequest(data: JoinData) {
@@ -51,8 +52,12 @@ class JoinHandler {
         })
             .then(async (webhook) => {
                 await webhook.send(`This channel is now connected to ${webhook.name}.`);
+                if (data.type === NetworkJoinOptions.BANSHARE) {
+                    await webhook.send(`Dont forget to use ***/set-important-banshare-role*** to set role that will be pinged when an important banshare is shared. (This is disabled by default)`);
+                }
                 try {
-                    await databaseManager.saveBroadcast({ guildId: webhook.guildId, channelId: data.channel.id, channelType: data.type, webhookId: webhook.id, webhookToken: webhook.token });
+                    await databaseManager.saveBroadcast({ guildId: webhook.guildId, channelId: data.channel.id, channelType: data.type, webhookId: webhook.id, webhookToken: webhook.token, importantBanshareRoleId: '', autoBanLevel: 0 });
+                    await data.guild.members.fetch();
                 } catch (error) {
                     logger.error(`Could not save broadcast. Error: `, error as Error);
                     return;

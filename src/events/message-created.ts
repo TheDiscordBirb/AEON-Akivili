@@ -5,7 +5,8 @@ import {
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
-    ChannelType
+    ChannelType,
+    Message
 } from "discord.js";
 import { Event } from "../structures/event";
 import axios from "axios";
@@ -15,34 +16,34 @@ import { config } from "../const";
 import { Logger } from "../logger";
 import { client } from "../structures/client";
 import { CustomId } from "../types/event";
-import { MessagesRecord } from "../structures/types";
+import { MessagesRecord } from "../types/database";
+import { metrics } from "../structures/metrics";
+import { TimeSpanMetricLabel } from "../types/metrics";
 
 const logger = new Logger('MessageCreated');
 
-export default new Event("messageCreate", async (interaction) => {
+const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void> => {
     if (interaction.webhookId) return;
     if (interaction.member?.user.id === client.user?.id) return;
     
     const channel = interaction.channel as BaseGuildTextChannel;
     if (channel.type !== ChannelType.GuildText) return;
     
-    let webhooks;
+    const broadcastRecords = await databaseManager.getBroadcasts();
+    const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
+    if (!channelWebhook) return;
+
+    let webhook;
     try {
-        webhooks = await channel.fetchWebhooks();
+        webhook = await client.fetchWebhook(channelWebhook.webhookId);
     } catch (error) { 
-        logger.error(`Could not fetch webhooks in guild: ${interaction.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`, error as Error)
+        logger.error(`Could not fetch webhook in guild: ${interaction.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`, error as Error)
         return;
     };
     
-    const broadcastRecords = await databaseManager.getBroadcasts();
-    const broadcastWebhookIds = broadcastRecords.map((broadcast) => broadcast.webhookId);
-    const webhook = webhooks.find((webhook) => broadcastWebhookIds.includes(webhook.id));
-    
-    if (!webhook) return;
     if (config.nonChatWebhooks.includes(webhook.name)) return;
     
-    const webhookNameParts = webhook.name.split(' ');
-    const webhookChannelType = webhookNameParts[webhookNameParts.length - 1];
+    const webhookChannelType = channelWebhook.channelType;
     
     const files: AttachmentBuilder[] = [];
     
@@ -93,12 +94,12 @@ export default new Event("messageCreate", async (interaction) => {
             const replyButtonRow = new ActionRowBuilder<ButtonBuilder>();
             const interactionReference = interaction.reference;
             if (!interactionReference.messageId) {
-                // TODO: write log
+                logger.warn(`Could not get interaction reference message id`);
                 return;
             }
             const referenceMessage = interaction.channel.messages.cache.get(interactionReference.messageId);
             if (!referenceMessage) {
-                // TODO: write log
+                logger.warn(`Could not get reference message`);
                 return;
             }
             let referencedMessages: MessagesRecord[];
@@ -113,11 +114,11 @@ export default new Event("messageCreate", async (interaction) => {
             if (referencedMessageOnChannel) {
                 const replyArrowEmoji = client.emojis.cache.find((emoji) => emoji.id === config.replyArrowEmojiId);
                 if (!replyArrowEmoji) {
-                    // TODO: write log
+                    logger.warn(`Could not get reply arrow emoji`);
                     return;
                 }
 
-                let labelName = referencedMessageOnChannel.userName;
+                let labelName = referencedMessages.find((referencedMessage) => referencedMessage.messageOrigin)?.userName;
                 if (!labelName) {
                     labelName = referenceMessage.author.displayName.split("||")[0];
                 }
@@ -143,7 +144,7 @@ export default new Event("messageCreate", async (interaction) => {
                 if (!!referenceMessage.attachments.size || !referenceMessageContent) {
                     const replyPictureEmoji = client.emojis.cache.find((emoji) => emoji.id === config.replyPictureEmojiId);
                     if (!replyPictureEmoji) {
-                        // TODO: write log
+                        logger.warn(`Could not gett reply picture emoji`);
                         return;
                     }
                     replyButtonLink.setEmoji(replyPictureEmoji.identifier);
@@ -216,6 +217,10 @@ export default new Event("messageCreate", async (interaction) => {
             logger.warn(`Received empty webhook message. Status: ${webhookMessagePromiseResult.status}, Webhook guildId: ${webhookMessagePromiseResult.value?.guildId}`)
             return undefined;
         }
+        let messageOrigin = 0;
+        if (webhookMessagePromiseResult.value?.guildId === interaction.guildId) {
+            messageOrigin = 1;
+        }
         try {
             const message = await webhookMessage.webhookClient.send(webhookMessage.messageData);
             if (!message) {
@@ -229,11 +234,30 @@ export default new Event("messageCreate", async (interaction) => {
                 timestamp: interaction.createdAt.getTime(),
                 userId: webhookMessage.userId,
                 userMessageId: uid,
-                userName: interaction.author.displayName
+                userName: interaction.guild?.members.cache.find((member) => member.id === interaction.author.id)?.nickname ?? interaction.author.displayName,
+                messageOrigin: messageOrigin
             })
         } catch (error) {
-            logger.warn('Could not send message, deleting broadcast record.');
+            if ((error as Error).message.includes("Username cannot contain")) {
+                if (!interaction.author.dmChannel) {
+                    await interaction.author.createDM(true);
+                }
+                interaction.author.send(`You have a prohibited word in your nickname, please change it, or your message will not be sent.
+                    ${(error as Error).message.split("username")[(error as Error).message.split("username").length - 1]}`);
+                return;
+            }
+            logger.error('Could not send message, deleting broadcast record.', error as Error);
             await databaseManager.deleteBroadcastByWebhookId(webhookMessage.webhookClient.id);
         }
     }));
+}
+
+export default new Event("messageCreate", async (interaction) => {
+    const metricId = metrics.start(TimeSpanMetricLabel.MESSAGE_CREATED);
+    try {
+        await messageCreatedEvent(interaction);
+    } catch (error) {
+        logger.warn('Could not execute ban command', error as Error);
+    }
+    metrics.stop(metricId);
 });

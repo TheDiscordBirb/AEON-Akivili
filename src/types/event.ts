@@ -1,6 +1,6 @@
 export enum BanShareButtonArg {
     BANSHARE = 'banshare',
-    BLANKET_BAN = 'blanketBan',
+    IMPORTANT_BANSHARE = 'importantBanshare',
     REJECT_MAIN = 'rejectMain',
     BAN_FROM_SERVER = 'banFromServer',
     REJECT_SUB = 'rejectSub',

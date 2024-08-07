@@ -11,11 +11,12 @@ import {
     Collection,
     OAuth2Guild
 } from 'discord.js';
-import { UserReactionRecord } from './structures/types';
+import { UserReactionRecord } from './types/database';
 import { databaseManager } from './structures/database';
 import { CustomId } from './types/event';
 import { Logger } from './logger';
 import { client } from './structures/client';
+import process from 'node:process';
 
 const logger = new Logger("Utils");
 
@@ -198,7 +199,7 @@ export const statusUpdate = async (guilds: Collection<string, OAuth2Guild>): Pro
     }
 
     if (!client.user) {
-        // TODO: write log
+        logger.wtf(`No client user.`);
         return;
     }
 

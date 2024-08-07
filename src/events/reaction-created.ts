@@ -4,9 +4,8 @@ import { BaseGuildTextChannel, ChannelType, User, WebhookClient } from "discord.
 import { databaseManager } from "../structures/database";
 import { config } from "../const";
 import { rebuildMessageComponentAfterUserInteraction } from "../utils";
-import { notificationManager } from "../functions/notification";
-import { NotificationType } from "../types/event";
-import { MessagesRecord } from "../structures/types";
+import { MessagesRecord } from "../types/database";
+import { client } from "../structures/client";
 
 const logger = new Logger("ReactionCreated");
 
@@ -17,23 +16,20 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
     if (channel.type !== ChannelType.GuildText) return;
     
     const broadcastRecords = await databaseManager.getBroadcasts();
-    const broadcastWebhookIds = broadcastRecords.map((broadcast) => broadcast.webhookId);
-    
-    let webhooks;
+    const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
+    if (!channelWebhook) return;
+
+    let webhook;
     try {
-        webhooks = await channel.fetchWebhooks();
+        webhook = await client.fetchWebhook(channelWebhook.webhookId);
     } catch (error) { 
-        logger.warn(`Could not fetch webhooks at message-create. Error: ${(error as Error).message}`)
+        logger.error(`Could not fetch webhooks in guild: ${interaction.message.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`, error as Error)
         return;
     };
     
-    const webhook = webhooks.find((webhook) => broadcastWebhookIds.includes(webhook.id));
-    
-    if (!webhook) return;
     if (config.nonChatWebhooks.includes(webhook.name)) return;
     
-    const webhookNameParts = webhook.name.split(' ');
-    const webhookChannelType = webhookNameParts[webhookNameParts.length - 1];
+    const webhookChannelType = channelWebhook.channelType;
 
     await interaction.message.reactions.removeAll();
     

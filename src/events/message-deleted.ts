@@ -3,7 +3,7 @@ import { client } from "../structures/client";
 import { databaseManager } from "../structures/database";
 import { Event } from "../structures/event";
 import { Logger } from "../logger";
-import { MessagesRecord } from "../structures/types";
+import { MessagesRecord } from "../types/database";
 import { notificationManager } from "../functions/notification";
 import { NotificationType } from "../types/event";
 
@@ -45,7 +45,6 @@ export default new Event("messageDelete", async (interaction) => {
         if (!message) {
             return undefined;
         }
-        0
         try {
             await message.delete();
         } catch (error) {

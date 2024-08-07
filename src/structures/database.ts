@@ -1,6 +1,6 @@
 import sqlite3 from 'sqlite3';
 import { Database, open } from 'sqlite';
-import { BroadcastRecord, MessagesRecord, UserReactionRecord } from './types';
+import { BroadcastRecord, MessagesRecord, UserReactionRecord } from '../types/database';
 import { Logger } from "../logger";
 
 const logger = new Logger('Database');
@@ -33,6 +33,7 @@ class DatabaseManager {
                 channelMessageId TEXT,
                 guildId TEXT,
                 timestamp INT,
+                messageOrigin INT,
                 PRIMARY KEY (userMessageId, userId, channelMessageId)
             )`
         )
@@ -44,6 +45,8 @@ class DatabaseManager {
                 webhookId TEXT,
                 webhookToken TEXT,
                 guildId TEXT,
+                importantBanshareRoleId TEXT,
+                autoBanLevel INT,
                 PRIMARY KEY (webhookId)
             )`
         )
@@ -76,7 +79,7 @@ class DatabaseManager {
     public async saveBroadcast(broadcastRecord: BroadcastRecord): Promise<void> {
         const db = await this.db();
         db.run(
-            `INSERT OR REPLACE INTO Broadcast (channelId, channelType, webhookId, webhookToken, guildId) VALUES ("${broadcastRecord.channelId}", "${broadcastRecord.channelType}", "${broadcastRecord.webhookId}", "${broadcastRecord.webhookToken}", "${broadcastRecord.guildId}")`,
+            `INSERT OR REPLACE INTO Broadcast (channelId, channelType, webhookId, webhookToken, guildId, importantBanshareRoleId, autoBanLevel) VALUES ("${broadcastRecord.channelId}", "${broadcastRecord.channelType}", "${broadcastRecord.webhookId}", "${broadcastRecord.webhookToken}", "${broadcastRecord.guildId}", "${broadcastRecord.importantBanshareRoleId}", ${broadcastRecord.autoBanLevel})`,
             (error: Error) => {
                 throw new Error(`Could not save into the Broadcast table. Error: ${error.message}`);
             }
@@ -115,7 +118,7 @@ class DatabaseManager {
     public async logMessage(messagesRecord: MessagesRecord): Promise<void> {
         const db = await this.db();
         await db.run(
-            `INSERT OR REPLACE INTO Messages (userId, userMessageId, userName, channelId, channelMessageId, guildId, timestamp) VALUES ("${messagesRecord.userId}", "${messagesRecord.userMessageId}", "${messagesRecord.userName}", "${messagesRecord.channelId}", "${messagesRecord.channelMessageId}", "${messagesRecord.guildId}", ${messagesRecord.timestamp})`,
+            `INSERT OR REPLACE INTO Messages (userId, userMessageId, userName, channelId, channelMessageId, guildId, timestamp, messageOrigin) VALUES ("${messagesRecord.userId}", "${messagesRecord.userMessageId}", "${messagesRecord.userName}", "${messagesRecord.channelId}", "${messagesRecord.channelMessageId}", "${messagesRecord.guildId}", ${messagesRecord.timestamp}, ${messagesRecord.messageOrigin})`,
             (error: Error) => {
                 throw new Error(`Could not save record to the Messages table. Error: ${error.message}`);
             }

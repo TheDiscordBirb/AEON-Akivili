@@ -1,5 +1,5 @@
 import { Colors, EmbedBuilder, Emoji, GuildTextBasedChannel } from "discord.js";
-import { NotificationData } from "../structures/types";
+import { NotificationData } from "../types/notification";
 import { NotificationType } from "../types/event";
 import { client } from "../structures/client";
 import { config } from "../const";
