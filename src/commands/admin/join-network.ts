@@ -1,5 +1,10 @@
 import { Command } from '../../structures/command';
-import { ApplicationCommandOptionType, TextChannel } from 'discord.js'
+import {
+    ApplicationCommandOptionType,
+    BaseGuildTextChannel,
+    ChannelType,
+    TextChannel
+} from 'discord.js'
 import { hasModerationRights } from '../../utils';
 import { joinHandler } from '../../functions/join-handler';
 import { databaseManager } from '../../structures/database';
@@ -19,7 +24,8 @@ export default new Command({
         choices: [
             { name: "General", value: NetworkJoinOptions.GENERAL },
             { name: "Staff", value: NetworkJoinOptions.STAFF },
-            { name: "Banshare", value: NetworkJoinOptions.BANSHARE}
+            { name: "Banshare", value: NetworkJoinOptions.BANSHARE },
+            { name: "Network Info", value: NetworkJoinOptions.INFO }
         ],
         required: true
     }, {
@@ -33,6 +39,12 @@ export default new Command({
         const guildMember = options.interaction.guild?.members.cache.find((member) => member.id === options.interaction.member.user.id);
         if (!guildMember) {
             logger.wtf("Interaction's creator does not exist.");
+            return;
+        }
+
+        const guildChannel = options.interaction.channel as BaseGuildTextChannel;
+        if (guildChannel.type !== ChannelType.GuildText) {
+            await options.interaction.reply({ content: `You cant use this here.`, ephemeral: true });
             return;
         }
 
@@ -56,8 +68,15 @@ export default new Command({
         const broadcastRecords = await databaseManager.getBroadcasts();
         const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
         if (channelWebhook) {
-            await options.interaction.reply({ content: `This channel is already connected to Aeon ${channelWebhook.channelType}, please select another channel!` });   
-            return;
+            try {
+                const webhooks = await (options.interaction.channel as TextChannel).fetchWebhooks();
+                if (webhooks.get(channelWebhook.webhookId)) {
+                    await options.interaction.reply({ content: `This channel is already connected to Aeon ${channelWebhook.channelType}, please select another channel!` });   
+                    return;
+                }
+            } catch (error) {
+                logger.warn(`Couldnt get webhook`, (error as Error));
+            }
         }
 
         const channelType = options.args.getString('type');

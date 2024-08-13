@@ -82,7 +82,7 @@ export default new Event("interactionCreate", async (interaction) => {
         const webhookNameParts = webhook.name.split(' ');
         const webhookChannelType = webhookNameParts[webhookNameParts.length - 1];
         const matchingBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === webhookChannelType);
-        const actionRows = await rebuildMessageComponentAfterUserInteraction(interaction.message.components, { userId, userMessageId, reactionIdentifier });
+        const actionRows = await rebuildMessageComponentAfterUserInteraction(interaction.message.components, { userId, userMessageId, reactionIdentifier }, (interaction.user.id === client.user?.id ? true : false));
 
         await Promise.allSettled(matchingBroadcastRecords.map(async (broadcastRecord) => {
             const webhookClient = new WebhookClient({ id: broadcastRecord.webhookId, token: broadcastRecord.webhookToken });
@@ -107,6 +107,7 @@ export default new Event("interactionCreate", async (interaction) => {
             }
             await webhookClient.editMessage(message, { components: [...actionRows] });
         }))
+        await interaction.editReply({ components: [...actionRows] });
         return;
     }
 

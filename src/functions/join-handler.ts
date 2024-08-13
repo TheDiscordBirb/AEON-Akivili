@@ -3,7 +3,9 @@ import {
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
-    TextChannel
+    TextChannel,
+    GuildTextBasedChannel,
+    WebhookClient
 } from "discord.js";
 import { JoinData } from "../types/database";
 import { client } from "../structures/client";
@@ -12,6 +14,7 @@ import { databaseManager } from "../structures/database";
 import { BanShareButtonArg } from "../types/event";
 import { Logger } from "../logger";
 import { NetworkJoinOptions } from "../types/command";
+import { rebuildNetworkInfoEmbeds } from "../utils";
 
 const logger = new Logger('JoinHandler');
 
@@ -51,13 +54,38 @@ class JoinHandler {
             avatar: client.user?.displayAvatarURL()
         })
             .then(async (webhook) => {
-                await webhook.send(`This channel is now connected to ${webhook.name}.`);
+                if (data.type !== NetworkJoinOptions.INFO) {
+                    await webhook.send(`This channel is now connected to ${webhook.name}.`);
+                }
                 if (data.type === NetworkJoinOptions.BANSHARE) {
                     await webhook.send(`Dont forget to use ***/set-important-banshare-role*** to set role that will be pinged when an important banshare is shared. (This is disabled by default)`);
+                } else if (data.type === NetworkJoinOptions.INFO) {
+                    const infoChannel = client.channels.cache.get(config.infoMessageChannelId);
+                    if (!infoChannel) {
+                        //TODO: write log
+                        return;
+                    }
+                    const infoMessage = await (infoChannel as GuildTextBasedChannel).messages.fetch(config.infoMessageId);
+                    if (!infoMessage) {
+                        //TODO: write log
+                        return;
+                    }
+                    await webhook.send({embeds: await rebuildNetworkInfoEmbeds(infoMessage)})
                 }
                 try {
                     await databaseManager.saveBroadcast({ guildId: webhook.guildId, channelId: data.channel.id, channelType: data.type, webhookId: webhook.id, webhookToken: webhook.token, importantBanshareRoleId: '', autoBanLevel: 0 });
                     await data.guild.members.fetch();
+                    const broadcastRecords = await databaseManager.getBroadcasts();
+                    const relatedBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === data.type);
+
+                    await Promise.allSettled(relatedBroadcastRecords.map(async (broadcastRecord) => {
+                        const webhook = new WebhookClient({ id: broadcastRecord.webhookId, token: broadcastRecord.webhookToken });
+
+                        const webhookMessage = `${data.guild.name} has joined Aeon ${data.type}`;
+                        const formating = '`';
+                        if (broadcastRecord.guildId === data.guild.id) return;
+                        await webhook.send({content: `${formating}${webhookMessage}${formating}`, username: 'Akivili'});
+                    }))
                 } catch (error) {
                     logger.error(`Could not save broadcast. Error: `, error as Error);
                     return;

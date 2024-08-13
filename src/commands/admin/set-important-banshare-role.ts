@@ -5,7 +5,7 @@ import { hasModerationRights } from '../../utils';
 import { Logger } from '../../logger';
 import { NetworkJoinOptions } from '../../types/command';
 
-const logger = new Logger('setBanshareRole');
+const logger = new Logger('SetBanshareRole');
 
 export default new Command({
     name: 'set-important-banshare-role',

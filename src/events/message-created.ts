@@ -19,6 +19,7 @@ import { CustomId } from "../types/event";
 import { MessagesRecord } from "../types/database";
 import { metrics } from "../structures/metrics";
 import { TimeSpanMetricLabel } from "../types/metrics";
+import { NetworkJoinOptions } from "../types/command";
 
 const logger = new Logger('MessageCreated');
 
@@ -32,6 +33,7 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
     const broadcastRecords = await databaseManager.getBroadcasts();
     const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
     if (!channelWebhook) return;
+    if (interaction.type === 6) return;
 
     let webhook;
     try {
@@ -41,7 +43,12 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
         return;
     };
     
-    if (config.nonChatWebhooks.includes(webhook.name)) return;
+    if (config.nonChatWebhooks.includes(webhook.name)) {
+        if (webhook.name === `Aeon ${NetworkJoinOptions.INFO}`) {
+            await interaction.delete();
+        }
+        return;
+    }
     
     const webhookChannelType = channelWebhook.channelType;
     

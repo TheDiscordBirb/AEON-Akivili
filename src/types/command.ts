@@ -32,7 +32,8 @@ export enum BanShareOption {
 export enum NetworkJoinOptions {
     BANSHARE = 'Banshare',
     STAFF = 'Staff',
-    GENERAL = 'General'
+    GENERAL = 'General',
+    INFO = 'Info'
 }
 
 export enum AutoBanLevelOptions {

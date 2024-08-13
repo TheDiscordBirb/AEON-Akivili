@@ -11,4 +11,7 @@ export const config = {
     numberOfMessagesToLoad: 100,
     replyPictureEmojiId: getEnvVar<string>("REPLY_PICTURE_EMOJI_ID"),
     replyArrowEmojiId: getEnvVar<string>("REPLY_ARROW_EMOJI_ID"),
+    devId: getEnvVar<string>("DEV_ID"),
+    infoMessageChannelId: getEnvVar<string>("INFO_MESSAGE_CHANNEL_ID"),
+    infoMessageId: getEnvVar<string>("INFO_MESSAGE_ID"),
 }

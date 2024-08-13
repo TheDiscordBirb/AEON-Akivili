@@ -101,9 +101,9 @@ class BanshareManager {
             
             banshareActionRow.addComponents(banFromServerButton, reject);
 
-            let importantBanshareRole;
+            let banshareContent;
             if (broadcast.autoBanLevel >= parseInt(AutoBanLevelOptions.ALL)) {
-                importantBanshareRole = autoBannedContent;
+                banshareContent = autoBannedContent;
 
                 const autoBanned = new ButtonBuilder()
                     .setCustomId(`Auto banned`)
@@ -122,12 +122,12 @@ class BanshareManager {
                     return undefined;
                 }
                 if(broadcast.importantBanshareRoleId) {
-                    importantBanshareRole = await broadcastGuild.roles.fetch(broadcast.importantBanshareRoleId);
+                    banshareContent = await broadcastGuild.roles.fetch(broadcast.importantBanshareRoleId);
                 } else {
-                    importantBanshareRole = false;
+                    banshareContent = false;
                 }
                 if (broadcast.autoBanLevel >= parseInt(AutoBanLevelOptions.IMPORTANT)) {
-                    importantBanshareRole = autoBannedContent;
+                    banshareContent = autoBannedContent;
 
                     const autoBanned = new ButtonBuilder()
                         .setCustomId(`Auto banned`)
@@ -142,7 +142,7 @@ class BanshareManager {
             const webhookClient = new WebhookClient({ id: broadcast.webhookId, token: broadcast.webhookToken });
             return {
                 webhookClient,
-                data: { content: `${importantBanshareRole ? importantBanshareRole : ''}`, embeds, components: [banshareActionRow] },
+                data: { content: `${banshareContent ? banshareContent : ''}`, embeds, components: [banshareActionRow] },
             }
         });
 

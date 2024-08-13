@@ -186,6 +186,16 @@ class DatabaseManager {
         }
     }
 
+    public async deleteReaction(userReactionRecord: UserReactionRecord): Promise<void> {
+        const db = await this.db();
+        const result = await db.get<UserReactionRecord>(`SELECT * FROM UserReaction WHERE userMessageId="${userReactionRecord.userMessageId}" and reactionIdentifier="${userReactionRecord.reactionIdentifier}"`)
+        if (!result) {
+            throw new Error(`Could not find reactions to delete.`);
+        } else {
+            await db.run(`DELETE FROM UserReaction WHERE userMessageId="${userReactionRecord.userMessageId}" and reactionIdentifier="${userReactionRecord.reactionIdentifier}"`);
+        }
+    }
+
     public async hasUserReactedToMessage(userReactionRecord: UserReactionRecord): Promise<boolean> {
         const db = await this.db();
         const result = await db.get<UserReactionRecord>(`SELECT * FROM UserReaction WHERE userId = "${userReactionRecord.userId}" AND userMessageId="${userReactionRecord.userMessageId}" and reactionIdentifier="${userReactionRecord.reactionIdentifier}"`)
