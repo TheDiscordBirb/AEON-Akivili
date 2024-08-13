@@ -23,6 +23,11 @@ https://github.com/user-attachments/assets/95145046-63dc-4086-bc11-ba64f903dd32
 https://github.com/user-attachments/assets/dba65edb-3945-4e8a-bcde-e9a4d7e60f2a
 
 
+### Joining Aeon Info:
+
+https://github.com/user-attachments/assets/8bcdd519-d1b8-49a7-94c4-80c170210b77
+
+
 ## Getting the uid of a person
 
 To get the uid of a person from a network message you can use **_/get-uid_**
@@ -74,6 +79,18 @@ https://github.com/user-attachments/assets/fdaadd2b-5887-4336-b32e-f3f10ebc2fdb
 To reject a banshare you need to click the Reject button on the banshare
 
 https://github.com/user-attachments/assets/1482a8ec-5536-4c77-b19d-d43079b4b05b
+
+
+## Setting an important banshare role
+
+https://github.com/user-attachments/assets/9bfcbc99-f641-4bed-929a-f3531a3f3d16
+
+
+## Setting auto ban level
+
+When you set auto ban level any incoming banshares at the same level or under will be auto executed
+
+https://github.com/user-attachments/assets/d4f94c0f-25e1-4015-a81c-a2d4be06e503
 
 
 # Details for aeon navigators
