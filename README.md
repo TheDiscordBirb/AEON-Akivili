@@ -83,6 +83,8 @@ https://github.com/user-attachments/assets/1482a8ec-5536-4c77-b19d-d43079b4b05b
 
 ## Setting an important banshare role
 
+When a new important banshare gets posted this role will be pinged
+
 https://github.com/user-attachments/assets/9bfcbc99-f641-4bed-929a-f3531a3f3d16
 
 
