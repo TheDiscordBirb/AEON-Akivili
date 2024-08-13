@@ -99,25 +99,7 @@ https://github.com/user-attachments/assets/d4f94c0f-25e1-4015-a81c-a2d4be06e503
 
 ## Banshares
 
-### Approving a banshare
-
-To approve a banshare click the Banshare button on the banshare
-
-https://github.com/user-attachments/assets/24de5c38-322e-4726-b8c0-e508a5afc5af
-
-
-### ~~Automatically approving the banshare on every server~~
-
-~~To automatically ban a person from every server without the servers having to confirm the banshare a set number of Navigators have to press the Blanket Ban button (If you change your mind you can opt out by pressing the button again)~~
-
-This feature has been removed
-
-### Rejecting a banshare
-
-To reject a banshare you have to click the Reject button on the banshare
-
-https://github.com/user-attachments/assets/69068990-74c2-41ca-9151-c9946a20c6b3
-
+### Instructions coming soon, because of major overhaul
 
 ## Network join requests
 
