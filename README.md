@@ -4,7 +4,7 @@
 
 ## Setting up a connection
 
-To set up a connection you will first have to invite the bot to your server, you can do that with this [link](https://discord.com/oauth2/authorize?client_id=1258889131900276796&permissions=8&integration_type=0&scope=bot). 
+To set up a connection you will first have to invite the bot to your server, you can do that with this [link](https://discord.com/oauth2/authorize?client_id=1258889131900276796). 
 
 After the bot joined your server you can use **_/join-network_** to request access to a network.
 
