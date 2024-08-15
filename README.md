@@ -4,7 +4,7 @@
 
 ## Setting up a connection
 
-To set up a connection you will first have to invite the bot to your server, you can do that with this [link](https://discord.com/oauth2/authorize?client_id=1258889131900276796&permissions=8&integration_type=0&scope=bot). 
+To set up a connection you will first have to invite the bot to your server, you can do that with this [link](https://discord.com/oauth2/authorize?client_id=1258889131900276796). 
 
 After the bot joined your server you can use **_/join-network_** to request access to a network.
 
@@ -21,6 +21,11 @@ https://github.com/user-attachments/assets/95145046-63dc-4086-bc11-ba64f903dd32
 ### Joining Aeon Banshare:
 
 https://github.com/user-attachments/assets/dba65edb-3945-4e8a-bcde-e9a4d7e60f2a
+
+
+### Joining Aeon Info:
+
+https://github.com/user-attachments/assets/8bcdd519-d1b8-49a7-94c4-80c170210b77
 
 
 ## Getting the uid of a person
@@ -76,29 +81,25 @@ To reject a banshare you need to click the Reject button on the banshare
 https://github.com/user-attachments/assets/1482a8ec-5536-4c77-b19d-d43079b4b05b
 
 
+## Setting an important banshare role
+
+When a new important banshare gets posted this role will be pinged
+
+https://github.com/user-attachments/assets/9bfcbc99-f641-4bed-929a-f3531a3f3d16
+
+
+## Setting auto ban level
+
+When you set auto ban level any incoming banshares at the same level or under will be auto executed
+
+https://github.com/user-attachments/assets/d4f94c0f-25e1-4015-a81c-a2d4be06e503
+
+
 # Details for aeon navigators
 
 ## Banshares
 
-### Approving a banshare
-
-To approve a banshare click the Banshare button on the banshare
-
-https://github.com/user-attachments/assets/24de5c38-322e-4726-b8c0-e508a5afc5af
-
-
-### ~~Automatically approving the banshare on every server~~
-
-~~To automatically ban a person from every server without the servers having to confirm the banshare a set number of Navigators have to press the Blanket Ban button (If you change your mind you can opt out by pressing the button again)~~
-
-This feature has been removed
-
-### Rejecting a banshare
-
-To reject a banshare you have to click the Reject button on the banshare
-
-https://github.com/user-attachments/assets/69068990-74c2-41ca-9151-c9946a20c6b3
-
+### Instructions coming soon, because of major overhaul
 
 ## Network join requests
 
