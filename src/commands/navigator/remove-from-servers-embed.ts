@@ -73,7 +73,7 @@ export default new Command({
 
         const embedMessage = options.interaction.channel?.messages.cache.find((message) => message.webhookId);
         if (!embedMessage) {
-
+            // TODO: write log
             return;
         }
 

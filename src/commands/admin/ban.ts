@@ -104,8 +104,13 @@ const banCommand = async (options: RunOptions): Promise<void> => {
         return;
     }
     
-    await options.interaction.reply({ content: `${userInfo.guildMember} has been banned. (For now this feature is only a proof of concept, it will be functional after open beta)`, ephemeral: true });
-    // TODO: ban user
+    try {
+        await userInfo.guildMember.ban();
+        await options.interaction.reply({ content: `${userInfo.guildMember} has been banned. (For now this feature is only a proof of concept, it will be functional after open beta)`, ephemeral: true });
+    } catch (error) {
+        logger.error(`Couldnt ban guild member.`, (error as Error));
+        return;
+    }
 
     
     

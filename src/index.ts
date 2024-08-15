@@ -12,4 +12,12 @@ if (config.deleteLogsOnStartup) {
     logger.info("Previous bot log has been deleted");
 }
 
+import process from 'node:process';
+process.on('unhandledRejection', async (reason, promise) => {
+    console.log(`Unhandled rejection at: ${promise}, reason: ${reason}`);
+})
+process.on('uncaughtException', (err) => {
+    console.log(`Uncaught exception: ${err}`);
+})
+
 client.start();

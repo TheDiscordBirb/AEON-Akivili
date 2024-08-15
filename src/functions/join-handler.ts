@@ -75,6 +75,7 @@ class JoinHandler {
                 try {
                     await databaseManager.saveBroadcast({ guildId: webhook.guildId, channelId: data.channel.id, channelType: data.type, webhookId: webhook.id, webhookToken: webhook.token, importantBanshareRoleId: '', autoBanLevel: 0 });
                     await data.guild.members.fetch();
+                    if (config.nonChatWebhooks.includes(webhook.name)) return;
                     const broadcastRecords = await databaseManager.getBroadcasts();
                     const relatedBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === data.type);
 

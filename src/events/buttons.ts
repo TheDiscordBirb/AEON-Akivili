@@ -279,7 +279,10 @@ export default new Event("interactionCreate", async (interaction) => {
 
             const broadcastRecords = await databaseManager.getBroadcasts();
             const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === guildChannel.id);
-            if (!channelWebhook) return;
+            if (!channelWebhook) {
+                logger.warn(`Couldnt get webhook.`);
+                return;
+            }
 
             let webhook;
             try {
@@ -289,7 +292,7 @@ export default new Event("interactionCreate", async (interaction) => {
                 return;
             };
             
-            if (config.nonChatWebhooks.includes(webhook.name)) return;
+            if (!config.nonChatWebhooks.includes(webhook.name)) return;
 
             const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
 
@@ -301,8 +304,19 @@ export default new Event("interactionCreate", async (interaction) => {
 
             banshareActionRow.addComponents(banButton);
 
-            // TODO: ban user
-            await webhook.editMessage(interaction.message, { components: [banshareActionRow] });
+            const user = client.users.cache.get(customIdArgs[0]);
+            if (!user) {
+                (interaction.member?.user as User).dmChannel ? await (interaction.member?.user as User).send(`Could not find user`) : (await (interaction.member?.user as User).createDM()).send(`Could not find user, please contact birb`)
+                logger.warn(`Could not get user.`);
+                return;
+            }
+            try {
+                await interaction.guild?.bans.create(user)
+                await webhook.editMessage(interaction.message, { components: [banshareActionRow] });
+            } catch (error) {
+                (interaction.member?.user as User).dmChannel ? await (interaction.member?.user as User).send(`Could not execute ban, please contact birb`) : (await (interaction.member?.user as User).createDM()).send(`Could not execute ban, please contact birb`)
+                logger.error(`Could not ban user`, (error as Error));
+            }
             break;
         }
         case BanShareButtonArg.REJECT_SUB: {
@@ -328,7 +342,7 @@ export default new Event("interactionCreate", async (interaction) => {
                 return;
             };
             
-            if (config.nonChatWebhooks.includes(webhook.name)) return;
+            if (!config.nonChatWebhooks.includes(webhook.name)) return;
 
             const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
 

@@ -60,6 +60,13 @@ class DatabaseManager {
             )`
         )
 
+        await this._db.run(
+            `CREATE TABLE IF NOT EXISTS NetworkChatMutedUser (
+                userId TEXT,
+                PRIMARY KEY (userId)
+            )`
+        )
+
         logger.info('Database initialized.');
 
         return this._db;
@@ -206,6 +213,22 @@ class DatabaseManager {
         const db = await this.db();
         const result = await db.all<UserReactionRecord[]>(`SELECT * FROM UserReaction WHERE userId = "${userMessageId}"`)
         return result.length;
+    }
+
+    public async hasUserBeenMutedOnNetworkChat(userId: string): Promise<boolean> {
+        const db = await this.db();
+        const result = await db.get<{ userId: string }>(`SELECT * FROM NetworkChatMutedUser WHERE userId = "${userId}"`)
+        return (!!result);
+    }
+
+    public async toggleNetworkChatMute(userId: string): Promise<void> {
+        const db = await this.db();
+        const result = await db.get<{ userId: string }>(`SELECT * FROM NetworkChatMutedUser WHERE userId = "${userId}"`);
+         if (!result) {
+            await db.run(`INSERT OR REPLACE INTO NetworkChatMutedUser (userId) VALUES ("${userId}")`)
+        } else {
+            await db.run(`DELETE FROM NetworkChatMutedUser WHERE userId = "${userId}"`);
+        }
     }
 }
 

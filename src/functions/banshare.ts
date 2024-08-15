@@ -7,7 +7,8 @@ import {
     ActionRowBuilder,
     ButtonStyle,
     WebhookClient,
-    TextChannel
+    TextChannel,
+    ButtonComponent
 } from "discord.js";
 import { BanshareData } from "../types/database";
 import { config } from "../const";
@@ -106,7 +107,7 @@ class BanshareManager {
                 banshareContent = autoBannedContent;
 
                 const autoBanned = new ButtonBuilder()
-                    .setCustomId(`Auto banned`)
+                    .setCustomId(`Autoban ${data.user.id}`)
                     .setLabel('Auto banned')
                     .setStyle(ButtonStyle.Success)
                     .setDisabled(true)
@@ -130,7 +131,7 @@ class BanshareManager {
                     banshareContent = autoBannedContent;
 
                     const autoBanned = new ButtonBuilder()
-                        .setCustomId(`Auto banned`)
+                        .setCustomId(`Autoban ${data.user.id}`)
                         .setLabel('Auto banned')
                         .setStyle(ButtonStyle.Success)
                         .setDisabled(true)
@@ -150,9 +151,25 @@ class BanshareManager {
             const awaitedWebhookMessage = await webhookMessage;
             if (!awaitedWebhookMessage) return;
             awaitedWebhookMessage.webhookClient.send(awaitedWebhookMessage.data)
-                .then((message) => {
+                .then(async (message) => {
                     if (message.content === autoBannedContent) {
-                        // TODO: ban user
+                        if (!message.components) {
+                            logger.warn(`Couldnt get message components`);
+                            return;
+                        }
+                        const userId = (message.components[0].components[0] as ButtonComponent).customId;
+                        if (!userId) {
+                            logger.warn(`Couldnt get custom id of user.`);
+                            return;
+                        }
+                        const user = client.users.cache.get(userId.split(/ +/)[1]);
+                        const broadcasts = await databaseManager.getBroadcasts();
+                        const correctBroadcast = broadcasts.find((broadcast) => broadcast.webhookId === awaitedWebhookMessage.webhookClient.id);
+                        if (!user) return;
+                        if (!correctBroadcast) return;
+                        const guild = client.guilds.cache.get(correctBroadcast.guildId);
+                        if (!guild) return;
+                        await guild.bans.create(user);
                     }
                 });
         }))

@@ -20,7 +20,6 @@ export default new Event("messageUpdate", async (oldMessage, newMessage) => {
 
     const broadcastRecords = await databaseManager.getBroadcasts();
     if (!broadcastRecords.find((broadcastRecord) => broadcastRecord.channelId === newMessage.channel.id)) return;
-    const messageUid = await databaseManager.getMessageUid(message.channel.id, message.id);
     
     const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
     if (!channelWebhook) return;
@@ -34,6 +33,8 @@ export default new Event("messageUpdate", async (oldMessage, newMessage) => {
     };
     
     if (config.nonChatWebhooks.includes(webhook.name)) return;
+    if (message.type === 20) return;
+    const messageUid = await databaseManager.getMessageUid(message.channel.id, message.id);
     const relatedMessageRecords = (await databaseManager.getMessages(newMessage.channel.id, newMessage.id)).filter((relatedMessageRecord) => relatedMessageRecord.userMessageId === messageUid);
     
     await Promise.allSettled(relatedMessageRecords.map(async (relatedMessageRecord) => {

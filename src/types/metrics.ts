@@ -32,4 +32,3 @@ export interface MetricValuesStatistics {
     max: number;
     sum: number;
 }
-

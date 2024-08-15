@@ -54,10 +54,7 @@ export default new Command({
         }
 
         const broadcasts = await databaseManager.getBroadcasts();
-        const webhookExistsInDb = Object.values(broadcasts).reduce<{ webhookExists: boolean }>((acc, broadcast) => {
-            if (broadcast.webhookId === webhook.id) return { webhookExists: true };
-            return acc;
-        }, { webhookExists: false });
+        const webhookExistsInDb = !!broadcasts.find((broadcast) => broadcast.webhookId === webhook.id) ? true : false;
 
         if (webhookExistsInDb) {
             await options.interaction.reply({ content: `This connection is already saved in the database.`, ephemeral: true });

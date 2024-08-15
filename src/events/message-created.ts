@@ -25,7 +25,9 @@ const logger = new Logger('MessageCreated');
 
 const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void> => {
     if (interaction.webhookId) return;
-    if (interaction.member?.user.id === client.user?.id) return;
+    if (!interaction.member) return;
+    if (interaction.member.user.id === client.user?.id) return;
+    if (await databaseManager.hasUserBeenMutedOnNetworkChat(interaction.member.user.id)) return;
     
     const channel = interaction.channel as BaseGuildTextChannel;
     if (channel.type !== ChannelType.GuildText) return;
@@ -254,7 +256,7 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
                 return;
             }
             logger.error('Could not send message, deleting broadcast record.', error as Error);
-            await databaseManager.deleteBroadcastByWebhookId(webhookMessage.webhookClient.id);
+            // await databaseManager.deleteBroadcastByWebhookId(webhookMessage.webhookClient.id);
         }
     }));
 }
@@ -264,7 +266,7 @@ export default new Event("messageCreate", async (interaction) => {
     try {
         await messageCreatedEvent(interaction);
     } catch (error) {
-        logger.warn('Could not execute ban command', error as Error);
+        logger.warn('Could not execute create message event', error as Error);
     }
     metrics.stop(metricId);
 });
