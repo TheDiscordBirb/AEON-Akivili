@@ -87,7 +87,7 @@ export default new Command({
         }
 
         try {
-            await joinHandler.requestNetworkAccess({ guild: channel.guild, channel: channel, type: channelType });
+            await joinHandler.requestNetworkAccess({ guild: channel.guild, channel: channel, type: channelType, user: options.interaction.user });
             await options.interaction.reply({ content: `Your application has been sent to join Aeon ${channelType}, you will be notified when your application has been reviewed.`, ephemeral: true });
         } catch (error) {
             logger.error('Could not send application', error as Error);

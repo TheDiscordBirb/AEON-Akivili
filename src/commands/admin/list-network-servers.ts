@@ -1,12 +1,11 @@
 import { Command } from '../../structures/command';
-import { ApplicationCommandOptionType, Embed, EmbedBuilder, Guild} from 'discord.js'
+import { EmbedBuilder, Guild} from 'discord.js'
 import { databaseManager } from '../../structures/database'; 
 import { hasModerationRights } from '../../utils';
 import { Logger } from '../../logger';
-import { BroadcastRecord } from '../../types/database';
 import { client } from '../../structures/client';
 
-const logger = new Logger('GetUidCmd');
+const logger = new Logger('ListNetworkServersCmd');
 
 export default new Command({
     name: 'list-network-servers',
@@ -54,7 +53,7 @@ export default new Command({
         const fields: { name: string, value: string, inline: boolean }[] = [];
 
         let column = "";
-        guilds.forEach((guild, idx) => {
+        guilds.sort().forEach((guild, idx) => {
             column += `${guild.name}\n`;
             if (idx % 20 === 0 && idx != 0 || idx === guilds.length - 1) {
                 fields.push({ name: "Servers:", value: column, inline: true });

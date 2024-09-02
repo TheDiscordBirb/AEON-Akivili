@@ -6,7 +6,9 @@ import {
     ButtonBuilder,
     ButtonStyle,
     ChannelType,
-    Message
+    Message,
+    GuildEmoji,
+    ClientUser
 } from "discord.js";
 import { Event } from "../structures/event";
 import axios from "axios";
@@ -20,6 +22,7 @@ import { MessagesRecord } from "../types/database";
 import { metrics } from "../structures/metrics";
 import { TimeSpanMetricLabel } from "../types/metrics";
 import { NetworkJoinOptions } from "../types/command";
+import { replaceEmojis } from "../utils";
 
 const logger = new Logger('MessageCreated');
 
@@ -84,6 +87,7 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
     
     files.push(...downloadedAttachments, ...downloadedStickers);
 
+    const emojiReplacement = await replaceEmojis(interaction.content, client);
     await interaction.delete();
     
     const matchingBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === webhookChannelType);
@@ -205,7 +209,7 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
             webhookClient,
             messageData: {
                 avatarURL: (interaction.member.avatarURL() ? interaction.member.avatarURL() : interaction.member.displayAvatarURL()) ?? undefined,
-                content: interaction.content,
+                content: emojiReplacement.content,
                 files: files,
                 username: `${interaction.member.nickname ? interaction.member.nickname : interaction.member.displayName} || ${interaction.guild.name}`,
                 allowedMentions: {parse: []},
@@ -255,10 +259,15 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
                     ${(error as Error).message.split("username")[(error as Error).message.split("username").length - 1]}`);
                 return;
             }
-            logger.error('Could not send message, deleting broadcast record.', error as Error);
-            // await databaseManager.deleteBroadcastByWebhookId(webhookMessage.webhookClient.id);
+            logger.error('Could not send message', error as Error);
         }
     }));
+    
+    emojiReplacement.emojis.forEach(async (emoji) => {
+        const guildEmoji = client.emojis.cache.get(emoji.id)
+        if (!guildEmoji) return;
+        await guildEmoji.guild.emojis.delete(emoji);
+    })
 }
 
 export default new Event("messageCreate", async (interaction) => {

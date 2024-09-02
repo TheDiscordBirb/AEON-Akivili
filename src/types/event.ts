@@ -1,3 +1,5 @@
+import { Emoji, GuildEmoji } from "discord.js";
+
 export enum BanShareButtonArg {
     BANSHARE = 'banshare',
     IMPORTANT_BANSHARE = 'importantBanshare',
@@ -18,3 +20,10 @@ export enum NotificationType {
     MESSAGE_DELETE = 'messageDelete',
     REACTION_DELETE = 'reactionDelete'
 }
+
+export interface EmojiReplacementData {
+    content: string,
+    emojis: GuildEmoji[]
+}
+
+export const guildEmojiCooldowns: string[][] = [];

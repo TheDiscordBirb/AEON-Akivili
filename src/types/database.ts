@@ -36,5 +36,6 @@ export interface BanshareData {
 export interface JoinData {
     guild: Guild,
     channel: TextChannel,
-    type: string
+    type: string,
+    user: User
 }

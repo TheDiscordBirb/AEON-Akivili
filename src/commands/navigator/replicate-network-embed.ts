@@ -1,9 +1,9 @@
 import { Command } from '../../structures/command';
 import { ApplicationCommandOptionType} from 'discord.js'
 import { Logger } from '../../logger';
-import { hasModerationRights, isNavigator, rebuildNetworkInfoEmbeds } from '../../utils';
+import { isNavigator, rebuildNetworkInfoEmbeds } from '../../utils';
 
-const logger = new Logger('ReplicateEmbedData');
+const logger = new Logger('ReplicateEmbedDataCmd');
 
 export default new Command({
     name: 'replicate-network-embed',

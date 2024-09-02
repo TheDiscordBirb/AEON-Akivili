@@ -15,19 +15,38 @@ import {
     EmbedBuilder,
     APIEmbedField,
     User,
-    GuildTextBasedChannel
+    GuildTextBasedChannel,
+    Guild,
+    Client,
+    GuildEmoji
 } from 'discord.js';
 import { UserReactionRecord } from './types/database';
 import { databaseManager } from './structures/database';
-import { CustomId } from './types/event';
+import { CustomId, EmojiReplacementData, guildEmojiCooldowns } from './types/event';
 import { Logger } from './logger';
 import { client } from './structures/client';
 import process from 'node:process';
+import axios from 'axios';
+
+export const getEnvVar = <T>(id: string): T => {
+    let result;
+    try {
+        result = process.env[id] as T;
+    } catch (error) {
+        throw Error(`Could not obtain environment variable. Id:${id}. Error: ${(error as Error).message}`);
+    }
+    if (!result) {
+        throw Error('Requested environment variable is undefined');
+    }
+    return result;
+}
 
 const logger = new Logger("Utils");
 const maxEmbedColumnValueLength = 1024;
-const aeonBanshareChannelId = '1261386307477831720';
-const navigatorRoleId = '1114294050737115240';
+const aeonBanshareChannelId = getEnvVar<string>("AEON_BANSHARE_CHANNEL_ID");
+const navigatorRoleId = getEnvVar<string>("NAVIGATOR_ROLE_ID");
+const maxEmojiPerServer = 50;
+const emojiServerIds = getEnvVar<string>("EMOJI_SERVER_IDS").split(' ')
 
 export const hasModerationRights = (guildUser: GuildMember): boolean => {
     return !!(guildUser.roles.cache.find((role) => role.permissions.has(PermissionFlagsBits.BanMembers)));
@@ -70,18 +89,7 @@ export const asyncRetry = async <T>(f: () => Promise<T>, retryCount = 5): Promis
     }
 }
 
-export const getEnvVar = <T>(id: string): T => {
-    let result;
-    try {
-        result = process.env[id] as T;
-    } catch (error) {
-        throw Error(`Could not obtain environment variable. Id:${id}. Error: ${(error as Error).message}`);
-    }
-    if (!result) {
-        throw Error('Requested environment variable is undefined');
-    }
-    return result;
-}
+
 
 export const rebuildMessageComponentAfterUserInteraction = async (component: ActionRow<MessageActionRowComponent>[], userReactionRecord: UserReactionRecord, deleteAll = false): Promise<ActionRowBuilder<ButtonBuilder>[]> => {
     const hasUserReactedToMessage = await databaseManager.hasUserReactedToMessage(userReactionRecord);
@@ -305,4 +313,67 @@ export const rebuildNetworkInfoEmbeds = async (message: Message, name?: string, 
         embeds.push(editedEmbed);
     });
     return embeds;
+}
+
+export const replaceEmojis = async (content: string, client: Client): Promise<EmojiReplacementData> => {
+    const emoteCapture = /(a?):([^:]+):(\d+)/g;
+    const messageArgs = content.replaceAll("<", " ").replaceAll(">", " ").split(/ +/);
+    const emojis: GuildEmoji[] = [];
+    guildEmojiCooldowns.forEach(async (guildEmojiCooldown, cooldownsIdx) => {
+        if (guildEmojiCooldowns.length === 0) return;
+        guildEmojiCooldown.forEach(async (cooldown, cooldownIdx) => {
+            if (cooldownIdx === 0) return;
+            const cooldownInt = parseInt(cooldown);
+            if (isNaN(cooldownInt)) {
+                logger.warn(`Got a NaN instead of Int: ${cooldown}`);
+                guildEmojiCooldown.splice(cooldownIdx, 1);
+                return;
+            }
+            if (Date.now() >= cooldownIdx) {
+                guildEmojiCooldown.splice(cooldownIdx, 1);
+                return;
+            }
+        });
+        if (guildEmojiCooldown.length <= 1) {
+            guildEmojiCooldowns.splice(cooldownsIdx);
+            return;
+        }
+    });
+  
+    await Promise.allSettled(messageArgs.map(async (arg, idx) => {
+        if (arg.match(emoteCapture)) {
+            const emote = emoteCapture.exec(arg);
+            if (!emote) return;
+            console.log("Got emoji");
+            const emojiCheck = client.emojis.cache.get(emote[3]);
+            if (!!emojiCheck) {
+                messageArgs[idx] = `${emojiCheck}`;
+                console.log("Original emoji");
+                return;
+            }
+            
+            if (guildEmojiCooldowns.length === 0 || guildEmojiCooldowns[guildEmojiCooldowns.length - 1].length >= maxEmojiPerServer + 1) {
+                if (guildEmojiCooldowns.length >= emojiServerIds.length) {
+                    return;
+                }
+                guildEmojiCooldowns.push([`${emojiServerIds[guildEmojiCooldowns.length ? guildEmojiCooldowns.length - 1 : 0]}`]);
+            }
+
+            const guildId = guildEmojiCooldowns[guildEmojiCooldowns.length - 1][0];
+            const guild = client.guilds.cache.get(guildId);
+            if (!guild) return;
+
+            const url = `https://cdn.discordapp.com/emojis/${emote[3]}.${emote[1] ? "gif" : "png"}?v=1`;
+            const attachmentBuffer = await axios.get(url, { responseType: 'arraybuffer' });
+            const attachment = Buffer.from(attachmentBuffer.data, 'utf-8');
+            await guild.emojis.create({ attachment, name: emote[2] }).then((emoji) => {
+                guildEmojiCooldowns[guildEmojiCooldowns.length - 1].push(`${Date.now() + Time.HOUR}`);
+                emojis.push(emoji);
+                messageArgs[idx] = `${emoji}`;
+                console.log("New emoji");
+            });
+        }
+    }));
+    const messageContent = messageArgs.join(" ");
+    return { content: messageContent, emojis: emojis };
 }

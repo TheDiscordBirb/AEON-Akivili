@@ -63,12 +63,12 @@ export default new Command({
 
         await databaseManager.toggleNetworkChatMute(userId);
         const userMutedState = await databaseManager.hasUserBeenMutedOnNetworkChat(userId);
-        await options.interaction.reply({ content: `${user ? user : "User"} has been ${userMutedState ? "" : "un"}muted` });
+        await options.interaction.reply({ content: `${user ? user : "User"} has been ${userMutedState ? "" : "un"}muted`, ephemeral: true });
         if (user) {
             if (!user.dmChannel) {
                 user.createDM();
             }
-            await user.send(`You have been muted on the Aeon Network channels by ${options.interaction.user.username}`);
+            await user.send(`You have been ${userMutedState ? "" : "un"}muted on the Aeon Network channels by ${options.interaction.user.username}`);
         }
     }
 });

@@ -378,8 +378,23 @@ export default new Event("interactionCreate", async (interaction) => {
                 logger.warn('No channel found while trying to accept a request.')
                 return;
             }
+            try {
+                await joinHandler.acceptNetworkAccessRequest({ guild, channel: channel as TextChannel, type, user: client.users.cache.get(interaction.message.embeds[0].description?.split(/ +/)[interaction.message.embeds[0].description?.split(/ +/).length - 1] ?? interaction.user.id) ?? interaction.user });
+            } catch (error) {
+                logger.error(`There was an error gaining network access.`, (error as Error));
+                const joinHandlerActionRow = new ActionRowBuilder<ButtonBuilder>();
+        
+                const errorButton = new ButtonBuilder()
+                    .setCustomId(interaction.customId)
+                    .setLabel('Error')
+                    .setStyle(ButtonStyle.Danger)
+                    .setDisabled(true)
             
-            await joinHandler.acceptNetworkAccessRequest({ guild, channel: channel as TextChannel, type });
+                joinHandlerActionRow.addComponents(errorButton);
+            
+                await interaction.message.edit({ components: [joinHandlerActionRow] });
+                return;
+            }
         
             const joinHandlerActionRow = new ActionRowBuilder<ButtonBuilder>();
         
@@ -413,7 +428,23 @@ export default new Event("interactionCreate", async (interaction) => {
                 logger.warn('No channel found while trying to accept a request.')
                 return;
             }
-            await joinHandler.rejectNetworkAccessRequest({ guild, channel: channel as TextChannel, type });
+            try {
+                await joinHandler.rejectNetworkAccessRequest({ guild, channel: channel as TextChannel, type, user: client.users.cache.get(interaction.message.embeds[0].description?.split(/ +/)[interaction.message.embeds[0].description?.split(/ +/).length - 1] ?? interaction.user.id) ?? interaction.user });
+            } catch (error) {
+                logger.error(`There was an error refusing network access.`, (error as Error));
+                const joinHandlerActionRow = new ActionRowBuilder<ButtonBuilder>();
+        
+                const errorButton = new ButtonBuilder()
+                    .setCustomId(interaction.customId)
+                    .setLabel('Error')
+                    .setStyle(ButtonStyle.Danger)
+                    .setDisabled(true)
+            
+                joinHandlerActionRow.addComponents(errorButton);
+            
+                await interaction.message.edit({ components: [joinHandlerActionRow] });
+                return;
+            }
             
             const joinHandlerActionRow = new ActionRowBuilder<ButtonBuilder>();
     
