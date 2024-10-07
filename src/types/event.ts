@@ -18,7 +18,8 @@ export enum NotificationType {
     BAN = 'ban',
     MESSAGE_EDIT = 'messageEdit',
     MESSAGE_DELETE = 'messageDelete',
-    REACTION_DELETE = 'reactionDelete'
+    REACTION_DELETE = 'reactionDelete',
+    MUTE = 'mute'
 }
 
 export interface EmojiReplacementData {

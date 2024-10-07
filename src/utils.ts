@@ -317,7 +317,16 @@ export const rebuildNetworkInfoEmbeds = async (message: Message, name?: string, 
 
 export const replaceEmojis = async (content: string, client: Client): Promise<EmojiReplacementData> => {
     const emoteCapture = /(a?):([^:]+):(\d+)/g;
-    const messageArgs = content.replaceAll("<", " ").replaceAll(">", " ").split(/ +/);
+    const extractedEmojiData: string[][] = [];
+    let currentEmojiCapture = emoteCapture.exec(content);
+    while (currentEmojiCapture) {
+        const currentEmojiData = [currentEmojiCapture[1], currentEmojiCapture[2], currentEmojiCapture[3]];
+        if (!extractedEmojiData.find((data) => data[2] === currentEmojiData[2])) {
+            extractedEmojiData.push(currentEmojiData);
+        }
+        currentEmojiCapture = emoteCapture.exec(content);
+    };
+    
     const emojis: GuildEmoji[] = [];
     guildEmojiCooldowns.forEach(async (guildEmojiCooldown, cooldownsIdx) => {
         if (guildEmojiCooldowns.length === 0) return;
@@ -340,40 +349,32 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
         }
     });
   
-    await Promise.allSettled(messageArgs.map(async (arg, idx) => {
-        if (arg.match(emoteCapture)) {
-            const emote = emoteCapture.exec(arg);
-            if (!emote) return;
-            console.log("Got emoji");
-            const emojiCheck = client.emojis.cache.get(emote[3]);
-            if (!!emojiCheck) {
-                messageArgs[idx] = `${emojiCheck}`;
-                console.log("Original emoji");
+    await Promise.allSettled(extractedEmojiData.map(async (emoji, idx) => {
+        if (client.emojis.cache.get(emoji[2])) return;
+            
+        if (guildEmojiCooldowns.length === 0 || guildEmojiCooldowns[guildEmojiCooldowns.length - 1].length >= maxEmojiPerServer + 1) {
+            if (guildEmojiCooldowns.length >= emojiServerIds.length) {
                 return;
             }
-            
-            if (guildEmojiCooldowns.length === 0 || guildEmojiCooldowns[guildEmojiCooldowns.length - 1].length >= maxEmojiPerServer + 1) {
-                if (guildEmojiCooldowns.length >= emojiServerIds.length) {
-                    return;
-                }
-                guildEmojiCooldowns.push([`${emojiServerIds[guildEmojiCooldowns.length ? guildEmojiCooldowns.length - 1 : 0]}`]);
-            }
-
-            const guildId = guildEmojiCooldowns[guildEmojiCooldowns.length - 1][0];
-            const guild = client.guilds.cache.get(guildId);
-            if (!guild) return;
-
-            const url = `https://cdn.discordapp.com/emojis/${emote[3]}.${emote[1] ? "gif" : "png"}?v=1`;
-            const attachmentBuffer = await axios.get(url, { responseType: 'arraybuffer' });
-            const attachment = Buffer.from(attachmentBuffer.data, 'utf-8');
-            await guild.emojis.create({ attachment, name: emote[2] }).then((emoji) => {
-                guildEmojiCooldowns[guildEmojiCooldowns.length - 1].push(`${Date.now() + Time.HOUR}`);
-                emojis.push(emoji);
-                messageArgs[idx] = `${emoji}`;
-                console.log("New emoji");
-            });
+            guildEmojiCooldowns.push([`${emojiServerIds[guildEmojiCooldowns.length ? guildEmojiCooldowns.length - 1 : 0]}`]);
         }
+
+        const guildId = guildEmojiCooldowns[guildEmojiCooldowns.length - 1][0];
+        const guild = client.guilds.cache.get(guildId);
+        if (!guild) return;
+
+        const url = `https://cdn.discordapp.com/emojis/${emoji[2]}.${emoji[0] ? "gif" : "png"}?v=1`;
+        const attachmentBuffer = await axios.get(url, { responseType: 'arraybuffer' });
+        const attachment = Buffer.from(attachmentBuffer.data, 'utf-8');
+        await guild.emojis.create({ attachment, name: emoji[1] }).then((emoji) => {
+            guildEmojiCooldowns[guildEmojiCooldowns.length - 1].push(`${Date.now() + Time.HOUR}`);
+            emojis.push(emoji);
+        });
     }));
-    const messageContent = messageArgs.join(" ");
+    let messageContent = content;
+    emojis.forEach(async (emoji) => {
+        const regex = new RegExp(`<a?:${emoji.name}:\\d+>`);
+        messageContent = messageContent.replaceAll(regex, `${emoji}`);
+    })
     return { content: messageContent, emojis: emojis };
 }

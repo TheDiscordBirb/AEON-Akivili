@@ -1,6 +1,6 @@
 import { Logger } from "../logger"
 import { Event } from "../structures/event";
-import { BaseGuildTextChannel, ChannelType, User, WebhookClient } from "discord.js";
+import { BaseGuildTextChannel, ChannelType, WebhookClient } from "discord.js";
 import { databaseManager } from "../structures/database";
 import { config } from "../const";
 import { rebuildMessageComponentAfterUserInteraction } from "../utils";

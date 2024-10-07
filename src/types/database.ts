@@ -39,3 +39,9 @@ export interface JoinData {
     type: string,
     user: User
 }
+
+export interface NetworkProfileData {
+    userId: string,
+    name: string,
+    avatarUrl: string
+}

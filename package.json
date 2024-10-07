@@ -25,8 +25,11 @@
     "eventemitter2": "^6.4.9",
     "glob": "^8.0.3",
     "glob-promise": "^6.0.3",
+    "is-apng": "^1.2.0",
     "mongoose": "^7.5.2",
     "node-cron": "^3.0.3",
+    "sharp": "^0.33.5",
+    "sharp-apng": "^0.1.5",
     "sqlite": "^5.1.1",
     "sqlite3": "^5.1.7",
     "ulid": "^2.3.0"

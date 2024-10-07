@@ -23,6 +23,10 @@ import { metrics } from "../structures/metrics";
 import { TimeSpanMetricLabel } from "../types/metrics";
 import { NetworkJoinOptions } from "../types/command";
 import { replaceEmojis } from "../utils";
+import isApng from "is-apng";
+import * as apng from 'sharp-apng';
+import * as sharp from 'sharp';
+
 
 const logger = new Logger('MessageCreated');
 
@@ -61,7 +65,13 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
     
     const downloadedStickers = (await Promise.allSettled(interaction.stickers.map(async (interactionSticker) => {
         const stickerBuffer = await axios.get(interactionSticker.url, { responseType: 'arraybuffer' });
-        const attachment = new AttachmentBuilder(Buffer.from(stickerBuffer.data, 'utf-8'), { name: `${interactionSticker.name}.png`});
+        let attachment;
+        if (isApng(Buffer.from(stickerBuffer.data, 'utf-8'))) {
+            const image = await apng.sharpFromApng(Buffer.from(stickerBuffer.data, 'utf-8'), {transparent: true, format: "rgba4444"});
+            attachment = new AttachmentBuilder(await (image as sharp.Sharp).toBuffer(), { name: `${interactionSticker.name}.gif` }); 
+        } else {
+            attachment = new AttachmentBuilder(Buffer.from(stickerBuffer.data), { name: `${interactionSticker.name}.png` });
+        }
         return attachment;
     }))).reduce<AttachmentBuilder[]>((acc, item) => {
         if (item.status !== 'fulfilled') {
@@ -204,14 +214,22 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
                 };
             }
         }
+
+        let avatarURL = (interaction.member.avatarURL() ? interaction.member.avatarURL() : interaction.member.displayAvatarURL()) ?? undefined;
+        let username = `${interaction.member.nickname ? interaction.member.nickname : interaction.member.displayName} || ${interaction.guild.name}`;
+        const customProfile = await databaseManager.getCustomProfile(interaction.member.id);
+        if (customProfile) {
+            avatarURL = customProfile.avatarUrl;
+            username = `${customProfile.name} || ${interaction.guild.name}`;
+        }
         
         return {
             webhookClient,
             messageData: {
-                avatarURL: (interaction.member.avatarURL() ? interaction.member.avatarURL() : interaction.member.displayAvatarURL()) ?? undefined,
+                avatarURL,
                 content: emojiReplacement.content,
                 files: files,
-                username: `${interaction.member.nickname ? interaction.member.nickname : interaction.member.displayName} || ${interaction.guild.name}`,
+                username,
                 allowedMentions: {parse: []},
                 ...sendOptions,
             },

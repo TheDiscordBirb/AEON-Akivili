@@ -97,6 +97,10 @@ class NotificationManager {
                 // TODO
                 break;
             }
+            case NotificationType.MUTE: {
+                // TODO
+                break;
+            }
         }
 
         await (notificationChannel as GuildTextBasedChannel).send({ embeds: embedCollection });

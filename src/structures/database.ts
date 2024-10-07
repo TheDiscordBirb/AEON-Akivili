@@ -1,6 +1,6 @@
 import sqlite3 from 'sqlite3';
 import { Database, open } from 'sqlite';
-import { BroadcastRecord, MessagesRecord, UserReactionRecord } from '../types/database';
+import { BroadcastRecord, MessagesRecord, NetworkProfileData, UserReactionRecord } from '../types/database';
 import { Logger } from "../logger";
 
 const logger = new Logger('Database');
@@ -63,6 +63,16 @@ class DatabaseManager {
         await this._db.run(
             `CREATE TABLE IF NOT EXISTS NetworkChatMutedUser (
                 userId TEXT,
+                staffId TEXT,
+                PRIMARY KEY (userId)
+            )`
+        )
+
+        await this._db.run(
+            `CREATE TABLE IF NOT EXISTS NetworkProfiles (
+                userId TEXT,
+                name TEXT,
+                avatarUrl TEXT,
                 PRIMARY KEY (userId)
             )`
         )
@@ -221,13 +231,33 @@ class DatabaseManager {
         return (!!result);
     }
 
-    public async toggleNetworkChatMute(userId: string): Promise<void> {
+    public async whoMutedUser(userId: string): Promise<string | undefined> {
+        const db = await this.db();
+        return await db.get(`SELECT staffId FROM NetworkChatMutedUser WHERE userId = "${userId}"`);
+    }
+
+    public async toggleNetworkChatMute(userId: string, staffId: string): Promise<void> {
         const db = await this.db();
         const result = await db.get<{ userId: string }>(`SELECT * FROM NetworkChatMutedUser WHERE userId = "${userId}"`);
          if (!result) {
-            await db.run(`INSERT OR REPLACE INTO NetworkChatMutedUser (userId) VALUES ("${userId}")`)
+            await db.run(`INSERT OR REPLACE INTO NetworkChatMutedUser (userId, staffId) VALUES ("${userId}", "${staffId}")`);
         } else {
             await db.run(`DELETE FROM NetworkChatMutedUser WHERE userId = "${userId}"`);
+        }
+    }
+
+    public async getCustomProfile(userId: string): Promise<NetworkProfileData | undefined> {
+        const db = await this.db();
+        const result = await db.get<NetworkProfileData>(`SELECT * FROM NetworkProfiles WHERE userId = "${userId}"`);
+        return result;
+    }
+
+    public async updateCustomProfile(networkProfileData: NetworkProfileData, deleteProfile = false): Promise<void> {
+        const db = await this.db();
+        if (deleteProfile) {
+            await db.run(`DELETE FROM NetworkProfiles WHERE userId = "${networkProfileData.userId}"`);
+        } else {
+            await db.run(`INSERT OR REPLACE INTO NetworkProfiles (userId, name, avatarUrl) VALUES ("${networkProfileData.userId}", "${networkProfileData.name}", "${networkProfileData.avatarUrl}")`);
         }
     }
 }

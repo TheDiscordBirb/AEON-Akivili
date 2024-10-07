@@ -4,6 +4,7 @@ import { databaseManager } from '../../structures/database';
 import { hasModerationRights } from '../../utils';
 import { Logger } from '../../logger';
 import { client } from '../../structures/client';
+import { config } from '../../const';
 
 const logger = new Logger('GetUidCmd');
 
@@ -61,8 +62,13 @@ export default new Command({
         }
         const user = client.users.cache.get(userId);
 
-        await databaseManager.toggleNetworkChatMute(userId);
         const userMutedState = await databaseManager.hasUserBeenMutedOnNetworkChat(userId);
+        if ((await databaseManager.whoMutedUser(userId)) == config.devId && options.interaction.user.id != config.devId) {
+            await options.interaction.reply({ content: `${user ? user : "User"} can not be unmuted as they were muted by Birb` });
+            return;
+        }
+        
+        await databaseManager.toggleNetworkChatMute(userId, options.interaction.user.id);
         await options.interaction.reply({ content: `${user ? user : "User"} has been ${userMutedState ? "" : "un"}muted`, ephemeral: true });
         if (user) {
             if (!user.dmChannel) {
