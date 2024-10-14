@@ -5,3 +5,4 @@ bot.log
 aeon.db
 node_modules
 /src/commands/birb
+embed.json
