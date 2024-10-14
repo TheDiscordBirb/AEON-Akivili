@@ -304,14 +304,8 @@ export default new Event("interactionCreate", async (interaction) => {
 
             banshareActionRow.addComponents(banButton);
 
-            const user = client.users.cache.get(customIdArgs[0]);
-            if (!user) {
-                (interaction.member?.user as User).dmChannel ? await (interaction.member?.user as User).send(`Could not find user`) : (await (interaction.member?.user as User).createDM()).send(`Could not find user, please contact birb`)
-                logger.warn(`Could not get user.`);
-                return;
-            }
             try {
-                await interaction.guild?.bans.create(user)
+                await interaction.guild?.bans.create(customIdArgs[0]);
                 await webhook.editMessage(interaction.message, { components: [banshareActionRow] });
             } catch (error) {
                 (interaction.member?.user as User).dmChannel ? await (interaction.member?.user as User).send(`Could not execute ban, please contact birb`) : (await (interaction.member?.user as User).createDM()).send(`Could not execute ban, please contact birb`)

@@ -1,5 +1,5 @@
 import { Command } from '../../structures/command';
-import { ApplicationCommandOptionType} from 'discord.js'
+import { ApplicationCommandOptionType, AuditLogOptionsType} from 'discord.js'
 import { databaseManager } from '../../structures/database'; 
 import { hasModerationRights } from '../../utils';
 import { Logger } from '../../logger';
@@ -17,6 +17,12 @@ export default new Command({
         description: 'The id of the message you want to get the uid of.',
         type: ApplicationCommandOptionType.String,
         required: true
+    },
+    {
+        name: 'anonymous-dm',
+        description: 'Makes the mute notification anonymous.',
+        type: ApplicationCommandOptionType.Boolean,
+        required: false
     }],
 
     run: async (options) => {
@@ -69,12 +75,16 @@ export default new Command({
         }
         
         await databaseManager.toggleNetworkChatMute(userId, options.interaction.user.id);
-        await options.interaction.reply({ content: `${user ? user : "User"} has been ${userMutedState ? "" : "un"}muted`, ephemeral: true });
+        await options.interaction.reply({ content: `${user ? user : "User"} has been ${userMutedState ? "un" : ""}muted`, ephemeral: true });
         if (user) {
             if (!user.dmChannel) {
                 user.createDM();
             }
-            await user.send(`You have been ${userMutedState ? "" : "un"}muted on the Aeon Network channels by ${options.interaction.user.username}`);
+            let muteInfo = `\nTo dispute this join https://discord.gg/bAmwkDYZ5e and open a modmail by sending <@989173789482975262> a message.`;
+            if (!options.args.get('anonymous-dm')) {
+                muteInfo = `by ${options.interaction.user.username}` + muteInfo;
+            }
+            await user.send(`You have been ${userMutedState ? "un" : ""}muted on the Aeon Network channels ${userMutedState ? "" : muteInfo}`);
         }
     }
 });

@@ -25,7 +25,7 @@ export default new Command({
     options:
     [{
         name: 'message-id',
-        description: 'The id of the message you want to edit.',
+        description: 'The id of the message you want to delete.',
         type: ApplicationCommandOptionType.String,
         required: true
     }],

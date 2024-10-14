@@ -16,49 +16,49 @@ import {
     APIEmbedField,
     User,
     GuildTextBasedChannel,
-    Guild,
     Client,
-    GuildEmoji
+    GuildEmoji,
+    Colors,
+    Attachment,
+    APIMessage,
+    BaseGuildTextChannel
 } from 'discord.js';
-import { UserReactionRecord } from './types/database';
+import { MessagesRecord, UserReactionRecord } from './types/database';
 import { databaseManager } from './structures/database';
 import { CustomId, EmojiReplacementData, guildEmojiCooldowns } from './types/event';
 import { Logger } from './logger';
 import { client } from './structures/client';
-import process from 'node:process';
 import axios from 'axios';
-
-export const getEnvVar = <T>(id: string): T => {
-    let result;
-    try {
-        result = process.env[id] as T;
-    } catch (error) {
-        throw Error(`Could not obtain environment variable. Id:${id}. Error: ${(error as Error).message}`);
-    }
-    if (!result) {
-        throw Error('Requested environment variable is undefined');
-    }
-    return result;
-}
+import { config } from './const';
 
 const logger = new Logger("Utils");
-const maxEmbedColumnValueLength = 1024;
-const aeonBanshareChannelId = getEnvVar<string>("AEON_BANSHARE_CHANNEL_ID");
-const navigatorRoleId = getEnvVar<string>("NAVIGATOR_ROLE_ID");
-const maxEmojiPerServer = 50;
-const emojiServerIds = getEnvVar<string>("EMOJI_SERVER_IDS").split(' ')
 
 export const hasModerationRights = (guildUser: GuildMember): boolean => {
     return !!(guildUser.roles.cache.find((role) => role.permissions.has(PermissionFlagsBits.BanMembers)));
 }
 
 export const isNavigator = (user: User): boolean => {
-    const aeonGuild = (client.channels.cache.get(aeonBanshareChannelId) as GuildTextBasedChannel).guild;
+    const aeonGuild = (client.channels.cache.get(config.aeonBanshareChannelId) as GuildTextBasedChannel).guild;
     const aeonMember = aeonGuild.members.cache.get(user.id);
-    return !!aeonMember?.roles.cache.get(navigatorRoleId);
+    if (!aeonMember) return false;
+    return !!aeonMember.roles.cache.get(config.navigatorRoleId);
+}
+export const isConductor = (user: User): boolean => {
+    const aeonGuild = (client.channels.cache.get(config.aeonBanshareChannelId) as GuildTextBasedChannel).guild;
+    const aeonMember = aeonGuild.members.cache.get(user.id);
+    if (!aeonMember) return false;
+    return !!aeonMember.roles.cache.get(config.conductorRoleId);
+}
+export const isDev = (user: User): boolean => {
+    return user.id === config.devId;
 }
 export const doesUserOwnMessage = (userIdInDb: string | undefined, userId: string): boolean => {
     return userIdInDb === userId;
+}
+export const isUserActive = async (userId: string): Promise<boolean> => {
+    const userMessages = (await databaseManager.getUniqueUserMessages(userId)).slice(-200);
+    if (!userMessages.length) return false;
+    return Date.now() - userMessages[0].timestamp < Time.hours(48);
 }
 
 export namespace Time {
@@ -292,7 +292,7 @@ export const rebuildNetworkInfoEmbeds = async (message: Message, name?: string, 
             } else {
                 const newAccColumnValue = `${acc[columnIdx]}\n${serverString}`;
                 columnRanges[columnIdx].to = getFirstLetter(serverString) ?? columnRanges[columnIdx]?.from ?? '';
-                if (newAccColumnValue.length <= maxEmbedColumnValueLength) {
+                if (newAccColumnValue.length <= config.maxEmbedColumnValueLength) {
                     acc[columnIdx] = newAccColumnValue;
                     return acc;
                 }
@@ -352,11 +352,11 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
     await Promise.allSettled(extractedEmojiData.map(async (emoji, idx) => {
         if (client.emojis.cache.get(emoji[2])) return;
             
-        if (guildEmojiCooldowns.length === 0 || guildEmojiCooldowns[guildEmojiCooldowns.length - 1].length >= maxEmojiPerServer + 1) {
-            if (guildEmojiCooldowns.length >= emojiServerIds.length) {
+        if (guildEmojiCooldowns.length === 0 || guildEmojiCooldowns[guildEmojiCooldowns.length - 1].length >= config.maxEmojiPerServer + 1) {
+            if (guildEmojiCooldowns.length >= config.emojiServerIds.length) {
                 return;
             }
-            guildEmojiCooldowns.push([`${emojiServerIds[guildEmojiCooldowns.length ? guildEmojiCooldowns.length - 1 : 0]}`]);
+            guildEmojiCooldowns.push([`${config.emojiServerIds[guildEmojiCooldowns.length ? guildEmojiCooldowns.length - 1 : 0]}`]);
         }
 
         const guildId = guildEmojiCooldowns[guildEmojiCooldowns.length - 1][0];
@@ -373,8 +373,76 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
     }));
     let messageContent = content;
     emojis.forEach(async (emoji) => {
-        const regex = new RegExp(`<a?:${emoji.name}:\\d+>`);
+        const regex = new RegExp(`<a?:${emoji.name}:\\d+>`, "g");
         messageContent = messageContent.replaceAll(regex, `${emoji}`);
     })
     return { content: messageContent, emojis: emojis };
+}
+
+export const networkChannelPingNotificationEmbedBuilder = async (pingedUserId: string, message: Message, networkMessage: MessagesRecord | undefined, networkUser: User, replyMessage?: MessagesRecord): Promise<{ EmbedBuilder: EmbedBuilder, Attachments: Attachment[] }> => {
+    const pingedUser = client.users.cache.get(pingedUserId);
+    if (!pingedUser) {
+        logger.warn(`Could not find user with id ${pingedUserId}`);
+    }
+
+    const pingNotificationEmbed = new EmbedBuilder()
+        .setAuthor({ name: `${networkUser.displayName} | ${networkUser.id}`, iconURL: networkUser.avatarURL() ?? undefined })
+        .setTimestamp(Date.now())
+        .setColor(Colors.Yellow)
+    
+    if (replyMessage) {
+        pingNotificationEmbed.setTitle(`You got replied to.`)
+    } else {
+        pingNotificationEmbed.setTitle(`You got pinged.`);
+    }
+
+    pingNotificationEmbed.setDescription(message.content);
+    const attachments: Attachment[] = [];
+    message.attachments.forEach((attachment) => attachments.push(attachment));
+
+    let messageToLinkTo: MessagesRecord | undefined;
+    if (replyMessage) {
+        const pingedUserMessages = await databaseManager.getUniqueUserMessages(pingedUserId);
+        const replyMessageInCorrectGuild = pingedUserMessages.find((pingedUserMessage) => pingedUserMessage.userMessageId === replyMessage.userMessageId);
+        if (!replyMessageInCorrectGuild) {
+            // TODO: write log
+            return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};
+        }
+        if (!networkMessage) {
+            // TODO: write log
+            return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};
+        }
+        const relatedNetworkMessages = await databaseManager.getMessagesByUid(networkMessage.userMessageId);
+        messageToLinkTo = relatedNetworkMessages.find((relatedNetworkMessage) => relatedNetworkMessage.channelId === replyMessageInCorrectGuild.channelId);
+        
+    } else {
+        const pingedUserMessages = await databaseManager.getUniqueUserMessages(pingedUserId);
+        if (!networkMessage) {
+            // TODO: write log
+            return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};
+        }
+        const relatedNetworkMessages = await databaseManager.getMessagesByUid(networkMessage.userMessageId);
+        messageToLinkTo = relatedNetworkMessages.find((relatedNetworkMessage) => pingedUserMessages[pingedUserMessages.length - 1].channelId === relatedNetworkMessage.channelId);
+
+    }
+    
+    if (!messageToLinkTo) {
+        // TODO: write log
+        return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};
+    }
+    const messageGuild = client.guilds.cache.get(messageToLinkTo.guildId);
+    const messageChannel = (messageGuild?.channels.cache.get(messageToLinkTo.channelId) as BaseGuildTextChannel);
+    const messageMessage = messageChannel.messages.cache.get(messageToLinkTo.channelMessageId);
+    if (!messageMessage) {
+        // TODO: write log
+        return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};
+    }
+    const messageLink = messageMessage.url;
+    if (!messageLink) {
+        // TODO: write log
+        return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};
+    }
+    pingNotificationEmbed.addFields({ name: "Link to message:", value: messageLink });
+
+    return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};
 }

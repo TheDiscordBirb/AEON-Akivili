@@ -162,14 +162,12 @@ class BanshareManager {
                             logger.warn(`Couldnt get custom id of user.`);
                             return;
                         }
-                        const user = client.users.cache.get(userId.split(/ +/)[1]);
                         const broadcasts = await databaseManager.getBroadcasts();
                         const correctBroadcast = broadcasts.find((broadcast) => broadcast.webhookId === awaitedWebhookMessage.webhookClient.id);
-                        if (!user) return;
                         if (!correctBroadcast) return;
                         const guild = client.guilds.cache.get(correctBroadcast.guildId);
                         if (!guild) return;
-                        await guild.bans.create(user);
+                        await guild.bans.create(userId.split(/ +/)[1]);
                     }
                 });
         }))

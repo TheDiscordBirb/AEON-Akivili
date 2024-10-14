@@ -167,12 +167,20 @@ class DatabaseManager {
 
     public async getMessagesByUid(userMessageId: string): Promise<MessagesRecord[]> {
         const db = await this.db();
-        const userMessageRecord = await db.get<MessagesRecord>(`SELECT * FROM Messages WHERE userMessageId="${userMessageId}"`);
-        if (!userMessageRecord) {
+        const relatedMessageRecords = await db.all<MessagesRecord[]>(`SELECT * FROM Messages WHERE userMessageId="${userMessageId}"`);
+        if (!relatedMessageRecords?.length) {
             throw new Error('Could not get user message.');
         }
-        const relatedMessageRecords = await db.all<MessagesRecord[]>(`SELECT * FROM Messages WHERE userMessageId="${userMessageId}"`);
         return relatedMessageRecords;
+    }
+
+    public async getUniqueUserMessages(userId: string): Promise<MessagesRecord[]> {
+        const db = await this.db();
+        const uniqueUserMessageRecords = await db.all<MessagesRecord[]>(`SELECT * FROM Messages WHERE userId="${userId}" AND messageOrigin=1`);
+        if (!uniqueUserMessageRecords?.length) {
+            throw new Error('Could not get user message.');
+        }
+        return uniqueUserMessageRecords;
     }
 
     public async getUserId(channelId: string, channelMessageId: string): Promise<string> {

@@ -32,7 +32,7 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
     const webhookChannelType = channelWebhook.channelType;
 
     await interaction.message.reactions.removeAll();
-    
+
     const actionRows = interaction.message.components;
 
     const matchingBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === webhookChannelType);

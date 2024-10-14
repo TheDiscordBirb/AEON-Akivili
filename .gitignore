@@ -1,4 +1,6 @@
 .env
+envBeta.txt
+envLive.txt
 bot.log
 aeon.db
 node_modules

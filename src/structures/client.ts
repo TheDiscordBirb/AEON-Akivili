@@ -11,7 +11,7 @@ import { RegisterCommandsOptions } from "../types/client";
 import { Event } from "./event";
 import * as path from 'path';
 import { Logger } from '../logger';
-import { getEnvVar } from "../utils";
+import { getEnvVar } from "../get-env-var";
 
 const logger = new Logger('Client');
 
