@@ -36,6 +36,9 @@ const logger = new Logger("Utils");
 export const hasModerationRights = (guildUser: GuildMember): boolean => {
     return !!(guildUser.roles.cache.find((role) => role.permissions.has(PermissionFlagsBits.BanMembers)));
 }
+export const hasMessageManageRights = (guildUser: GuildMember): boolean => {
+    return !!(guildUser.roles.cache.find((role) => role.permissions.has(PermissionFlagsBits.ManageMessages)));
+}
 
 export const isNavigator = (user: User): boolean => {
     const aeonGuild = (client.channels.cache.get(config.aeonBanshareChannelId) as GuildTextBasedChannel).guild;
@@ -55,10 +58,16 @@ export const isDev = (user: User): boolean => {
 export const doesUserOwnMessage = (userIdInDb: string | undefined, userId: string): boolean => {
     return userIdInDb === userId;
 }
-export const isUserActive = async (userId: string): Promise<boolean> => {
-    const userMessages = (await databaseManager.getUniqueUserMessages(userId)).slice(-200);
-    if (!userMessages.length) return false;
-    return Date.now() - userMessages[0].timestamp < Time.hours(48);
+export const userActivityLevelCheck = async (userId: string): Promise<number> => {
+    try {
+        const coinTierMessage = (await databaseManager.getUniqueUserMessages(userId, 1, 100))[0];
+        const diamondTierMessage = (await databaseManager.getUniqueUserMessages(userId, 1, 200))[0];
+        const crownTierMessage = (await databaseManager.getUniqueUserMessages(userId, 1, 300))[0];
+        return (Date.now() - coinTierMessage.timestamp <= Time.hours(48) ? (Date.now() - diamondTierMessage.timestamp <= Time.hours(48) ? (Date.now() - crownTierMessage.timestamp <= Time.hours(48) ? 3 : 2) : 1) : 0);
+    } catch {
+        logger.warn("Could not get user messages.");
+        return 0;
+    }
 }
 
 export namespace Time {
@@ -379,7 +388,7 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
     return { content: messageContent, emojis: emojis };
 }
 
-export const networkChannelPingNotificationEmbedBuilder = async (pingedUserId: string, message: Message, networkMessage: MessagesRecord | undefined, networkUser: User, replyMessage?: MessagesRecord): Promise<{ EmbedBuilder: EmbedBuilder, Attachments: Attachment[] }> => {
+export const networkChannelPingNotificationEmbedBuilder = async (pingedUserId: string, message: Message, networkMessage: MessagesRecord | undefined, networkUser: User, replyMessage?: MessagesRecord): Promise<{ EmbedBuilder: EmbedBuilder, Attachments: Attachment[] } | undefined> => {
     const pingedUser = client.users.cache.get(pingedUserId);
     if (!pingedUser) {
         logger.warn(`Could not find user with id ${pingedUserId}`);
@@ -400,46 +409,46 @@ export const networkChannelPingNotificationEmbedBuilder = async (pingedUserId: s
     const attachments: Attachment[] = [];
     message.attachments.forEach((attachment) => attachments.push(attachment));
 
+    const pingedUserMessages = await databaseManager.getUniqueUserMessages(pingedUserId, 50);
+    if (!pingedUserMessages.length) {
+        logger.warn(`Can not get message of pinged user`);
+        return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};
+    }
+    const pingedUserLastMessage = pingedUserMessages[0];
+    if(Date.now() - pingedUserLastMessage.timestamp <= Time.minutes(10)) {
+        return undefined;
+    }
     let messageToLinkTo: MessagesRecord | undefined;
+    if (!networkMessage) {
+        logger.warn(`Can not get network message`);
+        return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};
+    }
+    const relatedNetworkMessages = await databaseManager.getMessagesByUid(networkMessage.userMessageId);
     if (replyMessage) {
-        const pingedUserMessages = await databaseManager.getUniqueUserMessages(pingedUserId);
         const replyMessageInCorrectGuild = pingedUserMessages.find((pingedUserMessage) => pingedUserMessage.userMessageId === replyMessage.userMessageId);
         if (!replyMessageInCorrectGuild) {
-            // TODO: write log
+            logger.warn(`Can not get reply message in correct guild`);
             return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};
         }
-        if (!networkMessage) {
-            // TODO: write log
-            return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};
-        }
-        const relatedNetworkMessages = await databaseManager.getMessagesByUid(networkMessage.userMessageId);
         messageToLinkTo = relatedNetworkMessages.find((relatedNetworkMessage) => relatedNetworkMessage.channelId === replyMessageInCorrectGuild.channelId);
-        
     } else {
-        const pingedUserMessages = await databaseManager.getUniqueUserMessages(pingedUserId);
-        if (!networkMessage) {
-            // TODO: write log
-            return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};
-        }
-        const relatedNetworkMessages = await databaseManager.getMessagesByUid(networkMessage.userMessageId);
-        messageToLinkTo = relatedNetworkMessages.find((relatedNetworkMessage) => pingedUserMessages[pingedUserMessages.length - 1].channelId === relatedNetworkMessage.channelId);
-
+        messageToLinkTo = relatedNetworkMessages.find((relatedNetworkMessage) => pingedUserLastMessage.channelId === relatedNetworkMessage.channelId);
     }
     
     if (!messageToLinkTo) {
-        // TODO: write log
+        logger.warn(`Can not get message to link to`);
         return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};
     }
     const messageGuild = client.guilds.cache.get(messageToLinkTo.guildId);
     const messageChannel = (messageGuild?.channels.cache.get(messageToLinkTo.channelId) as BaseGuildTextChannel);
     const messageMessage = messageChannel.messages.cache.get(messageToLinkTo.channelMessageId);
     if (!messageMessage) {
-        // TODO: write log
+        logger.warn(`Can not get message`);
         return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};
     }
     const messageLink = messageMessage.url;
     if (!messageLink) {
-        // TODO: write log
+        logger.warn(`Can not get message link`);
         return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};
     }
     pingNotificationEmbed.addFields({ name: "Link to message:", value: messageLink });

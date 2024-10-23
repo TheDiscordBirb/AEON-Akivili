@@ -12,7 +12,7 @@ import { Logger } from "../../logger";
 import { databaseManager } from "../../structures/database";
 import { config } from "../../const";
 import { client } from "../../structures/client";
-import { doesUserOwnMessage, hasModerationRights } from "../../utils";
+import { doesUserOwnMessage, hasMessageManageRights, hasModerationRights } from "../../utils";
 import { MessagesRecord } from "../../types/database";
 import { NotificationType } from "../../types/event";
 import { notificationManager } from "../../functions/notification";
@@ -104,7 +104,7 @@ export default new Command({
         const matchingBroadcastRecords = (await databaseManager.getBroadcasts()).filter((broadcast) => broadcast.channelType === webhookChannelType);
 
         let deletedByMod = (relatedMessageRecords[0].userId === options.interaction.user.id) ? false : true;
-        if (!hasModerationRights(options.interaction.member)) {
+        if (!hasMessageManageRights(options.interaction.member)) {
             deletedByMod = false;
             if (!doesUserOwnMessage(relatedMessageRecords.find((relatedMessage) => relatedMessage.channelId === messageChannelId)?.userId, options.interaction.user.id)) {
                 await options.interaction.reply({ content: "You do not have permission to delete this message.", ephemeral: true });

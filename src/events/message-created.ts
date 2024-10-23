@@ -7,10 +7,8 @@ import {
     ButtonStyle,
     ChannelType,
     Message,
-    GuildEmoji,
-    ClientUser,
-    User,
-    APIMessage
+    MessageType,
+    GuildMember
 } from "discord.js";
 import { Event } from "../structures/event";
 import axios from "axios";
@@ -19,55 +17,91 @@ import { ulid } from "ulid";
 import { config } from "../const";
 import { Logger } from "../logger";
 import { client } from "../structures/client";
-import { CustomId } from "../types/event";
-import { MessagesRecord } from "../types/database";
+import { CustomId, EmojiReplacementData } from "../types/event";
+import { BroadcastRecord, MessagesRecord } from "../types/database";
 import { metrics } from "../structures/metrics";
 import { TimeSpanMetricLabel } from "../types/metrics";
 import { NetworkJoinOptions } from "../types/command";
-import { isConductor, isDev, isNavigator, isUserActive, networkChannelPingNotificationEmbedBuilder, replaceEmojis } from "../utils";
+import { isConductor, isDev, isNavigator, networkChannelPingNotificationEmbedBuilder, replaceEmojis, userActivityLevelCheck } from "../utils";
 import isApng from "is-apng";
 import * as apng from 'sharp-apng';
 import * as sharp from 'sharp';
+import { InteractionData } from '../types/meassage-created';
 
 
 const logger = new Logger('MessageCreated');
 
 const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void> => {
-    logger.debug("Got here");
-    if (interaction.webhookId) return;
+    try {
+        const { interactionMember, channelWebhook, broadcastRecords } = await getInteractionData(interaction);
+        const webhookChannelType = channelWebhook.channelType;
+        const files = await convertStickersAndImagesToFiles(interaction);
+        const emojiReplacement = await replaceEmojis(interaction.content, client);
+
+        await interaction.delete();
+
+        const sentMessage = await createWebhookMessages(broadcastRecords, webhookChannelType, interaction, interactionMember, files, emojiReplacement);
+        await sendNotification(interaction, interactionMember, sentMessage);
+        deleteEmojis(emojiReplacement);
+    } catch {
+        return;
+    }
+}
+
+export default new Event("messageCreate", async (interaction) => {
+    const metricId = metrics.start(TimeSpanMetricLabel.MESSAGE_CREATED);
+    try {
+        await messageCreatedEvent(interaction);
+    } catch (error) {
+        logger.warn('Could not execute create message event', error as Error);
+    }
+    metrics.stop(metricId);
+});
+
+const getInteractionData = async (interaction: Message<boolean> ): Promise<InteractionData> => {
+    if (interaction.webhookId) throw new Error('No webhook id for interaction.');
     const interactionMember = interaction.member;
-    if (!interactionMember) return;
-    if (interactionMember.user.id === client.user?.id) return;
-    if (await databaseManager.hasUserBeenMutedOnNetworkChat(interactionMember.user.id)) return;
+    if (!interactionMember) throw new Error('No interaction member defined.');
+    if (interactionMember.user.id === client.user?.id) throw new Error('Could not determine user id.') ;
+    if (await databaseManager.hasUserBeenMutedOnNetworkChat(interactionMember.user.id)) {
+        await interaction.delete();
+        throw new Error('User is muted.');
+    };
     
     const channel = interaction.channel as BaseGuildTextChannel;
-    if (channel.type !== ChannelType.GuildText) return;
+    if (channel.type !== ChannelType.GuildText) throw new Error('Channel type is not guild text.');
     
     const broadcastRecords = await databaseManager.getBroadcasts();
     const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
-    if (!channelWebhook) return;
-    if (interaction.type === 6) return;
+    if (!channelWebhook) throw new Error('No channel could be found in broadcasts for webhook.');
+    const interactionType = interaction.type;
+    if (interactionType === MessageType.ChannelPinnedMessage) throw new Error('Got pinned message message.');
 
     let webhook;
     try {
         webhook = await client.fetchWebhook(channelWebhook.webhookId);
     } catch (error) {
         logger.error(`Could not fetch webhook in guild: ${interaction.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`, error as Error)
-        return;
+        throw new Error(`Could not fetch webhook in guild: ${interaction.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`)
     };
     
     if (config.nonChatWebhooks.includes(webhook.name)) {
         if (webhook.name === `Aeon ${NetworkJoinOptions.INFO}`) {
             await interaction.delete();
         }
-        return;
+        throw new Error('Webhook name does not start with Aeon.');
     }
-    logger.debug("Got here");
-    
-    const webhookChannelType = channelWebhook.channelType;
-    
+
+    return {
+        interactionMember,
+        broadcastRecords,
+        channelWebhook  
+    }
+}
+
+const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): Promise<AttachmentBuilder[]> => {
     const files: AttachmentBuilder[] = [];
-    
+        
     const downloadedStickers = (await Promise.allSettled(interaction.stickers.map(async (interactionSticker) => {
         const stickerBuffer = await axios.get(interactionSticker.url, { responseType: 'arraybuffer' });
         let attachment;
@@ -99,21 +133,53 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
         acc.push(item.value);
         return acc;
     }, []);
-    
+
     files.push(...downloadedAttachments, ...downloadedStickers);
 
-    const emojiReplacement = await replaceEmojis(interaction.content, client);
-    logger.debug("Got here");
-    await interaction.delete();
+    return files;
+}
+
+const createWebhookMessages = async (
+    broadcastRecords: BroadcastRecord[],
+    webhookChannelType: string,
+    interaction: Message<boolean>,
+    interactionMember: GuildMember,
+    files: AttachmentBuilder[],
+    emojiReplacement: EmojiReplacementData): Promise<MessagesRecord | undefined> => {
+    if (!interaction.guild) return undefined;
+    let nameSuffix = ` || ${interaction.guild.name}`;
+    if (isNavigator(interactionMember.user)) {
+        nameSuffix = ` | Navigator`;
+    }
+    if (isConductor(interactionMember.user)) {
+        nameSuffix = ` | Conductor`;
+    }
+    if (isDev(interactionMember.user)) {
+        nameSuffix = ` | Akivili Dev`;
+    }
+
+    let activityIcon = "";
+    const userActivityLevel = await userActivityLevelCheck(interactionMember.id);
+    switch (userActivityLevel) {
+        case 1:
+            activityIcon = "💵";
+            break;
+        case 2:
+            activityIcon = "💎";
+            break;
+        case 3:
+            activityIcon = "👑";
+            break;
+        default:
+            break;
+    }
+    nameSuffix = `${activityIcon ? ` ${activityIcon}` : ""}${nameSuffix}`;
     
     const matchingBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === webhookChannelType);
-    const uid = ulid();
     const webhookMessages = await Promise.allSettled(matchingBroadcastRecords.map(async (broadcastRecord) => {
-        const webhookClient = new WebhookClient({ id: broadcastRecord.webhookId, token: broadcastRecord.webhookToken });
-        
         let sendOptions;
         if (!interaction.guild) {
-            return undefined;
+            return Promise.reject();
         }
     
         if (interaction.reference) {
@@ -223,23 +289,9 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
             }
         }
 
-        let nameSuffix = ` || ${interaction.guild.name}`;
-        if (isNavigator(interactionMember.user)) {
-            nameSuffix = ` | Navigator`;
-        }
-        if (isConductor(interactionMember.user)) {
-            nameSuffix = ` | Conductor`;
-        }
-        if (isDev(interactionMember.user)) {
-            nameSuffix = ` | Akivili Dev`;
-        }
-/*
-        if (await isUserActive(interactionMember.id)) {
-            nameSuffix = ` 💎` + nameSuffix;
-        }
-*/
         let avatarURL = (interactionMember.avatarURL() ? interactionMember.avatarURL() : interactionMember.displayAvatarURL()) ?? undefined;
-        let username = `${interactionMember.nickname ? interactionMember.nickname : interactionMember.displayName}` + nameSuffix;
+        let username = `${interactionMember.nickname ? interactionMember.nickname : interactionMember.displayName}`;
+        username = username.replaceAll("💵", "").replaceAll("💎", "").replaceAll("👑", "") + nameSuffix;
         const customProfile = await databaseManager.getCustomProfile(interactionMember.id);
         if (customProfile) {
             avatarURL = customProfile.avatarUrl;
@@ -247,21 +299,23 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
         }
         
         return {
-            webhookClient,
+            webhookClient: new WebhookClient({ id: broadcastRecord.webhookId, token: broadcastRecord.webhookToken }),
             messageData: {
                 avatarURL,
                 content: emojiReplacement.content,
-                files: files,
+                files,
                 username,
                 allowedMentions: { parse: [] },
                 ...sendOptions,
             },
             guildId: broadcastRecord.guildId,
             userId: interactionMember.user.id,
-        };
+        }
     }));
 
+
     let sentMessage: MessagesRecord | undefined = undefined;
+    const uid = ulid();
     await Promise.allSettled(webhookMessages.map(async (webhookMessagePromiseResult) => {
         if (webhookMessagePromiseResult.status !== 'fulfilled') {
             logger.warn(`Could not create webhook message. Status: ${webhookMessagePromiseResult.status} `)
@@ -309,7 +363,10 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
             logger.error('Could not send message', error as Error);
         }
     }));
+    return sentMessage;
+}
 
+const sendNotification = async (interaction: Message<boolean>, interactionMember: GuildMember, sentMessage?: MessagesRecord): Promise<void> => {
     let uniqueInteractionMentions = [...new Set(interaction.mentions.users)];
     if (interaction.reference) {
         if (!interaction.reference.messageId) {
@@ -332,48 +389,41 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
             // TODO: write log
             return;
         }
-        const sentReferenceMessage = (client.guilds.cache.get(interaction.reference.guildId)?.channels.cache.get(interaction.reference.channelId) as BaseGuildTextChannel).messages.cache.get(interaction.reference.messageId);
         const pingedUser = client.users.cache.get(referenceMessage.userId);
         if (!pingedUser) {
             // TODO: write log   
             return;
         }
         const pingMessageContent = await networkChannelPingNotificationEmbedBuilder(pingedUser.id, interaction, sentMessage, interactionMember.user, referenceMessage);
-        if (!pingedUser.dmChannel) {
-            await pingedUser.createDM();
+        if (pingMessageContent) {
+            if (!pingedUser.dmChannel) {
+                await pingedUser.createDM();
+            }
+            await pingedUser.send({ embeds: [pingMessageContent.EmbedBuilder], files: pingMessageContent.Attachments });
+    
+            uniqueInteractionMentions = uniqueInteractionMentions.filter(value => pingedUser.id !== value[0]);
         }
-        await pingedUser.send({ embeds: [pingMessageContent.EmbedBuilder], files: pingMessageContent.Attachments });
-
-        uniqueInteractionMentions = uniqueInteractionMentions.filter(value => pingedUser.id !== value[0]);
     }
 
     if (interaction.mentions.users) {
         uniqueInteractionMentions.forEach(async (pingedUser) => {
             if (client.users.cache.has(pingedUser[0])) {
                 const pingMessageContent = await networkChannelPingNotificationEmbedBuilder(pingedUser[0], interaction, sentMessage, interactionMember.user);
-                if (!pingedUser[1].dmChannel) {
-                    await pingedUser[1].createDM();
+                if (pingMessageContent) {
+                    if (!pingedUser[1].dmChannel) {
+                        await pingedUser[1].createDM();
+                    }
+                    await pingedUser[1].send({ embeds: [pingMessageContent.EmbedBuilder], files: pingMessageContent.Attachments });
                 }
-                await pingedUser[1].send({ embeds: [pingMessageContent.EmbedBuilder], files: pingMessageContent.Attachments });
             }
         })
     }
-    
+}
+
+const deleteEmojis = (emojiReplacement: EmojiReplacementData): void => {
     emojiReplacement.emojis.forEach(async (emoji) => {
         const guildEmoji = client.emojis.cache.get(emoji.id)
         if (!guildEmoji) return;
         await guildEmoji.guild.emojis.delete(emoji);
-    })
-
-    
+    });
 }
-
-export default new Event("messageCreate", async (interaction) => {
-    const metricId = metrics.start(TimeSpanMetricLabel.MESSAGE_CREATED);
-    try {
-        await messageCreatedEvent(interaction);
-    } catch (error) {
-        logger.warn('Could not execute create message event', error as Error);
-    }
-    metrics.stop(metricId);
-});

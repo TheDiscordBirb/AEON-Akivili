@@ -174,9 +174,9 @@ class DatabaseManager {
         return relatedMessageRecords;
     }
 
-    public async getUniqueUserMessages(userId: string): Promise<MessagesRecord[]> {
+    public async getUniqueUserMessages(userId: string, amount: number, offset = 0): Promise<MessagesRecord[]> {
         const db = await this.db();
-        const uniqueUserMessageRecords = await db.all<MessagesRecord[]>(`SELECT * FROM Messages WHERE userId="${userId}" AND messageOrigin=1`);
+        const uniqueUserMessageRecords = await db.all<MessagesRecord[]>(`SELECT * FROM Messages WHERE userId="${userId}" AND messageOrigin=1 ORDER BY timestamp DESC LIMIT ${amount} OFFSET ${offset}`);
         if (!uniqueUserMessageRecords?.length) {
             throw new Error('Could not get user message.');
         }
