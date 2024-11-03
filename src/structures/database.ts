@@ -96,7 +96,8 @@ class DatabaseManager {
     public async saveBroadcast(broadcastRecord: BroadcastRecord): Promise<void> {
         const db = await this.db();
         db.run(
-            `INSERT OR REPLACE INTO Broadcast (channelId, channelType, webhookId, webhookToken, guildId, importantBanshareRoleId, autoBanLevel) VALUES ("${broadcastRecord.channelId}", "${broadcastRecord.channelType}", "${broadcastRecord.webhookId}", "${broadcastRecord.webhookToken}", "${broadcastRecord.guildId}", "${broadcastRecord.importantBanshareRoleId}", ${broadcastRecord.autoBanLevel})`,
+            `INSERT OR REPLACE INTO Broadcast (channelId, channelType, webhookId, webhookToken, guildId, importantBanshareRoleId, autoBanLevel) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [broadcastRecord.channelId, broadcastRecord.channelType, broadcastRecord.webhookId, broadcastRecord.webhookToken, broadcastRecord.guildId, broadcastRecord.importantBanshareRoleId, broadcastRecord.autoBanLevel],
             (error: Error) => {
                 throw new Error(`Could not save into the Broadcast table. Error: ${error.message}`);
             }
@@ -123,7 +124,7 @@ class DatabaseManager {
 
     public async deleteBroadcastByWebhookId(webhookId: string): Promise<void> {
         const db = await this.db();
-        await db.run(`DELETE FROM Broadcast WHERE webhookId="${webhookId}"`);
+        await db.run(`DELETE FROM Broadcast WHERE webhookId=?`, [webhookId]);
         if (this._broadcastCache) {
             const idx = this._broadcastCache.findIndex((cacheElement) => cacheElement.webhookId === webhookId);
             if (idx !== -1) {
@@ -135,7 +136,8 @@ class DatabaseManager {
     public async logMessage(messagesRecord: MessagesRecord): Promise<void> {
         const db = await this.db();
         await db.run(
-            `INSERT OR REPLACE INTO Messages (userId, userMessageId, userName, channelId, channelMessageId, guildId, timestamp, messageOrigin) VALUES ("${messagesRecord.userId}", "${messagesRecord.userMessageId}", "${messagesRecord.userName}", "${messagesRecord.channelId}", "${messagesRecord.channelMessageId}", "${messagesRecord.guildId}", ${messagesRecord.timestamp}, ${messagesRecord.messageOrigin})`,
+            `INSERT OR REPLACE INTO Messages (userId, userMessageId, userName, channelId, channelMessageId, guildId, timestamp, messageOrigin) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [messagesRecord.userId, messagesRecord.userMessageId, messagesRecord.userName, messagesRecord.channelId, messagesRecord.channelMessageId, messagesRecord.guildId, messagesRecord.timestamp, messagesRecord.messageOrigin],
             (error: Error) => {
                 throw new Error(`Could not save record to the Messages table. Error: ${error.message}`);
             }
@@ -144,21 +146,21 @@ class DatabaseManager {
 
     public async getMessages(channelId: string, channelMessageId: string, deleteRecords = false): Promise<MessagesRecord[]> {
         const db = await this.db();
-        const userMessageRecord = await db.get<MessagesRecord>(`SELECT * FROM Messages WHERE channelId="${channelId}" AND channelMessageId="${channelMessageId}"`);
+        const userMessageRecord = await db.get<MessagesRecord>(`SELECT * FROM Messages WHERE channelId=? AND channelMessageId=?`, [channelId, channelMessageId]);
         if (!userMessageRecord) {
             if (deleteRecords) return [];
             throw new Error(`Could not get user message. ChannelId: ${channelId}, channelMessageId: ${channelMessageId}`);
         }
-        const relatedMessageRecords = await db.all<MessagesRecord[]>(`SELECT * FROM Messages WHERE userId="${userMessageRecord.userId}" AND userMessageId="${userMessageRecord.userMessageId}"`);
+        const relatedMessageRecords = await db.all<MessagesRecord[]>(`SELECT * FROM Messages WHERE userId=? AND userMessageId=?`, [userMessageRecord.userId, userMessageRecord.userMessageId]);
         if ((relatedMessageRecords.length) && (deleteRecords)) {
-            await db.run(`DELETE FROM Messages WHERE userId="${userMessageRecord.userId}" AND userMessageId="${userMessageRecord.userMessageId}"`);
+            await db.run(`DELETE FROM Messages WHERE userId=? AND userMessageId=?`, [userMessageRecord.userId, userMessageRecord.userMessageId]);
         }
         return relatedMessageRecords;
     }
 
     public async getMessageUid(channelId: string, channelMessageId: string): Promise<string> {
         const db = await this.db();
-        const messageUid = await db.get<{ userMessageId: string }>(`SELECT userMessageId FROM Messages WHERE channelId="${channelId}" AND channelMessageId="${channelMessageId}"`);
+        const messageUid = await db.get<{ userMessageId: string }>(`SELECT userMessageId FROM Messages WHERE channelId=? AND channelMessageId=?`, [channelId, channelMessageId]);
         if (!messageUid) {
             throw new Error('Could not get user message.');
         }
@@ -167,7 +169,7 @@ class DatabaseManager {
 
     public async getMessagesByUid(userMessageId: string): Promise<MessagesRecord[]> {
         const db = await this.db();
-        const relatedMessageRecords = await db.all<MessagesRecord[]>(`SELECT * FROM Messages WHERE userMessageId="${userMessageId}"`);
+        const relatedMessageRecords = await db.all<MessagesRecord[]>(`SELECT * FROM Messages WHERE userMessageId=?`, userMessageId);
         if (!relatedMessageRecords?.length) {
             throw new Error('Could not get user message.');
         }
@@ -176,7 +178,7 @@ class DatabaseManager {
 
     public async getUniqueUserMessages(userId: string, amount: number, offset = 0): Promise<MessagesRecord[]> {
         const db = await this.db();
-        const uniqueUserMessageRecords = await db.all<MessagesRecord[]>(`SELECT * FROM Messages WHERE userId="${userId}" AND messageOrigin=1 ORDER BY timestamp DESC LIMIT ${amount} OFFSET ${offset}`);
+        const uniqueUserMessageRecords = await db.all<MessagesRecord[]>(`SELECT * FROM Messages WHERE userId=? AND messageOrigin=1 ORDER BY timestamp DESC LIMIT ? OFFSET ?`, [userId, amount, offset]);
         if (!uniqueUserMessageRecords?.length) {
             throw new Error('Could not get user message.');
         }
@@ -185,7 +187,7 @@ class DatabaseManager {
 
     public async getUserId(channelId: string, channelMessageId: string): Promise<string> {
         const db = await this.db();
-        const userId = await db.get<{ userId: string }>(`SELECT userId FROM Messages WHERE channelId="${channelId}" AND channelMessageId="${channelMessageId}"`);
+        const userId = await db.get<{ userId: string }>(`SELECT userId FROM Messages WHERE channelId=? AND channelMessageId=?`, [channelId, channelMessageId]);
         if (!userId) {
             throw new Error(`Could not get user id.`);
         }
@@ -203,21 +205,21 @@ class DatabaseManager {
 
     public async toggleUserReaction(userReactionRecord: UserReactionRecord): Promise<void> {
         const db = await this.db();
-        const result = await db.get<UserReactionRecord>(`SELECT * FROM UserReaction WHERE userId = "${userReactionRecord.userId}" AND userMessageId="${userReactionRecord.userMessageId}" and reactionIdentifier="${userReactionRecord.reactionIdentifier}"`)
+        const result = await db.get<UserReactionRecord>(`SELECT * FROM UserReaction WHERE userId = ? AND userMessageId=? and reactionIdentifier=?`, [ userReactionRecord.userId, userReactionRecord.userMessageId, userReactionRecord.reactionIdentifier])
         if (!result) {
-            await db.run(`INSERT OR REPLACE INTO UserReaction (userId, userMessageId, reactionIdentifier) VALUES ("${userReactionRecord.userId}", "${userReactionRecord.userMessageId}", "${userReactionRecord.reactionIdentifier}")`)
+            await db.run(`INSERT OR REPLACE INTO UserReaction (userId, userMessageId, reactionIdentifier) VALUES (?, ?, ?)`, [ userReactionRecord.userId, userReactionRecord.userMessageId, userReactionRecord.reactionIdentifier])
         } else {
-            await db.run(`DELETE FROM UserReaction WHERE userId = "${userReactionRecord.userId}" AND userMessageId="${userReactionRecord.userMessageId}" and reactionIdentifier="${userReactionRecord.reactionIdentifier}"`);
+            await db.run(`DELETE FROM UserReaction WHERE userId = ? AND userMessageId=? and reactionIdentifier=?`, [userReactionRecord.userId, userReactionRecord.userMessageId, userReactionRecord.reactionIdentifier);
         }
     }
 
     public async deleteReaction(userReactionRecord: UserReactionRecord): Promise<void> {
         const db = await this.db();
-        const result = await db.get<UserReactionRecord>(`SELECT * FROM UserReaction WHERE userMessageId="${userReactionRecord.userMessageId}" and reactionIdentifier="${userReactionRecord.reactionIdentifier}"`)
+        const result = await db.get<UserReactionRecord>(`SELECT * FROM UserReaction WHERE userMessageId=? and reactionIdentifier=?`, [userReactionRecord.userMessageId, userReactionRecord.reactionIdentifier])
         if (!result) {
             throw new Error(`Could not find reactions to delete.`);
         } else {
-            await db.run(`DELETE FROM UserReaction WHERE userMessageId="${userReactionRecord.userMessageId}" and reactionIdentifier="${userReactionRecord.reactionIdentifier}"`);
+            await db.run(`DELETE FROM UserReaction WHERE userMessageId=? and reactionIdentifier=?`, [userReactionRecord.userMessageId,userReactionRecord.reactionIdentifier]);
         }
     }
 
@@ -229,43 +231,43 @@ class DatabaseManager {
 
     public async getReactionCountForMessage(userMessageId: string): Promise<number> {
         const db = await this.db();
-        const result = await db.all<UserReactionRecord[]>(`SELECT * FROM UserReaction WHERE userId = "${userMessageId}"`)
+        const result = await db.all<UserReactionRecord[]>(`SELECT * FROM UserReaction WHERE userId = ?`, [userMessageId])
         return result.length;
     }
 
     public async hasUserBeenMutedOnNetworkChat(userId: string): Promise<boolean> {
         const db = await this.db();
-        const result = await db.get<{ userId: string }>(`SELECT * FROM NetworkChatMutedUser WHERE userId = "${userId}"`)
+        const result = await db.get<{ userId: string }>(`SELECT * FROM NetworkChatMutedUser WHERE userId = ?`,[userId])
         return (!!result);
     }
 
     public async whoMutedUser(userId: string): Promise<string | undefined> {
         const db = await this.db();
-        return await db.get(`SELECT staffId FROM NetworkChatMutedUser WHERE userId = "${userId}"`);
+        return await db.get(`SELECT staffId FROM NetworkChatMutedUser WHERE userId = ?`,[userId]);
     }
 
     public async toggleNetworkChatMute(userId: string, staffId: string): Promise<void> {
         const db = await this.db();
-        const result = await db.get<{ userId: string }>(`SELECT * FROM NetworkChatMutedUser WHERE userId = "${userId}"`);
+        const result = await db.get<{ userId: string }>(`SELECT * FROM NetworkChatMutedUser WHERE userId = ?`,[userId]);
          if (!result) {
-            await db.run(`INSERT OR REPLACE INTO NetworkChatMutedUser (userId, staffId) VALUES ("${userId}", "${staffId}")`);
+            await db.run(`INSERT OR REPLACE INTO NetworkChatMutedUser (userId, staffId) VALUES (?, ?)`,[userId,staffId]);
         } else {
-            await db.run(`DELETE FROM NetworkChatMutedUser WHERE userId = "${userId}"`);
+            await db.run(`DELETE FROM NetworkChatMutedUser WHERE userId = ?`,[userId]);
         }
     }
 
     public async getCustomProfile(userId: string): Promise<NetworkProfileData | undefined> {
         const db = await this.db();
-        const result = await db.get<NetworkProfileData>(`SELECT * FROM NetworkProfiles WHERE userId = "${userId}"`);
+        const result = await db.get<NetworkProfileData>(`SELECT * FROM NetworkProfiles WHERE userId = ?`,[userId]);
         return result;
     }
 
     public async updateCustomProfile(networkProfileData: NetworkProfileData, deleteProfile = false): Promise<void> {
         const db = await this.db();
         if (deleteProfile) {
-            await db.run(`DELETE FROM NetworkProfiles WHERE userId = "${networkProfileData.userId}"`);
+                await db.run(`DELETE FROM NetworkProfiles WHERE userId = ?`, [networkProfileData.userId]);
         } else {
-            await db.run(`INSERT OR REPLACE INTO NetworkProfiles (userId, name, avatarUrl) VALUES ("${networkProfileData.userId}", "${networkProfileData.name}", "${networkProfileData.avatarUrl}")`);
+            await db.run(`INSERT OR REPLACE INTO NetworkProfiles (userId, name, avatarUrl) VALUES (?, ?, ?)`, [networkProfileData.userId,networkProfileData.name,networkProfileData.avatarUrl]);
         }
     }
 }
