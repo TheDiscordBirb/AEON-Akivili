@@ -209,7 +209,7 @@ class DatabaseManager {
         if (!result) {
             await db.run(`INSERT OR REPLACE INTO UserReaction (userId, userMessageId, reactionIdentifier) VALUES (?, ?, ?)`, [ userReactionRecord.userId, userReactionRecord.userMessageId, userReactionRecord.reactionIdentifier])
         } else {
-            await db.run(`DELETE FROM UserReaction WHERE userId = ? AND userMessageId=? and reactionIdentifier=?`, [userReactionRecord.userId, userReactionRecord.userMessageId, userReactionRecord.reactionIdentifier);
+            await db.run(`DELETE FROM UserReaction WHERE userId = ? AND userMessageId=? and reactionIdentifier=?`, [userReactionRecord.userId, userReactionRecord.userMessageId, userReactionRecord.reactionIdentifier]);
         }
     }
 
