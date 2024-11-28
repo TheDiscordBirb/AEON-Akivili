@@ -127,8 +127,9 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
 	if (metadata.pages) {
 	        pages = metadata.pages
 	} else {
-	        pages = 1
+                pages = 1
 	}
+        // this algorithm is a pain
         const watermark = `
         <svg width="${metadata.width}" height="${metadata.height! / pages}" opacity="0.5">
               <text
@@ -137,7 +138,7 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
                dominant-baseline="middle"
                text-anchor="middle"
                transform="rotate(45 ${metadata.width! / 2} ${(metadata.height! / pages) / 2})"
-               style="fill:#FFFFFF;paint-order:stroke;stroke:#000000;font-style:normal;font-size:${10^(Math.log(metadata.width! * (metadata.height! / pages) ) / (Math.log(Math.pow(102400, 1/30))))}px;font-family:'Source Code Pro'">${server}</text>
+               style="fill:#FFFFFF;paint-order:stroke;stroke:#000000;font-style:normal;font-size:${0.0000760966078036 * (metadata.width! * (metadata.height! / pages)) + 15.71281}px;font-family:'Source Code Pro'">${server}</text>
                </svg>
               `;
         const watermarkBuffer = Buffer.from(watermark);
