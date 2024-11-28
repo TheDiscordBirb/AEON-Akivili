@@ -104,14 +104,51 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
         
     const downloadedStickers = (await Promise.allSettled(interaction.stickers.map(async (interactionSticker) => {
         const stickerBuffer = await axios.get(interactionSticker.url, { responseType: 'arraybuffer' });
-        let attachment;
+	let server;
+	if (interactionSticker.guild) {
+                server = interactionSticker.guild.name;
+	} else {
+		server = 'A.E.O.N. ⟡ Towards the Stars';
+	}
+	let isGif;
+        let sharpAttachment;
         if (isApng(Buffer.from(stickerBuffer.data, 'utf-8'))) {
             const image = await apng.sharpFromApng(Buffer.from(stickerBuffer.data, 'utf-8'), { transparent: true, format: "rgba4444" });
-            attachment = new AttachmentBuilder(await (image as sharp.Sharp).toBuffer(), { name: `${interactionSticker.name}.gif` });
+	    isGif = true;
+	    const attachment = await (image as sharp.Sharp).toBuffer()
+            sharpAttachment = await sharp.default(attachment, {animated: true});
         } else {
-            attachment = new AttachmentBuilder(Buffer.from(stickerBuffer.data), { name: `${interactionSticker.name}.png` });
-        }
-        return attachment;
+            const attachment = Buffer.from(stickerBuffer.data)
+            sharpAttachment = await sharp.default(attachment);
+	}
+        const metadata = await sharpAttachment.metadata();
+	// GIF
+	let pages;
+	if (metadata.pages) {
+	        pages = metadata.pages
+	} else {
+	        pages = 1
+	}
+        const watermark = `
+        <svg width="${metadata.width}" height="${metadata.height! / pages}" opacity="0.5">
+              <text
+               x="50%"
+               y="50%"
+               dominant-baseline="middle"
+               text-anchor="middle"
+               transform="rotate(45 ${metadata.width! / 2} ${(metadata.height! / pages) / 2})"
+               style="fill:#FFFFFF;paint-order:stroke;stroke:#000000;font-style:normal;font-size:${((metadata.width! / 2) * ((metadata.height! / pages) / 2)) / 2500}px;font-family:'Source Code Pro'">${server}</text>
+               </svg>
+              `;
+        const watermarkBuffer = Buffer.from(watermark);
+        const watermarked = await sharpAttachment.composite([{input: watermarkBuffer, gravity: 'northeast', 'tile': true}]);
+	let attachBuffer;
+	if (isGif) {
+            attachBuffer = new AttachmentBuilder(await (watermarked as sharp.Sharp).toBuffer(), { name: `${interactionSticker.name}.gif` });
+	} else {
+            attachBuffer = new AttachmentBuilder(await (watermarked as sharp.Sharp).toBuffer(), { name: `${interactionSticker.name}.png` });
+	}
+        return attachBuffer;
     }))).reduce<AttachmentBuilder[]>((acc, item) => {
         if (item.status !== 'fulfilled') {
             logger.warn(`Could not create downloaded sticker. Status: ${item.status}`)
