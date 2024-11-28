@@ -137,7 +137,7 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
                dominant-baseline="middle"
                text-anchor="middle"
                transform="rotate(45 ${metadata.width! / 2} ${(metadata.height! / pages) / 2})"
-               style="fill:#FFFFFF;paint-order:stroke;stroke:#000000;font-style:normal;font-size:${((metadata.width! / 2) * ((metadata.height! / pages) / 2)) / 2500}px;font-family:'Source Code Pro'">${server}</text>
+               style="fill:#FFFFFF;paint-order:stroke;stroke:#000000;font-style:normal;font-size:${10^(Math.log(metadata.width! * (metadata.height! / pages) ) / (Math.log(Math.pow(102400, 1/30))))}px;font-family:'Source Code Pro'">${server}</text>
                </svg>
               `;
         const watermarkBuffer = Buffer.from(watermark);
