@@ -12,21 +12,18 @@
   },
   "repository": {
     "type": "git",
-    "url": "github.com/TheDiscordBirb/FTM-Bot"
+    "url": "github.com/TheDiscordBirb/AEON-Akivili"
   },
   "author": "Birb, Stern",
   "license": "ISC",
   "dependencies": {
     "@discordjs/collection": "^1.5.3",
     "axios": "^1.7.2",
-    "cross-spawn": "^7.0.3",
+    "cross-spawn": "^7.0.6",
     "discord.js": "^14.15.2",
     "dotenv": "^16.4.5",
-    "eventemitter2": "^6.4.9",
-    "glob": "^8.0.3",
-    "glob-promise": "^6.0.3",
+    "glob": "^11.0.0",
     "is-apng": "^1.2.0",
-    "mongoose": "^7.5.2",
     "node-cron": "^3.0.3",
     "sharp": "^0.33.5",
     "sharp-apng": "^0.1.5",
