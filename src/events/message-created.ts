@@ -110,7 +110,7 @@ export default new Event("messageCreate", async (interaction) => {
     } catch (error) {
         logger.warn('Could not execute create message event', error as Error);
         try {
-            await interaction.member?.send(`There was an error delivering your message with ${error as Error}`);
+            //await interaction.member?.send(`There was an error delivering your message with ${error as Error}`);
         } catch (noIntMember) {
             logger.warn(`Could not message user.`);
         }
