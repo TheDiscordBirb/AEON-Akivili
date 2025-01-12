@@ -19,7 +19,7 @@ class NotificationManager {
         const embedCollection: EmbedBuilder[] = [];
 
         const notificationEmbed = new EmbedBuilder()
-            .setAuthor({ name: data.executingUser.username, iconURL: data.executingUser.avatarURL() ?? undefined })
+            .setAuthor({ name: `${data.executingUser.username} (${data.executingUser.id})`, iconURL: data.executingUser.avatarURL() ?? undefined })
             .setFooter({ text: `Aeon ${data.channelType} | ${new Date(data.time).toLocaleString('en-US',{ hourCycle: "h12" })}` });
 
         switch (data.notificationType) {
