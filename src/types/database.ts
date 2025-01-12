@@ -21,6 +21,12 @@ export interface MessagesRecord {
     messageOrigin: number
 }
 
+export interface ModmailRecord {
+    userId: string,
+    channelId: string,
+    active: number
+}
+
 export interface UserReactionRecord {
     userMessageId: string,
     userId: string,
@@ -28,7 +34,7 @@ export interface UserReactionRecord {
 }
 
 export interface BanshareData {
-    user: User,
+    user: User | string,
     reason: string,
     proof: string[],
 }

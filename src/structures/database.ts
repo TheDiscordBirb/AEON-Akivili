@@ -1,6 +1,12 @@
 import sqlite3 from 'sqlite3';
 import { Database, open } from 'sqlite';
-import { BroadcastRecord, MessagesRecord, NetworkProfileData, UserReactionRecord } from '../types/database';
+import { 
+    BroadcastRecord,
+    MessagesRecord,
+    ModmailRecord,
+    NetworkProfileData,
+    UserReactionRecord
+} from '../types/database';
 import { Logger } from "../logger";
 
 const logger = new Logger('Database');
@@ -72,8 +78,29 @@ class DatabaseManager {
             `CREATE TABLE IF NOT EXISTS NetworkProfiles (
                 userId TEXT,
                 name TEXT,
-                avatarUrl TEXT,
+                avatar BLOB,
                 PRIMARY KEY (userId)
+            )`
+        )
+
+        await this._db.run(
+            `CREATE TABLE IF NOT EXISTS Modmails (
+                userId TEXT,
+                channelId TEXT,
+                active INT,
+                PRIMARY KEY (channelId)
+            )`
+        )
+
+        await this._db.run(
+            `CREATE TABLE IF NOT EXISTS Banshares (
+                serverId TEXT,
+                status TEXT,
+                userId TEXT,
+                reason TEXT,
+                proof BLOB,
+                timestamp INT,
+                PRIMARY KEY (serverId, userId, reason, proof, timestamp)
             )`
         )
 
@@ -237,38 +264,67 @@ class DatabaseManager {
 
     public async hasUserBeenMutedOnNetworkChat(userId: string): Promise<boolean> {
         const db = await this.db();
-        const result = await db.get<{ userId: string }>(`SELECT * FROM NetworkChatMutedUser WHERE userId = ?`,[userId])
+        const result = await db.get<{ userId: string }>(`SELECT * FROM NetworkChatMutedUser WHERE userId = ?`, [userId])
         return (!!result);
     }
 
     public async whoMutedUser(userId: string): Promise<string | undefined> {
         const db = await this.db();
-        return await db.get(`SELECT staffId FROM NetworkChatMutedUser WHERE userId = ?`,[userId]);
+        return await db.get(`SELECT staffId FROM NetworkChatMutedUser WHERE userId = ?`, [userId]);
     }
 
     public async toggleNetworkChatMute(userId: string, staffId: string): Promise<void> {
         const db = await this.db();
-        const result = await db.get<{ userId: string }>(`SELECT * FROM NetworkChatMutedUser WHERE userId = ?`,[userId]);
+        const result = await db.get<{ userId: string }>(`SELECT * FROM NetworkChatMutedUser WHERE userId = ?`, [userId]);
          if (!result) {
-            await db.run(`INSERT OR REPLACE INTO NetworkChatMutedUser (userId, staffId) VALUES (?, ?)`,[userId,staffId]);
+            await db.run(`INSERT OR REPLACE INTO NetworkChatMutedUser (userId, staffId) VALUES (?, ?)`, [userId,staffId]);
         } else {
-            await db.run(`DELETE FROM NetworkChatMutedUser WHERE userId = ?`,[userId]);
+            await db.run(`DELETE FROM NetworkChatMutedUser WHERE userId = ?`, [userId]);
         }
     }
 
     public async getCustomProfile(userId: string): Promise<NetworkProfileData | undefined> {
         const db = await this.db();
-        const result = await db.get<NetworkProfileData>(`SELECT * FROM NetworkProfiles WHERE userId = ?`,[userId]);
+        const result = await db.get<NetworkProfileData>(`SELECT * FROM NetworkProfiles WHERE userId = ?`, [userId]);
         return result;
     }
 
     public async updateCustomProfile(networkProfileData: NetworkProfileData, deleteProfile = false): Promise<void> {
         const db = await this.db();
         if (deleteProfile) {
-                await db.run(`DELETE FROM NetworkProfiles WHERE userId = ?`, [networkProfileData.userId]);
+            await db.run(`DELETE FROM NetworkProfiles WHERE userId = ?`, [networkProfileData.userId]);
         } else {
             await db.run(`INSERT OR REPLACE INTO NetworkProfiles (userId, name, avatarUrl) VALUES (?, ?, ?)`, [networkProfileData.userId,networkProfileData.name,networkProfileData.avatarUrl]);
         }
+    }
+
+    public async getModmail(channelId: string): Promise<ModmailRecord> {
+        const db = await this.db();
+        const result = await db.get(`SELECT * FROM Modmails WHERE channelId = ?`, [channelId]);
+        if(!result) {
+            throw new Error("Could not find modmail.");
+        }
+        return result;
+    }
+
+    public async getModmailByUserId(userId: string): Promise<ModmailRecord> {
+        const db = await this.db();
+        const result = await db.get(`SELECT * FROM Modmails WHERE userId = ? AND active = ?`, [userId, 1]);
+        if(!result) {
+            throw new Error("Could not find modmail.");
+        }
+        return result;
+    }
+
+    public async createModmail(userId: string, channelId: string): Promise<void> {
+        const db = await this.db();
+        await db.run(`INSERT OR REPLACE INTO Modmails (userId, channelId, active) VALUES (?, ?, ?)`, [userId, channelId, 1]);
+    }
+
+    public async closeModmail(channelId: string) {
+        const db = await this.db();
+        const modmail = await this.getModmail(channelId);
+        await db.run(`INSERT OR REPLACE INTO Modmails (userId, channelId, active) VALUES (?, ?, ?)`, [modmail.userId, channelId, 0]);
     }
 }
 

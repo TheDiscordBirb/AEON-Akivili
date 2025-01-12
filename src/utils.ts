@@ -11,7 +11,6 @@ import {
     Collection,
     OAuth2Guild,
     Message,
-    Embed,
     EmbedBuilder,
     APIEmbedField,
     User,
@@ -20,18 +19,33 @@ import {
     GuildEmoji,
     Colors,
     Attachment,
-    APIMessage,
     BaseGuildTextChannel
 } from 'discord.js';
 import { MessagesRecord, UserReactionRecord } from './types/database';
 import { databaseManager } from './structures/database';
-import { CustomId, EmojiReplacementData, guildEmojiCooldowns } from './types/event';
+import { ActionRowComponentReconstructionData, CustomId, EmojiReplacementData, guildEmojiCooldowns } from './types/event';
 import { Logger } from './logger';
 import { client } from './structures/client';
 import axios from 'axios';
 import { config } from './const';
+import { clientInfoData } from './types/client';
+import sharp from 'sharp';
 
 const logger = new Logger("Utils");
+
+export const clientInfo = (): clientInfoData => {
+    let clientName = client.user?.username;
+    let clientAvatarUrl = client.user?.avatarURL();
+    if (!clientName) {
+        logger.warn("Could not get client username, has been set to 'Akivili'");
+        clientName = "Akivili";
+    }
+    if (!clientAvatarUrl) {
+        logger.warn("Could not get client avatar, has been set to undefined");
+        clientAvatarUrl = undefined;
+    }
+    return { name: clientName, avatarUrl: clientAvatarUrl }
+}
 
 export const hasModerationRights = (guildUser: GuildMember): boolean => {
     return !!(guildUser.roles.cache.find((role) => role.permissions.has(PermissionFlagsBits.BanMembers)));
@@ -53,7 +67,7 @@ export const isConductor = (user: User): boolean => {
     return !!aeonMember.roles.cache.get(config.conductorRoleId);
 }
 export const isDev = (user: User): boolean => {
-    return user.id === config.devId;
+    return !!config.devIds.includes(user.id);
 }
 export const doesUserOwnMessage = (userIdInDb: string | undefined, userId: string): boolean => {
     return userIdInDb === userId;
@@ -98,9 +112,7 @@ export const asyncRetry = async <T>(f: () => Promise<T>, retryCount = 5): Promis
     }
 }
 
-
-
-export const rebuildMessageComponentAfterUserInteraction = async (component: ActionRow<MessageActionRowComponent>[], userReactionRecord: UserReactionRecord, deleteAll = false): Promise<ActionRowBuilder<ButtonBuilder>[]> => {
+export const rebuildMessageComponentAfterUserInteraction = async (message: Message<boolean>, component: ActionRow<MessageActionRowComponent>[], userReactionRecord: UserReactionRecord, deleteAll = false): Promise<ActionRowComponentReconstructionData[]> => {
     const hasUserReactedToMessage = await databaseManager.hasUserReactedToMessage(userReactionRecord);
     const hasReplyRow = component[0]?.components[0].customId === CustomId.REPLY;
     const firstEmojiRow = hasReplyRow ? 1 : 0;
@@ -164,53 +176,69 @@ export const rebuildMessageComponentAfterUserInteraction = async (component: Act
         newButtonComponents.push(newButton);
     }
     
-    let resultComponent: ActionRowBuilder<ButtonBuilder>[] = [];
+    let messageUid = await databaseManager.getMessageUid(message.channel.id, message.id);
+    const repliedMessage = (message.components[0].components[1] as ButtonComponent).url;
+    if(repliedMessage) {
+        const repliedMessageLinkRegex = /https:\/\/discord.com\/channels\/[0-9]*\/([0-9]*)\/([0-9]*)/gm;
+        const repliedMessageArgs = repliedMessageLinkRegex.exec(repliedMessage);
+        if(repliedMessageArgs) {
+            messageUid = await databaseManager.getMessageUid(repliedMessageArgs[1], repliedMessageArgs[2]);
+        }
 
-    if (hasReplyRow) {
-        const replyButtons: ButtonBuilder[] = [];
-        component[0].components.forEach((replyComponent) => {
-            const replyButton = replyComponent as ButtonComponent;
-            const url = replyButton.url;
-            const customId = replyButton.customId;
-            const emoji = replyButton.emoji;
-            if (!replyButton.label) {
-                logger.warn(`No reply button label`);
+    }
+    const relatedNetworkMessages = await databaseManager.getMessagesByUid(messageUid);
+    const returnValues: ActionRowComponentReconstructionData[] = [];
+
+    await Promise.allSettled(relatedNetworkMessages.flatMap(async (messagesRecord) => {
+        const resultComponent: ActionRowBuilder<ButtonBuilder>[] = [];
+    
+        if (hasReplyRow) {
+            const replyButtons: ButtonBuilder[] = [];
+            component[0].components.forEach((replyComponent) => {
+                const replyButton = replyComponent as ButtonComponent;
+                const url = repliedMessage ? ((replyComponent as ButtonComponent).url ? `https://discord.com/channels/${messagesRecord.guildId}/${messagesRecord.channelId}/${messagesRecord.channelMessageId}` : replyButton.url) : replyButton.url;
+                const customId = replyButton.customId;
+                const emoji = replyButton.emoji;
+                if (!replyButton.label) {
+                    logger.warn(`No reply button label`);
+                    return;
+                }
+    
+                const replyButtonBuilder = new ButtonBuilder()
+                    .setStyle(replyButton.style)
+                    .setLabel(replyButton.label)
+                    .setDisabled(replyButton.disabled);
+                if (url) {
+                    replyButtonBuilder.setURL(url);
+                }
+                if (customId) {
+                    replyButtonBuilder.setCustomId(customId);
+                }
+                if (emoji) {
+                    replyButtonBuilder.setEmoji(replyButton.emoji);
+                }
+                replyButtons.push(replyButtonBuilder);
+            })
+            const replyRow = new ActionRowBuilder<ButtonBuilder>();
+            resultComponent.push(replyRow);
+            resultComponent[resultComponent.length - 1].addComponents(replyButtons);
+        }
+    
+        const maxRowCount = 5 - firstEmojiRow;
+        newButtonComponents.forEach((newButtonComponent, idx) => {
+            const row = Math.floor(idx / 5);
+            if (row > maxRowCount) {
+                logger.warn(`More rows than max row count`);
                 return;
             }
-
-            const replyButtonBuilder = new ButtonBuilder()
-                .setStyle(replyButton.style)
-                .setLabel(replyButton.label)
-                .setDisabled(replyButton.disabled);
-            if (url) {
-                replyButtonBuilder.setURL(url);
+            if (row >= resultComponent.length - (hasReplyRow ? 1 : 0)) {
+                const newActionRow = new ActionRowBuilder<ButtonBuilder>();
+                resultComponent.push(newActionRow);
             }
-            if (customId) {
-                replyButtonBuilder.setCustomId(customId);
-            }
-            if (emoji) {
-                replyButtonBuilder.setEmoji(replyButton.emoji);
-            }
-            replyButtons.push(replyButtonBuilder);
-        })
-        const replyRow = new ActionRowBuilder<ButtonBuilder>();
-        resultComponent.push(replyRow);
-        resultComponent[resultComponent.length - 1].addComponents(replyButtons);
-    }
-
-    const maxRowCount = 5 - firstEmojiRow;
-    newButtonComponents.forEach((newButtonComponent, idx) => {
-        const row = Math.floor(idx / 5);
-        if (row > maxRowCount) {
-            logger.warn(`More rows than max row count`);
-            return;
-        }
-        if (row >= resultComponent.length - (hasReplyRow ? 1 : 0)) {
-            const newActionRow = new ActionRowBuilder<ButtonBuilder>();
-            resultComponent.push(newActionRow);
-        }
-        resultComponent[resultComponent.length - 1].addComponents(newButtonComponent);
-    });
+            resultComponent[resultComponent.length - 1].addComponents(newButtonComponent);
+        });
+        returnValues.push({guildID: messagesRecord.guildId, components: resultComponent});
+    }))
 
     if (deleteAll) {
         try {
@@ -221,7 +249,7 @@ export const rebuildMessageComponentAfterUserInteraction = async (component: Act
     } else {
         await databaseManager.toggleUserReaction(userReactionRecord);
     }
-    return resultComponent;
+    return returnValues;
 }
 
 export const statusUpdate = async (guilds: Collection<string, OAuth2Guild>): Promise<void> => {
@@ -386,6 +414,11 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
         messageContent = messageContent.replaceAll(regex, `${emoji}`);
     })
     return { content: messageContent, emojis: emojis };
+}
+
+export const watermarkSize = async (metadata: sharp.Metadata, pages: number): Promise<number> => {
+    //Do not ask, it works, not gonna fuck around anymore
+    return 0.0000760966078036 * (metadata.width! * (metadata.height! / pages)) + 15.71281;
 }
 
 export const networkChannelPingNotificationEmbedBuilder = async (pingedUserId: string, message: Message, networkMessage: MessagesRecord | undefined, networkUser: User, replyMessage?: MessagesRecord): Promise<{ EmbedBuilder: EmbedBuilder, Attachments: Attachment[] } | undefined> => {

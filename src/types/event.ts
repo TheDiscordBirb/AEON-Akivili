@@ -1,4 +1,4 @@
-import { Emoji, GuildEmoji } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, GuildEmoji } from "discord.js";
 
 export enum BanShareButtonArg {
     BANSHARE = 'banshare',
@@ -10,12 +10,24 @@ export enum BanShareButtonArg {
     REJECT_REQUEST = 'rejectRequest'
 }
 
+export enum DmMessageButtonArg {
+    OPEN_MODMAIL = 'openModmail',
+    CLOSE_MODMAIL = 'closeModmail',
+    NEW_BANSHARE = 'newBanshare'
+}
+
+export enum CrowdControlArg {
+    ALLOW = "allow",
+    REJECT = "reject"
+}
+
 export enum CustomId {
     REPLY = 'Reply',
 }
 
 export enum NotificationType {
     BAN = 'ban',
+    MODERATOR_BAN = "modBan",
     MESSAGE_EDIT = 'messageEdit',
     MESSAGE_DELETE = 'messageDelete',
     REACTION_DELETE = 'reactionDelete',
@@ -25,6 +37,11 @@ export enum NotificationType {
 export interface EmojiReplacementData {
     content: string,
     emojis: GuildEmoji[]
+}
+
+export interface ActionRowComponentReconstructionData {
+    guildID: string | undefined,
+    components: ActionRowBuilder<ButtonBuilder>[]
 }
 
 export const guildEmojiCooldowns: string[][] = [];

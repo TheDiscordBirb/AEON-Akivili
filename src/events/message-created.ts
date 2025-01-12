@@ -8,7 +8,10 @@ import {
     ChannelType,
     Message,
     MessageType,
-    GuildMember
+    GuildMember,
+    EmbedBuilder,
+    Colors,
+    DMChannel
 } from "discord.js";
 import { Event } from "../structures/event";
 import axios from "axios";
@@ -17,43 +20,100 @@ import { ulid } from "ulid";
 import { config } from "../const";
 import { Logger } from "../logger";
 import { client } from "../structures/client";
-import { CustomId, EmojiReplacementData } from "../types/event";
+import { CustomId, DmMessageButtonArg, EmojiReplacementData } from "../types/event";
 import { BroadcastRecord, MessagesRecord } from "../types/database";
 import { metrics } from "../structures/metrics";
 import { TimeSpanMetricLabel } from "../types/metrics";
 import { NetworkJoinOptions } from "../types/command";
-import { isConductor, isDev, isNavigator, networkChannelPingNotificationEmbedBuilder, replaceEmojis, userActivityLevelCheck } from "../utils";
+import {
+    hasModerationRights,
+    isConductor,
+    isDev,
+    isNavigator,
+    networkChannelPingNotificationEmbedBuilder,
+    replaceEmojis,
+    userActivityLevelCheck,
+    watermarkSize
+} from "../utils";
 import isApng from "is-apng";
 import * as apng from 'sharp-apng';
 import * as sharp from 'sharp';
-import { InteractionData } from '../types/meassage-created';
+import { InteractionData } from '../types/message-created';
+import { crowdControl } from "../functions/crowd-control";
+import { modmailHandler } from "../functions/modmail";
 
 
 const logger = new Logger('MessageCreated');
 
 const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void> => {
     try {
+        try {
+            await databaseManager.getModmail(interaction.channelId);
+            return;
+        } catch(error) {
+        }
         const { interactionMember, channelWebhook, broadcastRecords } = await getInteractionData(interaction);
         const webhookChannelType = channelWebhook.channelType;
         const files = await convertStickersAndImagesToFiles(interaction);
         const emojiReplacement = await replaceEmojis(interaction.content, client);
 
         await interaction.delete();
-
-        const sentMessage = await createWebhookMessages(broadcastRecords, webhookChannelType, interaction, interactionMember, files, emojiReplacement);
-        await sendNotification(interaction, interactionMember, sentMessage);
-        deleteEmojis(emojiReplacement);
-    } catch {
-        return;
+        let sentMessage;
+        let cc = false;
+        if(webhookChannelType === NetworkJoinOptions.GENERAL) {
+            cc = await crowdControl.crowdControl(webhookChannelType, interaction, interactionMember, emojiReplacement);
+        }
+        if(!cc) {
+            sentMessage = await createWebhookMessages(broadcastRecords, webhookChannelType, interaction, interactionMember, files, emojiReplacement);
+        } else {
+            return;
+        }
+        if (!sentMessage) {
+            logger.warn("Could not send message.");
+        }
+        if (sentMessage?.notify) {
+            await sendNotification(interaction, interactionMember, sentMessage?.MessagesRecord);
+        }
+        if (emojiReplacement.emojis.length) {
+            deleteEmojis(emojiReplacement);
+        }
+    } catch (error) {
+        throw new Error((error as Error).message);
     }
 }
 
 export default new Event("messageCreate", async (interaction) => {
     const metricId = metrics.start(TimeSpanMetricLabel.MESSAGE_CREATED);
     try {
-        await messageCreatedEvent(interaction);
+        const channelType = interaction.channel.type;
+        switch(channelType) {
+            case ChannelType.DM:
+                if(interaction.author == client.user || config.activeBanshareFuncionUserIds.includes(interaction.author.id)) return;
+                let modmail;
+                try {
+                    modmail = await databaseManager.getModmailByUserId(interaction.author.id);
+                    await modmailHandler.forwardModmailMessage(interaction);
+                    return;
+                } catch (error) {
+                    logger.warn((error as Error).message);
+                    if(!modmail) {
+                        await interaction.channel.send("There was an error sending this message.");
+                        return;
+                    }
+                }
+                await dmMessageResponse(interaction);
+                break;
+            default:
+                await messageCreatedEvent(interaction);
+                break;
+        }
     } catch (error) {
         logger.warn('Could not execute create message event', error as Error);
+        try {
+            await interaction.member?.send(`There was an error delivering your message with ${error as Error}`);
+        } catch (noIntMember) {
+            logger.warn(`Could not message user.`);
+        }
     }
     metrics.stop(metricId);
 });
@@ -98,25 +158,66 @@ const getInteractionData = async (interaction: Message<boolean> ): Promise<Inter
         channelWebhook  
     }
 }
-
 const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): Promise<AttachmentBuilder[]> => {
     const files: AttachmentBuilder[] = [];
-        
+    const broadcasts = await databaseManager.getBroadcasts();
+    const broadcastGuildIds: string[] = [];
+    broadcasts.forEach((broadcast) => {
+        return broadcastGuildIds.push(broadcast.guildId);
+    })
+    
     const downloadedStickers = (await Promise.allSettled(interaction.stickers.map(async (interactionSticker) => {
-        const stickerBuffer = await axios.get(interactionSticker.url, { responseType: 'arraybuffer' });
-        let attachment;
-        if (isApng(Buffer.from(stickerBuffer.data, 'utf-8'))) {
-            const image = await apng.sharpFromApng(Buffer.from(stickerBuffer.data, 'utf-8'), { transparent: true, format: "rgba4444" });
-            attachment = new AttachmentBuilder(await (image as sharp.Sharp).toBuffer(), { name: `${interactionSticker.name}.gif` });
+        let stickerBuffer;
+        // This code snipet ensures that out of network stickers cant be used by Akivili
+        const sticker = await interactionSticker.fetch();
+        if (sticker.guildId && broadcastGuildIds.includes(sticker.guildId)) {
+            return undefined;
+
+            // Uncomment to enable stickers
+            //stickerBuffer = await axios.get(sticker.url, { responseType: 'arraybuffer' })
         } else {
-            attachment = new AttachmentBuilder(Buffer.from(stickerBuffer.data), { name: `${interactionSticker.name}.png` });
+            return undefined;
         }
-        return attachment;
+
+        let watermarkText = sticker.guild?.name;
+        if(!watermarkText){
+            watermarkText = 'A.E.O.N. ⟡ Towards the Stars';
+        }
+        const isGif = isApng(Buffer.from(stickerBuffer.data, 'utf-8'));
+        let sharpAttachment;
+        if (isGif) {
+            const image = await apng.sharpFromApng(Buffer.from(stickerBuffer.data, 'utf-8'), { transparent: true, format: "rgba4444" });
+            const attachment = await (image as sharp.Sharp).toBuffer()
+            sharpAttachment = sharp.default(attachment, {animated: true});
+        } else {
+            const attachment = Buffer.from(stickerBuffer.data)
+            sharpAttachment = sharp.default(attachment);
+        }
+        const metadata = await sharpAttachment.metadata();
+        let pages = metadata.pages ?? 1;
+        const watermark = `
+        <svg width="${metadata.width}" height="${metadata.height! / pages}" opacity="0.5">
+            <text
+            x="50%"
+            y="50%"
+            dominant-baseline="middle"
+            text-anchor="middle"
+            transform="rotate(45 ${metadata.width! / 2} ${(metadata.height! / pages) / 2})"
+            style="fill:#FFFFFF;paint-order:stroke;stroke:#000000;font-style:normal;font-size:${await watermarkSize(metadata, pages)}px;font-family:'Source Code Pro'">${watermarkText}</text>
+            </svg>
+            `;
+        const watermarkBuffer = Buffer.from(watermark);
+        const watermarked = sharpAttachment.composite([{input: watermarkBuffer, gravity: 'northeast', 'tile': true}]);
+
+        const attachBuffer = new AttachmentBuilder(await (watermarked as sharp.Sharp).toBuffer(), { name: `${sticker.name}${isGif ? ".gif" : ".png"}` });
+        
+        return attachBuffer;
     }))).reduce<AttachmentBuilder[]>((acc, item) => {
         if (item.status !== 'fulfilled') {
             logger.warn(`Could not create downloaded sticker. Status: ${item.status}`)
             return acc;
         }
+        if (!item.value) return acc;
         acc.push(item.value);
         return acc;
     }, []);
@@ -135,8 +236,44 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
     }, []);
 
     files.push(...downloadedAttachments, ...downloadedStickers);
-
     return files;
+}
+
+const dmMessageResponse = async (interaction: Message<boolean>): Promise<void> => {
+    const dmResponseEmbed = new EmbedBuilder()
+        .setTitle("Dm message received")
+        .setDescription("Please select one of the following:")
+        .setColor(Colors.DarkGold)
+
+    const dmResponseActionRow = new ActionRowBuilder<ButtonBuilder>();
+
+    const broadcasts = await databaseManager.getBroadcasts();
+    const userInfo = Object.values(broadcasts).reduce<{ guildMember?: GuildMember, userIsModerator: boolean }>((acc, broadcast) => {
+        const guild = client.guilds.cache.get(broadcast.guildId);
+        if (!guild) return acc;
+        if (acc.userIsModerator) return acc;
+        const guildMember = guild.members.cache.find((user) => user.id === interaction.author.id);
+        if (!guildMember) return acc;
+        if (hasModerationRights(guildMember)) {
+            return {guildMember, userIsModerator: true};
+        }
+        return { guildMember, userIsModerator: false };
+    }, {guildMember: undefined, userIsModerator: false});
+
+    const modmailButton = new ButtonBuilder()
+        .setCustomId(`${DmMessageButtonArg.OPEN_MODMAIL} ${interaction.author.id} ${interaction.id}`)
+        .setLabel("Modmail")
+        .setStyle(ButtonStyle.Secondary)
+    const banshareButton = new ButtonBuilder()
+        .setCustomId(`${DmMessageButtonArg.NEW_BANSHARE} ${userInfo.guildMember?.guild.id}`)
+        .setLabel("Banshare")
+        .setStyle(ButtonStyle.Secondary)
+
+    dmResponseActionRow.addComponents(modmailButton);
+    if(userInfo.guildMember && userInfo.userIsModerator) {
+        dmResponseActionRow.addComponents(banshareButton);
+    }
+    await (interaction.channel as DMChannel).send({embeds: [dmResponseEmbed], components: [dmResponseActionRow]});
 }
 
 const createWebhookMessages = async (
@@ -145,7 +282,16 @@ const createWebhookMessages = async (
     interaction: Message<boolean>,
     interactionMember: GuildMember,
     files: AttachmentBuilder[],
-    emojiReplacement: EmojiReplacementData): Promise<MessagesRecord | undefined> => {
+    emojiReplacement: EmojiReplacementData): Promise<{ MessagesRecord: MessagesRecord, notify: boolean } | undefined> => {
+    // This checks if a message had stickers that didn't get converted and notifies the user
+    if (interaction.stickers.size && !files.length) {
+        if (!interaction.member) {
+            await interaction.reply({ content: "Sorry, this sticker is not in the AEON Network, as such it can not be used here." });
+        }
+        await interaction.member?.send({ content: "Sorry, this sticker is not in the AEON Network, as such it can not be used here." });
+        return;
+    }
+    
     if (!interaction.guild) return undefined;
     let nameSuffix = ` || ${interaction.guild.name}`;
     if (isNavigator(interactionMember.user)) {
@@ -235,8 +381,13 @@ const createWebhookMessages = async (
                     .setURL(`https://discord.com/channels/${referencedMessageOnChannel?.guildId}/${referencedMessageOnChannel?.channelId}/${referencedMessageOnChannel.channelMessageId}`)
                     .setStyle(ButtonStyle.Link);
                 
+                let replyButtonText = referenceMessageContent.slice(0, 25);
+                if(replyButtonText.includes("||")) {
+                    replyButtonText = "[This message contains spoliers]";
+                }
+
                 if (referenceMessageContent) {
-                    replyButtonLink.setLabel(`${referenceMessage.content.slice(0, 25)}${referenceMessageTooLong ? '...' : ''}`)
+                    replyButtonLink.setLabel(`${replyButtonText}${(referenceMessageTooLong && replyButtonText != "[This message contains spoilers]")? '...' : ''}`)
                 }
                 if (!!referenceMessage.attachments.size || !referenceMessageContent) {
                     const replyPictureEmoji = client.emojis.cache.find((emoji) => emoji.id === config.replyPictureEmojiId);
@@ -314,8 +465,9 @@ const createWebhookMessages = async (
     }));
 
 
-    let sentMessage: MessagesRecord | undefined = undefined;
+    let sentMessage: { MessagesRecord: MessagesRecord, notify: boolean } | undefined = undefined;
     const uid = ulid();
+    let prohibitedNick: { error: Error | undefined, nickFailed: boolean } = { error: undefined, nickFailed: false };
     await Promise.allSettled(webhookMessages.map(async (webhookMessagePromiseResult) => {
         if (webhookMessagePromiseResult.status !== 'fulfilled') {
             logger.warn(`Could not create webhook message. Status: ${webhookMessagePromiseResult.status} `)
@@ -349,20 +501,26 @@ const createWebhookMessages = async (
             }
             await databaseManager.logMessage(messageData);
             if (messageOrigin) {
-                sentMessage = messageData;
+                sentMessage = { MessagesRecord: messageData, notify: (interaction.reference || interaction.mentions.members?.size) ? true : false};
             }
         } catch (error) {
             if ((error as Error).message.includes("Username cannot contain")) {
                 if (!interaction.author.dmChannel) {
                     await interaction.author.createDM(true);
                 }
-                interaction.author.send(`You have a prohibited word in your nickname, please change it, or your message will not be sent.
-                    ${(error as Error).message.split("username")[(error as Error).message.split("username").length - 1]}`);
-                return;
+                prohibitedNick = { error: error as Error, nickFailed: true };
             }
             logger.error('Could not send message', error as Error);
         }
     }));
+    if (prohibitedNick.nickFailed) {
+        if (!prohibitedNick.error) {
+            logger.warn("Got nickname error, but the error is undefined.");
+            return sentMessage;
+        }
+        await interaction.author.send(`You have a prohibited word in your nickname, please change it, or your message will not be sent.
+            ${(prohibitedNick.error).message.split("username")[(prohibitedNick.error).message.split("username").length - 1]}`);
+    }
     return sentMessage;
 }
 
@@ -408,7 +566,13 @@ const sendNotification = async (interaction: Message<boolean>, interactionMember
     if (interaction.mentions.users) {
         uniqueInteractionMentions.forEach(async (pingedUser) => {
             if (client.users.cache.has(pingedUser[0])) {
-                const pingMessageContent = await networkChannelPingNotificationEmbedBuilder(pingedUser[0], interaction, sentMessage, interactionMember.user);
+                let pingMessageContent;
+                try {
+                    pingMessageContent = await networkChannelPingNotificationEmbedBuilder(pingedUser[0], interaction, sentMessage, interactionMember.user);
+                } catch (error) {
+                    logger.error('An error occured while getting ping message content', (error as Error));
+                    return;
+                }
                 if (pingMessageContent) {
                     if (!pingedUser[1].dmChannel) {
                         await pingedUser[1].createDM();

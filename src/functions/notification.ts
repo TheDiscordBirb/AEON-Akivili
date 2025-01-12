@@ -35,18 +35,21 @@ class NotificationManager {
                 notificationEmbed.setTitle(`${data.targetUser.username} has been banned in "${data.guild.name}"`);
                 notificationEmbed.addFields({ name: `${data.targetUser.username} (${data.targetUser.id}) said:`, value: `${data.message.content}` });
                 notificationEmbed.setColor(Colors.Red);
-                if (data.images) {
-                    notificationEmbed.setTitle(`${data.targetUser.username} has been banned in "${data.guild.name}" with a banshare request`)
-                    notificationEmbed.setURL(`https://discord.com/users/${data.targetUser.id}`);
-                    embedCollection.push(notificationEmbed);
-                    embedCollection.push(...data.images.map((image) => {
-                        return new EmbedBuilder()
-                        .setURL(`https://discord.com/users/${data.targetUser?.id}`)
-                        .setImage(image);
-                    }));    
-                    break;
-                }
                 embedCollection.push(notificationEmbed);
+                break;
+            }
+            case NotificationType.MODERATOR_BAN: {
+                if (!data.targetUser) {
+                    logger.warn(`Couldnt get target user`);
+                    return;
+                }
+                if (!data.message) {
+                    logger.warn(`Couldnt get message`);
+                    return;
+                }
+                notificationEmbed.setTitle(`${data.targetUser.username} has moderator rights and has been banned in "${data.guild.name}"`);
+                notificationEmbed.addFields({ name: `${data.targetUser.username} (${data.targetUser.id}) said:`, value: `${data.message.content}` });
+                notificationEmbed.setColor(Colors.DarkRed);
                 break;
             }
             case NotificationType.MESSAGE_DELETE: {
@@ -70,14 +73,6 @@ class NotificationManager {
             case NotificationType.MESSAGE_EDIT: {
                 if (!data.targetUser) {
                     logger.warn(`Couldnt get target user`);
-                    return;
-                }
-                if (!data.oldContent) {
-                    logger.warn(`Couldnt get old content`);
-                    return;
-                }
-                if (!data.newContent) {
-                    logger.warn(`Couldnt get new content`);
                     return;
                 }
                 notificationEmbed.setTitle(`Message has been edited (${data.guild.name})`);

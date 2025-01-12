@@ -7,7 +7,9 @@ import {
     ButtonComponent,
     BaseGuildTextChannel,
     WebhookClient,
-    User
+    User,
+    ButtonInteraction,
+    CacheType
 } from "discord.js";
 import { banshareManager } from "../functions/banshare";
 import { Event } from "../structures/event";
@@ -15,11 +17,12 @@ import { hasModerationRights, rebuildMessageComponentAfterUserInteraction } from
 import { client } from "../structures/client";
 import { joinHandler } from "../functions/join-handler";
 import { Logger } from "../logger";
-import { BanShareButtonArg } from "../types/event";
+import { BanShareButtonArg, DmMessageButtonArg } from "../types/event";
 import { config } from "../const";
 import { databaseManager } from "../structures/database";
 import { ChannelType } from "discord.js";
 import { MessagesRecord } from "../types/database";
+import { modmailHandler } from "../functions/modmail";
 
 const logger = new Logger("Buttons");
 
@@ -27,90 +30,172 @@ export default new Event("interactionCreate", async (interaction) => {
     if (!interaction.isButton()) return;
 
     await interaction.deferUpdate();
-    const guildMember = interaction.member ? interaction.member as GuildMember : null;
+    const buttonComponent = (interaction.component as ButtonComponent);
+    if(!buttonComponent) {
+        logger.warn("Could not get button component.");
+        await errorButtonFunction(interaction);
+        return;
+    }
+    const buttonCustomId = buttonComponent.customId;
+    if (!buttonCustomId) {
+        logger.warn("Could not get button custom id.");
+        await errorButtonFunction(interaction);
+        return;
+    }
+    if (!interaction.channel) {
+        logger.wtf("No button interaction channel.")
+        return;
+    }
 
-    if (!guildMember) {
-        logger.wtf("Interaction's creator does not exist.");
+    if (interaction.channel.type === ChannelType.DM) {
+        await dmButtonFunction(interaction);
+        return;
+    }
+
+    let guildMember
+    try {
+        guildMember = await checkForGuildMember(interaction);
+    } catch (error) {
+        logger.error("Error:", (error as Error));
         return;
     }
 
     const customEmojiRegex = new RegExp(/.*:[0-9]*/gm);
     const standardEmojiRegex = new RegExp(/%[A-Z0-9][A-Z0-9]/gm);
-    const buttonComponent = (interaction.component as ButtonComponent);
 
-    if (!!buttonComponent.customId?.match(customEmojiRegex) || !!buttonComponent.customId?.match(standardEmojiRegex)) {
-        let userMessageId: string;
+    if (!!buttonCustomId.match(customEmojiRegex) || !!buttonCustomId.match(standardEmojiRegex)) {
+        await emojiButtonFunction(interaction);
+        return;
+    }
+
+    await moderationButtonFunction(interaction, guildMember);
+})
+
+const errorButtonFunction = async (interaction: ButtonInteraction<CacheType>): Promise<void> => {
+    logger.warn(`Error button function executed, message server: ${interaction.message.guild} | channel: ${interaction.message.channel}`);
+    const errorButton = new ButtonBuilder()
+        .setCustomId("Error")
+        .setDisabled(true)
+        .setLabel("Error")
+        .setStyle(ButtonStyle.Danger);
+    const errorRow = new ActionRowBuilder<ButtonBuilder>()
+        .addComponents(errorButton);
+    
+    interaction.message.edit({ components: [errorRow] });
+    return;
+}
+
+const dmButtonFunction = async (interaction: ButtonInteraction<CacheType>): Promise<void> => {
+    const customIdArgs = interaction.customId.split(' ');
+    const command = customIdArgs.shift();
+
+    switch (command) {
+        // Dm banshare buttons
+        case DmMessageButtonArg.NEW_BANSHARE: 
+            await banshareManager.dmBanshareFunction(customIdArgs[0], undefined, interaction);
+            break;
+
+        // Dm modmail buttons
+        case DmMessageButtonArg.OPEN_MODMAIL: {
+            await modmailHandler.startModmail(interaction);
+            const message = interaction.channel?.messages.cache.get(customIdArgs[1]);
+            if(!message) {
+                logger.warn("Could not find first message.");
+                return;
+            }
+            await modmailHandler.forwardModmailMessage(message);
+            break;
+        }
+
+        case DmMessageButtonArg.CLOSE_MODMAIL: {
+            const modmail = await databaseManager.getModmailByUserId(interaction.user.id);
+            await modmailHandler.closeModmail(modmail.channelId);
+            break;
+        }
+    }
+}
+
+const checkForGuildMember = async (interaction: ButtonInteraction<CacheType>): Promise<GuildMember> => {
+    const interactionMember = interaction.member;
+    if (interactionMember ? interactionMember as GuildMember : undefined) {
+        return interactionMember as GuildMember;
+    }
+    throw new Error("Could not get guild member from button press.");
+}
+
+const emojiButtonFunction = async (interaction: ButtonInteraction<CacheType>): Promise<void> => {
+    let userMessageId: string;
+    try {
+        userMessageId = await databaseManager.getMessageUid(interaction.channelId, interaction.message.id);
+    } catch (error) {
+        logger.error(`Could not get messages. Error: `, error as Error);
+        return;
+    }
+    
+    const userId = interaction.user.id;
+    const reactionIdentifier = (interaction.component as ButtonComponent).customId;
+    if (!userMessageId) {
+        logger.warn(`No user message id`);
+        return;
+    }   
+    if (!userId) {
+        logger.warn(`No user id`);
+        return;
+    }
+    if (!reactionIdentifier) {
+        logger.warn(`No reaction identifier`);
+        return;
+    }
+
+    const channel = interaction.message.channel as BaseGuildTextChannel;
+    if (channel.type !== ChannelType.GuildText) return;
+    
+    const broadcastRecords = await databaseManager.getBroadcasts();
+    const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
+    if (!channelWebhook) return;
+
+    let webhook;
+    try {
+        webhook = await client.fetchWebhook(channelWebhook.webhookId);
+    } catch (error) { 
+        logger.error(`Could not fetch webhook in guild: ${interaction.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`, error as Error)
+        return;
+    };
+    
+    if (config.nonChatWebhooks.includes(webhook.name)) return;
+    
+    const webhookNameParts = webhook.name.split(' ');
+    const webhookChannelType = webhookNameParts[webhookNameParts.length - 1];
+    const matchingBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === webhookChannelType);
+    const newActionRows = await rebuildMessageComponentAfterUserInteraction(interaction.message, interaction.message.components, { userId, userMessageId, reactionIdentifier }, (interaction.user.id === client.user?.id ? true : false));
+
+    await Promise.allSettled(matchingBroadcastRecords.map(async (broadcastRecord) => {
+        const webhookClient = new WebhookClient({ id: broadcastRecord.webhookId, token: broadcastRecord.webhookToken });
+        let messagesOnNetwork: MessagesRecord[];
         try {
-            userMessageId = await databaseManager.getMessageUid(interaction.channelId, interaction.message.id);
+            messagesOnNetwork = await databaseManager.getMessages(interaction.message.channel.id, interaction.message.id);
         } catch (error) {
             logger.error(`Could not get messages. Error: `, error as Error);
             return;
         }
-        
-        const userId = interaction.user.id;
-        const reactionIdentifier = (interaction.component as ButtonComponent).customId;
-        if (!userMessageId) {
-            logger.warn(`No user message id`);
-            return;
-        }   
-        if (!userId) {
-            logger.warn(`No user id`);
+        const correctMessageOnNetwork = messagesOnNetwork.find((messageOnNetwork) => messageOnNetwork.channelId === broadcastRecord.channelId);
+        if (!correctMessageOnNetwork) {
+            logger.warn(`Could not get correct message on network`);
             return;
         }
-        if (!reactionIdentifier) {
-            logger.warn(`No reaction identifier`);
+        
+        const channel = client.channels.cache.find((ch) => ch.id === correctMessageOnNetwork.channelId) as TextChannel;
+        const message = await channel.messages.fetch({ message: correctMessageOnNetwork.channelMessageId });
+        if (!message.components) {
+            logger.warn(`No message components, message id: ${message.id}`)
             return;
         }
+        await webhookClient.editMessage(message, { components: [...newActionRows[newActionRows.indexOf(newActionRows.find((actionRow) => actionRow.guildID === broadcastRecord.guildId) || newActionRows[0])].components] });
+    }))
+    await interaction.editReply({ components: [...newActionRows[0].components] });
+}
 
-        const channel = interaction.message.channel as BaseGuildTextChannel;
-        if (channel.type !== ChannelType.GuildText) return;
-        
-        const broadcastRecords = await databaseManager.getBroadcasts();
-        const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
-        if (!channelWebhook) return;
-
-        let webhook;
-        try {
-            webhook = await client.fetchWebhook(channelWebhook.webhookId);
-        } catch (error) { 
-            logger.error(`Could not fetch webhook in guild: ${interaction.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`, error as Error)
-            return;
-        };
-        
-        if (config.nonChatWebhooks.includes(webhook.name)) return;
-        
-        const webhookNameParts = webhook.name.split(' ');
-        const webhookChannelType = webhookNameParts[webhookNameParts.length - 1];
-        const matchingBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === webhookChannelType);
-        const actionRows = await rebuildMessageComponentAfterUserInteraction(interaction.message.components, { userId, userMessageId, reactionIdentifier }, (interaction.user.id === client.user?.id ? true : false));
-
-        await Promise.allSettled(matchingBroadcastRecords.map(async (broadcastRecord) => {
-            const webhookClient = new WebhookClient({ id: broadcastRecord.webhookId, token: broadcastRecord.webhookToken });
-            let messagesOnNetwork: MessagesRecord[];
-            try {
-                messagesOnNetwork = await databaseManager.getMessages(interaction.message.channel.id, interaction.message.id);
-            } catch (error) {
-                logger.error(`Could not get messages. Error: `, error as Error);
-                return;
-            }
-            const correctMessageOnNetwork = messagesOnNetwork.find((messageOnNetwork) => messageOnNetwork.channelId === broadcastRecord.channelId);
-            if (!correctMessageOnNetwork) {
-                logger.warn(`Could not get correct message on network`);
-                return;
-            }
-            
-            const channel = client.channels.cache.find((ch) => ch.id === correctMessageOnNetwork.channelId) as TextChannel;
-            const message = await channel.messages.fetch({ message: correctMessageOnNetwork.channelMessageId });
-            if (!message.components) {
-                logger.warn(`No message components, message id: ${message.id}`)
-                return;
-            }
-            await webhookClient.editMessage(message, { components: [...actionRows] });
-        }))
-        await interaction.editReply({ components: [...actionRows] });
-        return;
-    }
-
+const moderationButtonFunction = async (interaction: ButtonInteraction<CacheType>, guildMember: GuildMember): Promise<void> => {
     if (!hasModerationRights(guildMember)) {
         if (!interaction.user.dmChannel) {
             await interaction.user.createDM(true);
@@ -120,14 +205,17 @@ export default new Event("interactionCreate", async (interaction) => {
         .catch();
         return;
     };
+    
     const customIdArgs = interaction.customId.split(' ');
-
-    if (!customIdArgs.length) {
-        logger.warn(`No custom id`);
-        return;
-    }
     const command = customIdArgs.shift();
+
     switch (command) {
+        //Modmail
+        case DmMessageButtonArg.CLOSE_MODMAIL: {
+            const modmail = await databaseManager.getModmail(interaction.channelId);
+            await modmailHandler.closeModmail(modmail.channelId);
+        }
+
         //Banshare
 
         //Main server
@@ -137,15 +225,10 @@ export default new Event("interactionCreate", async (interaction) => {
                 return;
             }
             const userId = customIdArgs[0];
-            const user = interaction.client.users.cache.find((user) => user.id === userId);
-            if (!user) {
-                logger.wtf("Interaction's creator does not exist.");
-                return;
-            }
 
             const reason = interaction.message.embeds[0].description;
             if (!reason) {
-                logger.wtf(`${interaction.message.embeds[0].url} embed doesnt have a description.`);
+                await errorButtonFunction(interaction);
                 return;
             }
 
@@ -168,7 +251,7 @@ export default new Event("interactionCreate", async (interaction) => {
 
             try {
                 await interaction.message.edit({ components: [banshareActionRow] });
-                await banshareManager.shareBanshare({ user, reason, proof });
+                await banshareManager.shareBanshare({ user: userId, reason, proof });
             } catch (error) {
                 logger.error('Failed to edit buttons/send banshare.',error as Error);
             }
@@ -180,15 +263,10 @@ export default new Event("interactionCreate", async (interaction) => {
                 return;
             }
             const userId = customIdArgs[0];
-            const user = interaction.client.users.cache.find((user) => user.id === userId);
-            if (!user) {
-                logger.wtf("Interaction's creator does not exist.");
-                return;
-            }
 
             const reason = interaction.message.embeds[0].description;
             if (!reason) {
-                logger.wtf(`${interaction.message.embeds[0].url} embed doesnt have a description.`);
+                await errorButtonFunction(interaction);
                 return;
             }
 
@@ -221,7 +299,7 @@ export default new Event("interactionCreate", async (interaction) => {
 
                 try {
                     await interaction.message.edit({ components: [banshareActionRow] });
-                    await banshareManager.shareBanshare({ user, reason, proof }, true);
+                    await banshareManager.shareBanshare({ user: userId, reason, proof }, true);
                 } catch (error) {
                     logger.error('Failed to edit buttons/send banshare.',error as Error);
                 }
@@ -376,17 +454,7 @@ export default new Event("interactionCreate", async (interaction) => {
                 await joinHandler.acceptNetworkAccessRequest({ guild, channel: channel as TextChannel, type, user: client.users.cache.get(interaction.message.embeds[0].description?.split(/ +/)[interaction.message.embeds[0].description?.split(/ +/).length - 1] ?? interaction.user.id) ?? interaction.user });
             } catch (error) {
                 logger.error(`There was an error gaining network access.`, (error as Error));
-                const joinHandlerActionRow = new ActionRowBuilder<ButtonBuilder>();
-        
-                const errorButton = new ButtonBuilder()
-                    .setCustomId(interaction.customId)
-                    .setLabel('Error')
-                    .setStyle(ButtonStyle.Danger)
-                    .setDisabled(true)
-            
-                joinHandlerActionRow.addComponents(errorButton);
-            
-                await interaction.message.edit({ components: [joinHandlerActionRow] });
+                await errorButtonFunction(interaction);
                 return;
             }
         
@@ -426,17 +494,7 @@ export default new Event("interactionCreate", async (interaction) => {
                 await joinHandler.rejectNetworkAccessRequest({ guild, channel: channel as TextChannel, type, user: client.users.cache.get(interaction.message.embeds[0].description?.split(/ +/)[interaction.message.embeds[0].description?.split(/ +/).length - 1] ?? interaction.user.id) ?? interaction.user });
             } catch (error) {
                 logger.error(`There was an error refusing network access.`, (error as Error));
-                const joinHandlerActionRow = new ActionRowBuilder<ButtonBuilder>();
-        
-                const errorButton = new ButtonBuilder()
-                    .setCustomId(interaction.customId)
-                    .setLabel('Error')
-                    .setStyle(ButtonStyle.Danger)
-                    .setDisabled(true)
-            
-                joinHandlerActionRow.addComponents(errorButton);
-            
-                await interaction.message.edit({ components: [joinHandlerActionRow] });
+                await errorButtonFunction(interaction);
                 return;
             }
             
@@ -457,4 +515,4 @@ export default new Event("interactionCreate", async (interaction) => {
             return;
         }
     }
-})
+}

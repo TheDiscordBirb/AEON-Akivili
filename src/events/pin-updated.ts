@@ -33,7 +33,7 @@ export default new Event("messageUpdate", async (oldMessage, newMessage) => {
     };
     
     if (config.nonChatWebhooks.includes(webhook.name)) return;
-    if (message.type === 20) return;
+    if (message.type !== 6) return;
     const messageUid = await databaseManager.getMessageUid(message.channel.id, message.id);
     const relatedMessageRecords = (await databaseManager.getMessages(newMessage.channel.id, newMessage.id)).filter((relatedMessageRecord) => relatedMessageRecord.userMessageId === messageUid);
     

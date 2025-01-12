@@ -3,10 +3,11 @@ import {
     Client,
     ClientEvents,
     Collection,
-    IntentsBitField
+    IntentsBitField,
+    Partials
 } from "discord.js";
 import { CommandType } from "../types/command";
-import glob from "glob";
+import { glob } from "glob";
 import { RegisterCommandsOptions } from "../types/client";
 import { Event } from "./event";
 import * as path from 'path';
@@ -27,8 +28,11 @@ export class ExtendedClient extends Client {
                 IntentsBitField.Flags.MessageContent,
                 IntentsBitField.Flags.DirectMessages,
                 IntentsBitField.Flags.DirectMessageReactions,
-                IntentsBitField.Flags.GuildMessageReactions
-            ]
+                IntentsBitField.Flags.GuildMessageReactions,
+                IntentsBitField.Flags.GuildEmojisAndStickers,
+                IntentsBitField.Flags.GuildMessageTyping,
+            ],
+            partials: [Partials.Channel, Partials.Message],
         });
     }
 
@@ -105,7 +109,6 @@ export class ExtendedClient extends Client {
         );
         eventFiles.forEach(async (filePath) => {
             const event: Event<keyof ClientEvents> = await this.importFile(filePath);
-            console.log(event.event)
             this.on(event.event, event.run);
         });
     }

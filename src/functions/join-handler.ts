@@ -20,25 +20,25 @@ const logger = new Logger('JoinHandler');
 
 class JoinHandler {
     public async requestNetworkAccess(data: JoinData) {
-        let requestEmbed = new EmbedBuilder()
+        const requestEmbed = new EmbedBuilder()
             .setTitle(`New join request`)
             .setDescription(`**Network:** Aeon ${data.type}\n**Guild:** ${data.guild.name} | ${data.guild.id}\n**Channel:** ${data.channel.name} | ${data.channel.id}\n**User:** ${data.user} | ${data.user.id}`)
         
-        let requestActionRow = new ActionRowBuilder<ButtonBuilder>();
+        const requestActionRow = new ActionRowBuilder<ButtonBuilder>();
 
-        let acceptButton = new ButtonBuilder()
+        const acceptButton = new ButtonBuilder()
             .setCustomId(`${BanShareButtonArg.ACCEPT_REQUEST} ${data.guild.id} ${data.channel.id} ${data.type}`)
             .setStyle(ButtonStyle.Success)
             .setLabel('Accept')
         
-        let rejectButton = new ButtonBuilder()
+        const rejectButton = new ButtonBuilder()
             .setCustomId(`${BanShareButtonArg.REJECT_REQUEST} ${data.guild.id} ${data.channel.id} ${data.type}`)
             .setStyle(ButtonStyle.Danger)
             .setLabel('Reject')
         
         requestActionRow.addComponents(acceptButton, rejectButton);
         
-        let networkJoinChannel = client.channels.cache.find((channel) => channel.id === config.networkJoinChannelId);
+        const networkJoinChannel = client.channels.cache.find((channel) => channel.id === config.networkJoinChannelId);
 
         if (!networkJoinChannel) {
             logger.warn(`Could not get network join channel`);   
@@ -62,12 +62,12 @@ class JoinHandler {
                 } else if (data.type === NetworkJoinOptions.INFO) {
                     const infoChannel = client.channels.cache.get(config.infoMessageChannelId);
                     if (!infoChannel) {
-                        //TODO: write log
+                        logger.warn("Could not find AEON Info channel.");
                         return;
                     }
                     const infoMessage = await (infoChannel as GuildTextBasedChannel).messages.fetch(config.infoMessageId);
                     if (!infoMessage) {
-                        //TODO: write log
+                        logger.warn("Could not find AEON Info message.");
                         return;
                     }
                     await webhook.send({embeds: await rebuildNetworkInfoEmbeds(infoMessage)})

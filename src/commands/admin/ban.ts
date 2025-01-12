@@ -1,9 +1,9 @@
 import { Command } from '../../structures/command';
-import { ApplicationCommandOptionType, GuildMember, Guild } from 'discord.js'
+import { ApplicationCommandOptionType, GuildMember } from 'discord.js'
 import { databaseManager } from '../../structures/database'; 
 import { hasModerationRights } from '../../utils';
 import { banshareManager } from '../../functions/banshare';
-import { BanshareData, MessagesRecord } from '../../types/database';
+import { MessagesRecord } from '../../types/database';
 import { BanShareOption } from '../../types/command';
 import { Logger } from '../../logger';
 import { notificationManager } from '../../functions/notification';
@@ -32,12 +32,6 @@ const banCommand = async (options: RunOptions): Promise<void> => {
     }
 
     const banshareResponse = options.args.getString('banshare');
-    const attachment = options.args.getAttachment('banshare-proof');
-    if (!attachment && (banshareResponse == BanShareOption.YES)) {
-        await options.interaction.reply({ content: 'If you want to automatically banshare this person please provide a screenshot of their message.', ephemeral: true });
-        return;
-    }
-    
     
     if (!options.interaction.channel) {
         logger.wtf(`${options.interaction.member.user.username} has used a command without a channel.`);
@@ -95,70 +89,41 @@ const banCommand = async (options: RunOptions): Promise<void> => {
     
     
     if (userInfo.userIsModerator) {
-        await options.interaction.reply({ content: 'This user is a moderator on a server in the network, please submit a banshare request with a screenshot of the message.', ephemeral: true });
-        return;
-    }
-
-    if (!userInfo.guildMember) {
-        await options.interaction.reply({ content: 'Could not find that user.', ephemeral: true });
-        return;
-    }
-    
-    try {
-        await userInfo.guildMember.ban();
-        await options.interaction.reply({ content: `${userInfo.guildMember} has been banned. (For now this feature is only a proof of concept, it will be functional after open beta)`, ephemeral: true });
-    } catch (error) {
-        logger.error(`Couldnt ban guild member.`, (error as Error));
-        return;
-    }
-
-    
-    
-    if (!banshareResponse || (banshareResponse == BanShareOption.NO)) {
+        await options.interaction.reply({ content: 'This user is a moderator on a server in the network, as such AEON Navigators have been notified.', ephemeral: true });
         notificationManager.sendNotification({
             executingUser: options.interaction.user,
-            targetUser: userInfo.guildMember.user,
+            targetUser: userInfo.guildMember?.user,
             channelType: messageChannelType,
-            message: message,
-            notificationType: NotificationType.BAN,
+            message,
+            notificationType: NotificationType.MODERATOR_BAN,
             time: Date.now(),
             guild: options.interaction.guild
-        });
-        return;
-    }
-    if (!attachment) {
-        await options.interaction.reply({ content: 'There was a problem with the attachment provided.', ephemeral: true });
-        return;
+        })
     }
     
-    const targetUser = options.client.users.cache.find((user) => user.id === userInfo.guildMember?.id);
-    if (!targetUser) {
-        await options.interaction.reply({ content: 'Could not find target user.', ephemeral: true });
-        return;
-    }
-    
-    
-    
-    const data: BanshareData = {
-        user: targetUser,
-        reason: `${targetUser.username} said in Aeon Chat:\n"${message.content}"`,
-        proof: [attachment.url]
-    };
-
     try {
-        await banshareManager.requestBanshare(data, options.client, options.interaction.member.user, options.interaction.guild);
-        await options.interaction.editReply({ content: `${targetUser} has been banned and banshare has been submitted. (For now this feature is only a proof of concept, it will be functional after open beta)` });
-        notificationManager.sendNotification({
-            executingUser: options.interaction.user,
-            targetUser: userInfo.guildMember.user,
-            channelType: messageChannelType,
-            message: message,
-            notificationType: NotificationType.BAN,
-            time: Date.now(), guild: options.interaction.guild,
-            images: [attachment.url]
-        });
+        await options.interaction.guild.bans.create(userId);
+        await options.interaction.reply({ content: `${userInfo.guildMember ? userInfo.guildMember : userId} has been banned.`, ephemeral: true });
     } catch (error) {
-        logger.error('Could not ban user / share ban', error as Error)
+        logger.error(`Couldnt ban user.`, (error as Error));
+        return;
+    }
+    
+    if (userInfo.userIsModerator) {
+        await options.interaction.reply({ content: 'This user is a moderator on a server in the network, as such AEON Navigators have been notified.', ephemeral: true });
+    }
+    notificationManager.sendNotification({
+        executingUser: options.interaction.user,
+        targetUser: userInfo.guildMember?.user,
+        channelType: messageChannelType,
+        message,
+        notificationType: userInfo.userIsModerator ? NotificationType.MODERATOR_BAN : NotificationType.MODERATOR_BAN,
+        time: Date.now(),
+        guild: options.interaction.guild
+    })
+
+    if(banshareResponse) {
+        await banshareManager.dmBanshareFunction(options.interaction.guild.id, options);
     }
 }
 
@@ -181,12 +146,6 @@ export default new Command({
                 { name: 'Yes', value: BanShareOption.YES },
                 { name: 'No', value: BanShareOption.NO },
             ],
-            required: false
-        },
-        {
-            name: 'banshare-proof',
-            description: 'If you want to submit a banshare please provide a screenshot of the message.',
-            type: ApplicationCommandOptionType.Attachment,
             required: false
         }
     ],

@@ -1,5 +1,5 @@
 import { Command } from '../../structures/command';
-import { ApplicationCommandOptionType, AuditLogOptionsType} from 'discord.js'
+import { ApplicationCommandOptionType } from 'discord.js'
 import { databaseManager } from '../../structures/database'; 
 import { hasModerationRights } from '../../utils';
 import { Logger } from '../../logger';
@@ -69,7 +69,7 @@ export default new Command({
         const user = client.users.cache.get(userId);
 
         const userMutedState = await databaseManager.hasUserBeenMutedOnNetworkChat(userId);
-        if ((await databaseManager.whoMutedUser(userId)) == config.devId && options.interaction.user.id != config.devId) {
+        if ((await databaseManager.whoMutedUser(userId)) == config.birbId && options.interaction.user.id != config.birbId) {
             await options.interaction.reply({ content: `${user ? user : "User"} can not be unmuted as they were muted by Birb` });
             return;
         }
