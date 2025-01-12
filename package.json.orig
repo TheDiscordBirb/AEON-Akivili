@@ -17,14 +17,21 @@
   "author": "Birb, Stern, LightYATTA",
   "license": "ISC",
   "dependencies": {
+<<<<<<< HEAD
+    "@discordjs/collection": "^2.1.1",
+    "axios": "^1.7.9",
+    "cross-spawn": "^7.0.6",
+    "discord-html-transcripts": "^3.2.0",
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.7",
+=======
     "@discordjs/collection": "^1.5.3",
     "axios": "^1.7.2",
-    "cross-spawn": "^7.0.3",
+    "cross-spawn": "^7.0.6",
     "discord.js": "^14.15.2",
     "dotenv": "^16.4.5",
-    "eventemitter2": "^6.4.9",
-    "glob": "^8.0.3",
-    "glob-promise": "^6.0.3",
+>>>>>>> 34e0ac592dfb5721ab5419773f3044d0e7d081da
+    "glob": "^11.0.0",
     "is-apng": "^1.2.0",
     "node-cron": "^3.0.3",
     "npm": "^11.0.0",
