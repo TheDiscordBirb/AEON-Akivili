@@ -111,10 +111,8 @@ export default new Event("messageCreate", async (interaction) => {
     } catch (error) {
         logger.warn('Could not execute create message event', error as Error);
         try {
-            if (getEnvVar<boolean>('DEBUG_MODE')) {
+            if (getEnvVar<string>('DEBUG_MODE') === 'true') {
                 await interaction.member?.send(`There was an error delivering your message with ${error as Error}`);
-            } else {
-                
             }
         } catch (noIntMember) {
             logger.warn(`Could not message user.`);
@@ -177,7 +175,7 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
         const sticker = await interactionSticker.fetch();
         if (sticker.guildId && broadcastGuildIds.includes(sticker.guildId)) {
 
-            if (getEnvVar<boolean>('ENABLE_STICKERS')) {
+            if (getEnvVar<boolean>('ENABLE_STICKERS') === 'true') {
               stickerBuffer = await axios.get(sticker.url, { responseType: 'arraybuffer' })
            } else {
               return undefined;
