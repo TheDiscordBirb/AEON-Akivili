@@ -418,6 +418,8 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
 
 export const watermarkSize = async (metadata: sharp.Metadata, pages: number): Promise<number> => {
     //Do not ask, it works, not gonna fuck around anymore
+    //If ur wondering what this is this calculates the font size of the watermark 'dynamically' with sticker size
+    //yoo junghyuk level regression, probably max optimized
     return 0.0000760966078036 * (metadata.width! * (metadata.height! / pages)) + 15.71281;
 }
 

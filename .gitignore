@@ -7,4 +7,5 @@ node_modules
 /src/commands/birb
 embed.json
 .gitignore
+/dist
 .vscode
