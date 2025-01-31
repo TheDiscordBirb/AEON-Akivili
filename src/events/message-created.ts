@@ -18,6 +18,7 @@ import axios from "axios";
 import { databaseManager } from '../structures/database';
 import { ulid } from "ulid";
 import { config } from "../const";
+import { getEnvVar } from "../get-env-var";
 import { Logger } from "../logger";
 import { client } from "../structures/client";
 import { CustomId, DmMessageButtonArg, EmojiReplacementData } from "../types/event";
@@ -105,7 +106,9 @@ export default new Event("messageCreate", async (interaction) => {
     } catch (error) {
         logger.warn('Could not execute create message event', error as Error);
         try {
-            //await interaction.member?.send(`There was an error delivering your message with ${error as Error}`);
+            if (getEnvVar<string>('DEBUG_MODE') === 'true') {
+                await interaction.member?.send(`There was an error delivering your message with ${error as Error}`);
+            }
         } catch (noIntMember) {
             logger.warn(`Could not message user.`);
         }
@@ -166,11 +169,13 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
         // This code snipet ensures that out of network stickers cant be used by Akivili
         const sticker = await interactionSticker.fetch();
         if (sticker.guildId && broadcastGuildIds.includes(sticker.guildId)) {
-            return undefined;
 
-            // Uncomment to enable stickers
-            //stickerBuffer = await axios.get(sticker.url, { responseType: 'arraybuffer' })
-        } else {
+            if (getEnvVar<boolean>('ENABLE_STICKERS') === 'true') {
+              stickerBuffer = await axios.get(sticker.url, { responseType: 'arraybuffer' })
+           } else {
+              return undefined;
+           }
+          } else {
             return undefined;
         }
 

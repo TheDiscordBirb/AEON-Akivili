@@ -9,7 +9,7 @@ export const getEnvVar = <T>(id: string): T => {
         throw Error(`Could not obtain environment variable. Id:${id}. Error: ${(error as Error).message}`);
     }
     if (!result) {
-        throw Error('Requested environment variable is undefined');
+        throw Error(`Requested environment variable ${id} is undefined`);
     }
     return result;
 }
