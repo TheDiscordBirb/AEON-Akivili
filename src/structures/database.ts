@@ -1,6 +1,7 @@
 import sqlite3 from 'sqlite3';
 import { Database, open } from 'sqlite';
 import { 
+    BanshareListData,
     BroadcastRecord,
     MessagesRecord,
     ModmailRecord,
@@ -98,7 +99,7 @@ class DatabaseManager {
                 status TEXT,
                 userId TEXT,
                 reason TEXT,
-                proof BLOB,
+                proof TEXT,
                 timestamp INT,
                 PRIMARY KEY (serverId, userId, reason, proof, timestamp)
             )`
@@ -309,7 +310,7 @@ class DatabaseManager {
 
     public async getModmailByUserId(userId: string): Promise<ModmailRecord> {
         const db = await this.db();
-        const result = await db.get(`SELECT * FROM Modmails WHERE userId = ? AND active = ?`, [userId, 1]);
+        const result = await db.get<ModmailRecord>(`SELECT * FROM Modmails WHERE userId = ? AND active = ?`, [userId, 1]);
         if(!result) {
             throw new Error("Could not find modmail.");
         }
@@ -325,6 +326,29 @@ class DatabaseManager {
         const db = await this.db();
         const modmail = await this.getModmail(channelId);
         await db.run(`INSERT OR REPLACE INTO Modmails (userId, channelId, active) VALUES (?, ?, ?)`, [modmail.userId, channelId, 0]);
+    }
+
+    public async getBanshareList(serverId: string): Promise<BanshareListData> {
+        const db = await this.db();
+        const result = await db.get<BanshareListData>(`SELECT * FROM Banshares WHERE serverId=?`, [serverId]);
+        if(!result) {
+            throw new Error(`Could not get banshares for server ${serverId}.`);
+        }
+        return result;
+    }
+
+    public async registerBanshare(data: BanshareListData) {
+        const db = await this.db();
+        await db.run(`INSERT OR REPLACE INTO Banshares (serverId, status, userId, reason, proof, timestamp) VALUES (?, ?, ?, ?, ?, ?)`, [data.serverId, data.status, data.userId, data.reason, data.proof, data.timestamp]);
+    }
+
+    public async updateBanshareStatus(serverId: string, userId: string, status: string) {
+        const db = await this.db();
+        const banshare = await db.get<BanshareListData>(`SELECT * FROM Banshares WHERE serverId=? AND userId=?`, [serverId, userId]);
+        if(!banshare) {
+            throw new Error(`Could not get banshare for ${userId} in ${serverId}`);
+        }
+        await db.run(`INSERT OR REPLACE INTO Banshares (serverId, status, userId, reason, proof, timestamp) VALUES (?, ?, ?, ?, ?, ?)`, [banshare.serverId, status, banshare.userId, banshare.reason, banshare.proof, banshare.timestamp]);
     }
 }
 

@@ -96,6 +96,14 @@ class NotificationManager {
                 // TODO
                 break;
             }
+            case NotificationType.PIN: {
+                // TODO
+                break;
+            }
+            case NotificationType.CROWD_CONTROL: {
+                // TODO
+                break;
+            }
         }
 
         await (notificationChannel as GuildTextBasedChannel).send({ embeds: embedCollection });

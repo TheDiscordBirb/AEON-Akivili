@@ -177,14 +177,18 @@ export const rebuildMessageComponentAfterUserInteraction = async (message: Messa
     }
     
     let messageUid = await databaseManager.getMessageUid(message.channel.id, message.id);
-    const repliedMessage = (message.components[0].components[1] as ButtonComponent).url;
-    if(repliedMessage) {
-        const repliedMessageLinkRegex = /https:\/\/discord.com\/channels\/[0-9]*\/([0-9]*)\/([0-9]*)/gm;
-        const repliedMessageArgs = repliedMessageLinkRegex.exec(repliedMessage);
-        if(repliedMessageArgs) {
-            messageUid = await databaseManager.getMessageUid(repliedMessageArgs[1], repliedMessageArgs[2]);
+    let repliedMessageUrl = null;
+    if(message.components.length) {
+        if(hasReplyRow) {
+            repliedMessageUrl = (message.components[0].components[1] as ButtonComponent).url;
+            if(repliedMessageUrl) {
+                const repliedMessageLinkRegex = /https:\/\/discord.com\/channels\/[0-9]*\/([0-9]*)\/([0-9]*)/gm;
+                const repliedMessageArgs = repliedMessageLinkRegex.exec(repliedMessageUrl);
+                if(repliedMessageArgs) {
+                    messageUid = await databaseManager.getMessageUid(repliedMessageArgs[1], repliedMessageArgs[2]);
+                }
+            }  
         }
-
     }
     const relatedNetworkMessages = await databaseManager.getMessagesByUid(messageUid);
     const returnValues: ActionRowComponentReconstructionData[] = [];
@@ -196,7 +200,7 @@ export const rebuildMessageComponentAfterUserInteraction = async (message: Messa
             const replyButtons: ButtonBuilder[] = [];
             component[0].components.forEach((replyComponent) => {
                 const replyButton = replyComponent as ButtonComponent;
-                const url = repliedMessage ? ((replyComponent as ButtonComponent).url ? `https://discord.com/channels/${messagesRecord.guildId}/${messagesRecord.channelId}/${messagesRecord.channelMessageId}` : replyButton.url) : replyButton.url;
+                const url = repliedMessageUrl ? ((replyComponent as ButtonComponent).url ? `https://discord.com/channels/${messagesRecord.guildId}/${messagesRecord.channelId}/${messagesRecord.channelMessageId}` : replyButton.url) : replyButton.url;
                 const customId = replyButton.customId;
                 const emoji = replyButton.emoji;
                 if (!replyButton.label) {

@@ -1,4 +1,4 @@
-import { Guild, TextChannel, User } from "discord.js"
+import { Guild, StringMappedInteractionTypes, TextChannel, User } from "discord.js"
 
 export interface BroadcastRecord {
     channelId: string,
@@ -50,4 +50,13 @@ export interface NetworkProfileData {
     userId: string,
     name: string,
     avatarUrl: string
+}
+
+export interface BanshareListData {
+    serverId: string,
+    status: string,
+    userId: string,
+    reason: string,
+    proof: string,
+    timestamp: number
 }

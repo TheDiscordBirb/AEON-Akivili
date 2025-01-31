@@ -3,7 +3,7 @@ import { getEnvVar } from "./get-env-var"
 export const config = {
     aeonBanshareChannelId: getEnvVar<string>("AEON_BANSHARE_CHANNEL_ID"),
     approvalCountNeededForImportantBanshare: 2,
-    deleteLogsOnStartup: true,
+    deleteLogsOnStartup: false,
     maxConcurrentRequestCount: 10,
     networkJoinChannelId: getEnvVar<string>("NETWORK_JOIN_CHANNEL_ID"),
     nonChatWebhooks: getEnvVar<string>("NON_CHAT_WEBHOOKS").split(','),

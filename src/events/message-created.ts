@@ -95,11 +95,6 @@ export default new Event("messageCreate", async (interaction) => {
                     await modmailHandler.forwardModmailMessage(interaction);
                     return;
                 } catch (error) {
-                    logger.warn((error as Error).message);
-                    if(!modmail) {
-                        await interaction.channel.send("There was an error sending this message.");
-                        return;
-                    }
                 }
                 await dmMessageResponse(interaction);
                 break;

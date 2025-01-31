@@ -17,7 +17,7 @@ import {
 import { BanshareData } from "../types/database";
 import { config } from "../const";
 import { databaseManager } from "../structures/database";
-import { BanShareButtonArg, DmMessageButtonArg } from "../types/event";
+import { BanShareButtonArg, BanshareStatus, DmMessageButtonArg } from "../types/event";
 import { client } from "../structures/client";
 import { Logger } from "../logger";
 import { AutoBanLevelOptions, RunOptions } from "../types/command";
@@ -159,10 +159,13 @@ class BanshareManager {
                 }
             }
 
+            await databaseManager.registerBanshare({serverId: broadcast.guildId, status: BanshareStatus.PENDING, userId: dataUserId, reason: data.reason, proof: proofMessage, timestamp: Date.now()});
             const webhookClient = new WebhookClient({ id: broadcast.webhookId, token: broadcast.webhookToken });
             return {
                 webhookClient,
                 data: { content: `${banshareContent ? proofMessage + banshareContent : proofMessage}`, embeds, components: [banshareActionRow] },
+                serverId: broadcast.guildId,
+                userId: dataUserId
             }
         });
 
@@ -182,6 +185,7 @@ class BanshareManager {
                         const guild = client.guilds.cache.get(correctBroadcast.guildId);
                         if (!guild) return;
                         await guild.bans.create(dataUserId);
+                        await databaseManager.updateBanshareStatus(awaitedWebhookMessage.serverId, awaitedWebhookMessage.userId, BanshareStatus.ENFORCED);
                     }
                 });
         }))

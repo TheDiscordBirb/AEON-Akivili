@@ -31,7 +31,9 @@ export enum NotificationType {
     MESSAGE_EDIT = 'messageEdit',
     MESSAGE_DELETE = 'messageDelete',
     REACTION_DELETE = 'reactionDelete',
-    MUTE = 'mute'
+    MUTE = 'mute',
+    PIN = 'pin',
+    CROWD_CONTROL = 'crowdControl'
 }
 
 export interface EmojiReplacementData {
@@ -45,3 +47,10 @@ export interface ActionRowComponentReconstructionData {
 }
 
 export const guildEmojiCooldowns: string[][] = [];
+
+export enum BanshareStatus {
+    PENDING = 'pending',
+    REJECTED = 'rejected',
+    ENFORCED = 'enforced',
+    OVERTURNED = 'overturned'
+}
