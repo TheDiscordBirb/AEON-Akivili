@@ -167,7 +167,7 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
         let stickerBuffer;
         // This code snipet ensures that out of network stickers cant be used by Akivili
         const sticker = await interactionSticker.fetch();
-        if (sticker.guildId && broadcastGuildIds.includes(sticker.guildId)) {
+        if (sticker.guildId && broadcastGuildIds.includes(sticker.guildId) && !config.disabledStickerNetworkServerIds.includes(sticker.guildId)) {
             if (config.enableStickers) {
                 stickerBuffer = await axios.get(sticker.url, { responseType: 'arraybuffer' })
             } else {
@@ -284,9 +284,9 @@ const createWebhookMessages = async (
     // This checks if a message had stickers that didn't get converted and notifies the user
     if (interaction.stickers.size && !files.length) {
         if (!interaction.member) {
-            await interaction.reply({ content: "Sorry, this sticker is not in the AEON Network, as such it can not be used here." });
+            await interaction.reply({ content: "Sorry, this sticker is not in the AEON Network or the server asked us to not use their stickers, as such it can not be used here." });
         }
-        await interaction.member?.send({ content: "Sorry, this sticker is not in the AEON Network, as such it can not be used here." });
+        await interaction.member?.send({ content: "Sorry, this sticker is not in the AEON Network or the server asked us to not use their stickers, as such it can not be used here." });
         return;
     }
     

@@ -26,5 +26,6 @@ export const config = {
     modmailCategoryChannelId: getEnvVar<string>("MODMAIL_CATEGORY_CHANNEL_ID"),
     modmailLogChannelId: getEnvVar<string>("MODMAIL_LOG_CHANNEL_ID"),
     enableStickers: true,
-    debugMode: getEnvVar<boolean>('DEBUG_MODE'),
+    debugMode: false,
+    disabledStickerNetworkServerIds: ["1068066545344970783"] as string[]
 }
