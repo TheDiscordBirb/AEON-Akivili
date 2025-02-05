@@ -420,11 +420,18 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
     return { content: messageContent, emojis: emojis };
 }
 
-export const watermarkSize = async (metadata: sharp.Metadata, pages: number): Promise<number> => {
-    //Do not ask, it works, not gonna fuck around anymore
-    //If ur wondering what this is this calculates the font size of the watermark 'dynamically' with sticker size
-    //yoo junghyuk level regression, probably max optimized
-    return 0.0000760966078036 * (metadata.width! * (metadata.height! / pages)) + 15.71281;
+export const watermarkSize = async (metadata: sharp.Metadata, serverName: string): Promise<number> => {
+    //Do not ask, it works, not gonna fuck around anymore -Birb
+    //If ur wondering what this is this calculates the font size of the watermark 'dynamically' with sticker size -Light
+    //yoo junghyuk level regression, probably max optimized -Light
+    //Gonna replace this soon with smth trust -Birb
+    // return 0.0000760966078036 * (metadata.width! * (metadata.height! / (metadata.pages ?? 1))) + 15.71281;
+
+    //Replacement finally done -Birb
+    //I can actually explain now whats happening -Birb
+    //It calculates the pixels in the hypotenuse and divides it by the amount of letters needed (+2 to make sure it doesnt cut off) -Birb
+    //Than it multiplies that with 1.618 which is the avg ratio of pixel width to height -Birb
+    return Math.sqrt((metadata.height!/ (metadata.pages ?? 1))**2 + metadata.width!**2)/(serverName.length+2)*1.618 
 }
 
 export const networkChannelPingNotificationEmbedBuilder = async (pingedUserId: string, message: Message, networkMessage: MessagesRecord | undefined, networkUser: User, replyMessage?: MessagesRecord): Promise<{ EmbedBuilder: EmbedBuilder, Attachments: Attachment[] } | undefined> => {

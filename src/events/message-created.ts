@@ -179,7 +179,7 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
 
         let watermarkText = sticker.guild?.name;
         if(!watermarkText){
-            watermarkText = 'A.E.O.N. ⟡ Towards the Stars';
+            return undefined;
         }
         const isGif = isApng(Buffer.from(stickerBuffer.data, 'utf-8'));
         let sharpAttachment;
@@ -193,6 +193,7 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
         }
         const metadata = await sharpAttachment.metadata();
         let pages = metadata.pages ?? 1;
+        console.log(await watermarkSize(metadata, watermarkText));
         const watermark = `
         <svg width="${metadata.width}" height="${metadata.height! / pages}" opacity="0.5">
             <text
@@ -200,8 +201,15 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
             y="50%"
             dominant-baseline="middle"
             text-anchor="middle"
-            transform="rotate(45 ${metadata.width! / 2} ${(metadata.height! / pages) / 2})"
-            style="fill:#FFFFFF;paint-order:stroke;stroke:#000000;font-style:normal;font-size:${await watermarkSize(metadata, pages)}px;font-family:'Source Code Pro'">${watermarkText}</text>
+            transform="rotate(${Math.atan((metadata.height! / pages) / metadata.width!)*180/Math.PI} ${metadata.width! / 2} ${(metadata.height! / pages) / 2})"
+            style="fill:#FFFFFF;paint-order:stroke;stroke:#000000;font-style:normal;font-size:${await watermarkSize(metadata, watermarkText)}px;font-family:'Source Code Pro'">${watermarkText}</text>
+            <text
+            x="50%"
+            y="${((metadata.height! / pages) / 2) + (await watermarkSize(metadata, watermarkText)*1.3)}"
+            dominant-baseline="middle"
+            text-anchor="middle"
+            transform="rotate(${Math.atan((metadata.height! / pages) / metadata.width!)*180/Math.PI} ${metadata.width! / 2} ${(metadata.height! / pages) / 2})"
+            style="fill:#FFFFFF;paint-order:stroke;stroke:#000000;font-style:normal;font-size:${await watermarkSize(metadata, watermarkText)}px;font-family:'Source Code Pro'">${sticker.name}</text>
             </svg>
             `;
         const watermarkBuffer = Buffer.from(watermark);
