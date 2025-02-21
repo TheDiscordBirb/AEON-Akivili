@@ -16,6 +16,7 @@ import {
 import { Event } from "../structures/event";
 import axios from "axios";
 import { databaseManager } from '../structures/database';
+import { cacheManager } from '../structures/memcache';
 import { ulid } from "ulid";
 import { config } from "../const";
 import { Logger } from "../logger";
@@ -167,6 +168,14 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
         let stickerBuffer;
         // This code snipet ensures that out of network stickers cant be used by Akivili
         const sticker = await interactionSticker.fetch();
+
+        let bufferSticker = await cacheManager.retrieveCache('sticker', sticker.id)
+        if (bufferSticker !== false) {
+            const attachBuffer = new AttachmentBuilder(bufferSticker, { name: `${sticker.name}${isApng(bufferSticker) ? ".gif" : ".png"}` });
+        
+            return attachBuffer;
+        }
+
         if (sticker.guildId && broadcastGuildIds.includes(sticker.guildId) && !config.disabledStickerNetworkServerIds.includes(sticker.guildId)) {
             if (config.enableStickers) {
                 stickerBuffer = await axios.get(sticker.url, { responseType: 'arraybuffer' })
@@ -214,6 +223,7 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
             `;
         const watermarkBuffer = Buffer.from(watermark);
         const watermarked = sharpAttachment.composite([{input: watermarkBuffer, gravity: 'northeast', 'tile': true}]);
+        await cacheManager.saveCache('sticker',sticker.id ,await (watermarked as sharp.Sharp).toBuffer())
 
         const attachBuffer = new AttachmentBuilder(await (watermarked as sharp.Sharp).toBuffer(), { name: `${sticker.name}${isGif ? ".gif" : ".png"}` });
         
