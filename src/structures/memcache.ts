@@ -1,5 +1,6 @@
 import {Cacheable} from 'cacheable';
 import * as os from 'os';
+import * as util from 'util'
 import { Logger } from "../logger";
 
 const logger = new Logger('Mem');
@@ -20,13 +21,22 @@ class CacheManager {
     public async retrieveCache(record: 'emoji' | 'sticker', key: string): Promise<Buffer | false> {
         const mem = await this._mem;
         const buffer = await mem.get(''.concat(...[record, key.toString()]))
-        const bufferCheck = Buffer.isBuffer(buffer)
-        if (bufferCheck) {
-            return buffer
-        } else
-        {
-            return false
-        }
+       if (util.types.isUint8Array(buffer) === true) {
+               const uintBuffer = Buffer.from(buffer)
+               const bufferCheck = Buffer.isBuffer(uintBuffer)
+               if (bufferCheck === true) {
+                   return uintBuffer
+               } else
+               {
+                   return false
+               }
+       } else if (buffer === undefined) {
+               return false
+       } else {
+               logger.wtf('MEM?!??!?!? (Cache is terribly broken, restart ASAP. Gonna try clearing)')
+               mem.clear()
+               return false
+       }
     }
 }
 
