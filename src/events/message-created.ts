@@ -202,7 +202,6 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
         }
         const metadata = await sharpAttachment.metadata();
         let pages = metadata.pages ?? 1;
-        console.log(await watermarkSize(metadata, watermarkText));
         const watermark = `
         <svg width="${metadata.width}" height="${metadata.height! / pages}" opacity="0.5">
             <text
