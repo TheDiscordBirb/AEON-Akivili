@@ -28,6 +28,8 @@ class CacheManager {
                    return uintBuffer
                } else
                {
+                   logger.wtf('Mem... Mem?????? (So... Something is very wrong here. I was just converting to a buffer and it is clearly *NOT* a buffer)')
+                   mem.clear()
                    return false
                }
        } else if (buffer === undefined) {
