@@ -9,7 +9,6 @@ import {
     UserReactionRecord
 } from '../types/database';
 import { Logger } from "../logger";
-import { StringSelectMenuBuilder } from 'discord.js';
 
 const logger = new Logger('Database');
 
