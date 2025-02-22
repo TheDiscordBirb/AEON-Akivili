@@ -120,7 +120,7 @@ class DatabaseManager {
         this._db = await this.open();
         return this._db;
     }
-    
+
     public async saveBroadcast(broadcastRecord: BroadcastRecord): Promise<void> {
         const db = await this.db();
         db.run(

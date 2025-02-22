@@ -23,6 +23,7 @@ import {
 } from 'discord.js';
 import { MessagesRecord, UserReactionRecord } from './types/database';
 import { databaseManager } from './structures/database';
+import { cacheManager } from './structures/memcache';
 import { ActionRowComponentReconstructionData, CustomId, EmojiReplacementData, guildEmojiCooldowns } from './types/event';
 import { Logger } from './logger';
 import { client } from './structures/client';
@@ -405,8 +406,18 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
         if (!guild) return;
 
         const url = `https://cdn.discordapp.com/emojis/${emoji[2]}.${emoji[0] ? "gif" : "png"}?v=1`;
-        const attachmentBuffer = await axios.get(url, { responseType: 'arraybuffer' });
-        const attachment = Buffer.from(attachmentBuffer.data, 'utf-8');
+
+        let attachment;
+
+        let bufferEmoji = await cacheManager.retrieveCache('emoji', emoji[2])
+        if (bufferEmoji !== false) {
+            attachment = bufferEmoji
+        } else {
+            const attachmentBuffer = await axios.get(url, { responseType: 'arraybuffer' });
+            attachment = Buffer.from(attachmentBuffer.data, 'utf-8');
+            await cacheManager.saveCache('emoji',emoji[2],attachment)
+        }
+
         await guild.emojis.create({ attachment, name: emoji[1] }).then((emoji) => {
             guildEmojiCooldowns[guildEmojiCooldowns.length - 1].push(`${Date.now() + Time.HOUR}`);
             emojis.push(emoji);
