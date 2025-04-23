@@ -35,7 +35,7 @@ class CacheManager {
        } else if (buffer === undefined) {
                return false
        } else {
-               logger.wtf('MEM?!??!?!? (Cache is terribly broken, restart ASAP. Gonna try clearing)')
+               logger.error('MEM?!??!?!? (Cache is terribly broken, restart ASAP. Gonna try clearing)')
                mem.clear()
                return false
        }
