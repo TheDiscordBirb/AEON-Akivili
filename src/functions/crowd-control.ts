@@ -13,6 +13,8 @@ import {
 import { CrowdControlArg, EmojiReplacementData } from "../types/event";
 import { client } from "../structures/client";
 import { config } from "../const";
+import { clearanceLevel } from "../utils";
+import { ClearanceLevel } from "../types/client";
 import { Logger } from "../logger";
 
 const logger = new Logger("CrowdControlHandler")
@@ -62,6 +64,7 @@ class CrowdControlHander {
             }
             const response = (await channel.send({embeds: [confirmationEmbed], components: [crowdControlActionRow]})).awaitMessageComponent({componentType: ComponentType.Button})
                 .then(async (buttonClick) => {
+                    if(!(clearanceLevel(buttonClick.user) >= ClearanceLevel.NAVIGATOR)) throw new Error("Not high enough clearance.");
                     switch(buttonClick.customId) {
                         case CrowdControlArg.ALLOW: 
                             this.embedBuilder(true, buttonClick);

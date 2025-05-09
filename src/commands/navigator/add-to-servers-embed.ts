@@ -1,9 +1,15 @@
-import { ApplicationCommandOptionType, BaseGuildTextChannel, ChannelType, GuildTextBasedChannel, WebhookClient } from 'discord.js'
+import { 
+    ApplicationCommandOptionType,
+    BaseGuildTextChannel,
+    ChannelType,
+    GuildTextBasedChannel
+} from 'discord.js'
 import { Command } from '../../structures/command';
-import { isNavigator, rebuildNetworkInfoEmbeds } from '../../utils';
-import { databaseManager } from '../../structures/database';
+import { clearanceLevel, rebuildNetworkInfoEmbeds } from '../../utils';
 import { NetworkJoinOptions } from '../../types/command';
 import { Logger } from '../../logger';
+import { config } from '../../const';
+import { ClearanceLevel } from '../../types/client';
 
 const logger = new Logger('AddToServersEmbed');
 
@@ -30,7 +36,7 @@ export default new Command({
             logger.warn(`Didnt get interaction member`);
             return;
         }
-        if (!isNavigator(options.interaction.user)) {
+        if (!(clearanceLevel(options.interaction.user) >= ClearanceLevel.NAVIGATOR)) {
             await options.interaction.reply({ content: `You do not have permission to use this!`, ephemeral: true });
             return;
         }
@@ -38,53 +44,34 @@ export default new Command({
         const channel = options.interaction.channel as BaseGuildTextChannel;
         if (channel.type !== ChannelType.GuildText) return;
 
-        const broadcastRecords = await databaseManager.getBroadcasts();
-        const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
+        const webhooks = config.activeWebhooks;
+        const channelWebhook = webhooks.find((webhook) => webhook.channelId === channel.id);
         if (!channelWebhook) {
             await options.interaction.reply({ content: `No channel webhook.`, ephemeral: true });
             return;
         }
-        if (channelWebhook.channelType !== NetworkJoinOptions.INFO) {
+        if (channelWebhook.name.slice(5) !== NetworkJoinOptions.INFO) {
             await options.interaction.reply({ content: `No Aeon Info connection in this channel.`, ephemeral: true });
             return;
         }
-        const webhookChannelType = channelWebhook.channelType;
 
-        let webhook;
-        try {
-            webhook = await options.client.fetchWebhook(channelWebhook.webhookId);
-        } catch (error) {
-            logger.error(`Could not fetch webhook in guild: ${options.interaction.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`, error as Error)
-            return;
-        };
-        
-        if (!webhook) {
-            await options.interaction.reply({ content: `No webhook in this channel`, ephemeral: true });
-            return;
-        }
-        if (!webhook.token) {
-            await options.interaction.reply({ content: "Couldnt get Aeon webhook token, contact Birb to resolve this issue." });
-            return;
-        }
 
         const embedMessage = options.interaction.channel?.messages.cache.find((message) => message.webhookId);
         if (!embedMessage) {
-
+            await options.interaction.reply({content: "Could not get the info embed, please open a ticket on the main server or message Birb or Blue."});
             return;
         }
 
         const embeds = await rebuildNetworkInfoEmbeds(embedMessage, options.args.getString('name') ?? undefined, options.args.getString('link') ?? undefined);
 
-        const matchingBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === webhookChannelType);
-        await Promise.allSettled(matchingBroadcastRecords.map(async (broadcastRecord) => {
-            const webhookClient = new WebhookClient({ id: broadcastRecord.webhookId, token: broadcastRecord.webhookToken });
-
-            const broadcastGuild = options.client.guilds.cache.get(broadcastRecord.guildId);
+        const infoWebhooks = webhooks.filter((webhook) => webhook.name.slice(5) === NetworkJoinOptions.INFO);
+        await Promise.allSettled(infoWebhooks.map(async (infoWebhook) => {
+            const broadcastGuild = options.client.guilds.cache.get(infoWebhook.guildId);
             if (!broadcastGuild) {
                 // TODO: write log
                 return undefined;
             }
-            const guildChannel = broadcastGuild.channels.cache.get(broadcastRecord.channelId);
+            const guildChannel = broadcastGuild.channels.cache.get(infoWebhook.channelId);
             if (!guildChannel) {
                 // TODO: write log
                 return undefined;
@@ -95,7 +82,7 @@ export default new Command({
                 return undefined;
             }
 
-            await webhookClient.editMessage(guildMessage, { embeds: embeds });
+            await infoWebhook.editMessage(guildMessage, { embeds: embeds });
         }));
         await options.interaction.reply({ content: `Network info embed has been successfully edited.`, ephemeral: true });
     }

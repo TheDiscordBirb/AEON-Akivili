@@ -1,11 +1,8 @@
-import { Guild, StringMappedInteractionTypes, TextChannel, User } from "discord.js"
+import { Guild, TextChannel, User } from "discord.js"
 
 export interface BroadcastRecord {
-    channelId: string,
-    channelType: string,
-    guildId: string,
     webhookId: string,
-    webhookToken: string,
+    channelType: string,
     importantBanshareRoleId: string | null,
     autoBanLevel: number
 }

@@ -20,7 +20,7 @@ import { databaseManager } from "../structures/database";
 import { BanShareButtonArg, BanshareStatus, DmMessageButtonArg } from "../types/event";
 import { client } from "../structures/client";
 import { Logger } from "../logger";
-import { AutoBanLevelOptions, RunOptions } from "../types/command";
+import { AutoBanLevelOptions, NetworkJoinOptions, RunOptions } from "../types/command";
 import { Time } from "../utils";
 
 const logger = new Logger("Banshare");
@@ -32,13 +32,12 @@ class BanshareManager {
             logger.warn(`Could not get main channel`);
             return;
         }
-        let dataUsername: string, dataDisplayName: string, dataUserId: string;
+        let dataUsername: string, dataUserId: string;
         if (typeof (data.user) === "string") {
-            dataUsername = dataUserId = dataDisplayName = data.user;
+            dataUsername = dataUserId = data.user;
         } else {
             dataUsername = data.user.username;
             dataUserId = data.user.id;
-            dataDisplayName = data.user.displayName;
         }
 
         let proofMessage = "";
@@ -48,7 +47,7 @@ class BanshareManager {
 
         const banshareRequestEmbed = new EmbedBuilder()
             .setAuthor({ name: `${submitter.displayName} | ${guildOfOrigin.name}`, iconURL: submitter.displayAvatarURL() })
-            .setTitle(`**Banshare request for ${dataUsername} | ${dataDisplayName}**`)
+            .setTitle(`**Banshare request for ${dataUsername} | ${dataUserId}**`)
             .setDescription(`Reason: ${data.reason}\n\nProof:\n${proofMessage}`)
             .setURL(`https://discord.com/users/${dataUserId}`);
         
@@ -56,9 +55,6 @@ class BanshareManager {
         const embeds: EmbedBuilder[] = [];
         
         embeds.push(banshareRequestEmbed);
-        
-        
-        
         
         const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
 
@@ -95,19 +91,21 @@ class BanshareManager {
         data.proof.forEach((proof) => {
             proofMessage += `${proof}\n`;
         })
+
         const banshareRequestEmbed = new EmbedBuilder()
             .setTitle(`**Banshare for ${dataUsername} | ${dataUserId}**`)
-            .setDescription(`${data.reason}\n\nProof:\n${proofMessage}`)
+            .setDescription(`Reason: ${data.reason}\nProof:${proofMessage}`)
             .setURL(`https://discord.com/users/${dataUserId}`);
         
         embeds.push(banshareRequestEmbed);
         
 
-        const broadcasts = await databaseManager.getBroadcasts();
+        const webhooks = config.activeWebhooks;
         const autoBannedContent = 'This user has been automatically banned';
-
-        const webhookMessages = broadcasts.map(async (broadcast) => {
-            if (broadcast.channelType !== 'Banshare') return;
+        
+        const webhookMessages = webhooks.map(async (webhook) => {
+            if (webhook.name.slice(5) !== NetworkJoinOptions.BANSHARE) return;
+            const webhookDetails = await databaseManager.getBroadcast(webhook.id);
             const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
 
             const banFromServerButton = new ButtonBuilder()
@@ -122,7 +120,7 @@ class BanshareManager {
             banshareActionRow.addComponents(banFromServerButton, reject);
 
             let banshareContent;
-            if (broadcast.autoBanLevel >= parseInt(AutoBanLevelOptions.ALL)) {
+            if (webhookDetails?.autoBanLevel ?? 0 >= parseInt(AutoBanLevelOptions.ALL)) {
                 banshareContent = autoBannedContent;
 
                 const autoBanned = new ButtonBuilder()
@@ -136,17 +134,13 @@ class BanshareManager {
             
             
             if (importantBansharePing) {
-                const broadcastGuild = client.guilds.cache.find((guild) => guild.id === broadcast.guildId);
-                if (!broadcastGuild) {
-                    logger.warn(`Could not get broadcast guild`);
-                    return undefined;
-                }
-                if(broadcast.importantBanshareRoleId) {
-                    banshareContent = await broadcastGuild.roles.fetch(broadcast.importantBanshareRoleId);
+                if(webhookDetails?.importantBanshareRoleId) {
+                    const guild = client.guilds.cache.get(webhook.guildId);
+                    banshareContent = await guild?.roles.fetch(webhookDetails.importantBanshareRoleId);
                 } else {
                     banshareContent = false;
                 }
-                if (broadcast.autoBanLevel >= parseInt(AutoBanLevelOptions.IMPORTANT)) {
+                if (webhookDetails?.autoBanLevel ?? 0 >= parseInt(AutoBanLevelOptions.IMPORTANT)) {
                     banshareContent = autoBannedContent;
 
                     const autoBanned = new ButtonBuilder()
@@ -159,12 +153,11 @@ class BanshareManager {
                 }
             }
 
-            await databaseManager.registerBanshare({serverId: broadcast.guildId, status: BanshareStatus.PENDING, userId: dataUserId, reason: data.reason, proof: proofMessage, timestamp: Date.now()});
-            const webhookClient = new WebhookClient({ id: broadcast.webhookId, token: broadcast.webhookToken });
+            await databaseManager.registerBanshare({serverId: webhook.guildId, status: BanshareStatus.PENDING, userId: dataUserId, reason: data.reason, proof: proofMessage, timestamp: Date.now()});
             return {
-                webhookClient,
+                webhook,
                 data: { content: `${banshareContent ? proofMessage + banshareContent : proofMessage}`, embeds, components: [banshareActionRow] },
-                serverId: broadcast.guildId,
+                serverId: webhook.guildId,
                 userId: dataUserId
             }
         });
@@ -172,20 +165,17 @@ class BanshareManager {
         await Promise.allSettled(webhookMessages.map(async (webhookMessage) => {
             const awaitedWebhookMessage = await webhookMessage;
             if (!awaitedWebhookMessage) return;
-            awaitedWebhookMessage.webhookClient.send(awaitedWebhookMessage.data)
+            awaitedWebhookMessage.webhook.send(awaitedWebhookMessage.data)
                 .then(async (message) => {
                     if (message.content === autoBannedContent) {
                         if (!message.components) {
                             logger.warn(`Couldnt get message components`);
                             return;
                         }
-                        const broadcasts = await databaseManager.getBroadcasts();
-                        const correctBroadcast = broadcasts.find((broadcast) => broadcast.webhookId === awaitedWebhookMessage.webhookClient.id);
-                        if (!correctBroadcast) return;
-                        const guild = client.guilds.cache.get(correctBroadcast.guildId);
+                        const guild = client.guilds.cache.get(message.guildId ?? "");
                         if (!guild) return;
                         await guild.bans.create(dataUserId);
-                        await databaseManager.updateBanshareStatus(awaitedWebhookMessage.serverId, awaitedWebhookMessage.userId, BanshareStatus.ENFORCED);
+                        await databaseManager.updateBanshareStatus(awaitedWebhookMessage.serverId, awaitedWebhookMessage.userId, BanshareStatus.ENFORCED, Date.now());
                     }
                 });
         }))

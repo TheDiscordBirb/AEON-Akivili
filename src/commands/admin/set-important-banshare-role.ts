@@ -1,9 +1,10 @@
-import { ApplicationCommandOptionType, BaseGuildTextChannel, ChannelType, } from 'discord.js'
+import { ApplicationCommandOptionType, BaseGuildTextChannel, ChannelType, } from 'discord.js';
 import { Command } from '../../structures/command';
-import { databaseManager } from '../../structures/database'; 
-import { hasModerationRights } from '../../utils';
+import { databaseManager } from '../../structures/database';
 import { Logger } from '../../logger';
-import { NetworkJoinOptions } from '../../types/command';
+import { config } from '../../const';
+import { clearanceLevel } from '../../utils';
+import { ClearanceLevel } from '../../types/client';
 
 const logger = new Logger('SetBanshareRole');
 
@@ -19,13 +20,19 @@ export default new Command({
     }],
 
     run: async (options) => {
-        if (!options.interaction.member) {
-            await options.interaction.reply({ content: `You cant use this command outside a server.`, ephemeral: true });
-            logger.warn(`Didnt get interaction member`);
+        if (!options.interaction.guild) {
+            await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
             return;
         }
-        if (!hasModerationRights(options.interaction.member)) {
-            await options.interaction.reply({ content: `You do not have permission to use this!`, ephemeral: true });
+        const guildMember = options.interaction.guild.members.cache.find(m => m.id === options.interaction.member.user.id);
+
+        if (!guildMember) {
+            logger.wtf("Interaction's creator does not exist.");
+            return;
+        }
+
+        if(clearanceLevel(guildMember.user, guildMember.guild, true) === ClearanceLevel.MODERATOR) {
+            await options.interaction.reply({ content: 'You do not have permission to use this!', ephemeral: true });
             return;
         }
 
@@ -34,37 +41,24 @@ export default new Command({
         const channel = options.interaction.channel as BaseGuildTextChannel;
         if (channel.type !== ChannelType.GuildText) return;
 
-        const broadcastRecords = await databaseManager.getBroadcasts();
-        const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
+        const webhooks = config.activeWebhooks;
+        const channelWebhook = webhooks.find((webhook) => webhook.channelId === channel.id);
         if (!channelWebhook) {
             await options.interaction.reply({ content: `No channel webhook.`, ephemeral: true });
             return;
         }
-        if (channelWebhook.channelType !== NetworkJoinOptions.BANSHARE) {
+        if (!config.nonChatWebhooks.includes(channelWebhook.name)) {
             await options.interaction.reply({ content: `No Aeon Banshare connection in this channel.`, ephemeral: true });
             return;
         }
 
-        let webhook;
-        try {
-            webhook = await options.client.fetchWebhook(channelWebhook.webhookId);
-        } catch (error) { 
-            logger.error(`Could not fetch webhook in guild: ${options.interaction.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`, error as Error)
-            return;
-        };
-        
-        if (!webhook) {
-            await options.interaction.reply({ content: `No webhook in this channel`, ephemeral: true });
-            return;
-        }
-
-        const broadcastToEdit = broadcastRecords.find((broadcast) => broadcast.channelType === NetworkJoinOptions.BANSHARE && broadcast.guildId === options.interaction.guildId);
-        if (!broadcastToEdit) {
-            await options.interaction.reply({ content: `There is no banshare webhook in this server.`, ephemeral: true });
+        const currentConfigForBroadcast = await databaseManager.getBroadcast(channelWebhook.id);
+        if(!currentConfigForBroadcast) {
+            await options.interaction.reply("Could not find config for this webhook, please regenerate it by deleting the current one and using /join-network again.");
             return;
         }
         try {
-            await databaseManager.saveBroadcast({ ...broadcastToEdit, importantBanshareRoleId: (role ? role.id : '') });
+            await databaseManager.saveBroadcast({ ...currentConfigForBroadcast, importantBanshareRoleId: (role ? role.id : '') });
             await options.interaction.reply({ content: `Your important banshare ping role has been ${role ? `set to ${role}` : `removed`}`, allowedMentions: { parse: [] } });
         } catch (error) {
             logger.error(`Could not save broadcast. Error: `, error as Error);

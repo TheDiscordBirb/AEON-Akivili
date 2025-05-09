@@ -1,7 +1,8 @@
 import { Command } from '../../structures/command';
 import { ApplicationCommandOptionType} from 'discord.js'
-import { databaseManager } from '../../structures/database'; 
-import { hasModerationRights } from '../../utils';
+import { databaseManager } from '../../structures/database';
+import { clearanceLevel } from '../../utils';
+import { ClearanceLevel } from '../../types/client';
 import { Logger } from '../../logger';
 
 const logger = new Logger('GetUidCmd');
@@ -18,19 +19,19 @@ export default new Command({
     }],
 
     run: async (options) => {
-        const guildMember = options.interaction.guild?.members.cache.find(m => m.id === options.interaction.member.user.id);
+        if (!options.interaction.guild) {
+            await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
+            return;
+        }
+        const guildMember = options.interaction.guild.members.cache.find(m => m.id === options.interaction.member.user.id);
 
         if (!guildMember) {
             logger.wtf("Interaction's creator does not exist.");
             return;
         }
-
-        if (!hasModerationRights(guildMember)) {
+    
+        if(clearanceLevel(guildMember.user, guildMember.guild, true) === ClearanceLevel.MODERATOR) {
             await options.interaction.reply({ content: 'You do not have permission to use this!', ephemeral: true });
-            return;
-        }
-        if (!options.interaction.guild) {
-            await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
             return;
         }
 

@@ -33,7 +33,9 @@ export enum NotificationType {
     REACTION_DELETE = 'reactionDelete',
     MUTE = 'mute',
     PIN = 'pin',
-    CROWD_CONTROL = 'crowdControl'
+    CROWD_CONTROL = 'crowdControl',
+    SERVER_ADD = 'serverAdd',
+    SERVER_REMOVE = 'serverRemove'
 }
 
 export interface EmojiReplacementData {
@@ -42,7 +44,7 @@ export interface EmojiReplacementData {
 }
 
 export interface ActionRowComponentReconstructionData {
-    guildID: string | undefined,
+    guildId: string | undefined,
     components: ActionRowBuilder<ButtonBuilder>[]
 }
 

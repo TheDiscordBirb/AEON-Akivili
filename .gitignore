@@ -9,3 +9,4 @@ embed.json
 .gitignore
 /dist
 .vscode
+*.txt

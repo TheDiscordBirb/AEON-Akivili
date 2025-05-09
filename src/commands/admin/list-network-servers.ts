@@ -1,9 +1,10 @@
 import { Command } from '../../structures/command';
-import { EmbedBuilder, Guild} from 'discord.js'
-import { databaseManager } from '../../structures/database'; 
-import { hasModerationRights } from '../../utils';
+import { EmbedBuilder, Guild} from 'discord.js';
 import { Logger } from '../../logger';
 import { client } from '../../structures/client';
+import { config } from '../../const';
+import { clearanceLevel } from '../../utils';
+import { ClearanceLevel } from '../../types/client';
 
 const logger = new Logger('ListNetworkServersCmd');
 
@@ -14,19 +15,20 @@ export default new Command({
     [],
 
     run: async (options) => {
-        const guildMember = options.interaction.guild?.members.cache.find(m => m.id === options.interaction.member.user.id);
+        if (!options.interaction.guild) {
+            await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
+            return;
+        }
+
+        const guildMember = options.interaction.guild.members.cache.find(m => m.id === options.interaction.member.user.id);
 
         if (!guildMember) {
             logger.wtf("Interaction's creator does not exist.");
             return;
         }
-
-        if (!hasModerationRights(guildMember)) {
+            
+        if(clearanceLevel(guildMember.user, guildMember.guild, true) === ClearanceLevel.MODERATOR) {
             await options.interaction.reply({ content: 'You do not have permission to use this!', ephemeral: true });
-            return;
-        }
-        if (!options.interaction.guild) {
-            await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
             return;
         }
 
@@ -35,9 +37,10 @@ export default new Command({
             return;
         }
 
-        const broadcasts = await databaseManager.getBroadcasts();
-        const guilds = broadcasts.reduce<Guild[]>((acc, broadcast) => {
-            const guild = client.guilds.cache.get(broadcast.guildId);
+        const webhooks = config.activeWebhooks;
+        const guilds = webhooks.reduce<Guild[]>((acc, webhook) => {
+            if(config.nonChatWebhooks.includes(webhook.name)) return acc;
+            const guild = client.guilds.cache.get(webhook.guildId);
             if (!guild) {
                 return acc;
             }

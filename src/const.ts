@@ -1,3 +1,4 @@
+import { Webhook, WebhookType } from "discord.js"
 import { getEnvVar } from "./get-env-var"
 
 export const config = {
@@ -13,6 +14,8 @@ export const config = {
     replyArrowEmojiId: getEnvVar<string>("REPLY_ARROW_EMOJI_ID"),
     birbId: getEnvVar<string>("BIRB_ID"),
     devIds: getEnvVar<string>("DEV_IDS").split(' '),
+    mainServerId: getEnvVar<string>("MAIN_SERVER_ID"),
+    representativeRoleId: getEnvVar<string>("REPRESENTATIVE_ROLE_ID"),
     navigatorRoleId: getEnvVar<string>("NAVIGATOR_ROLE_ID"),
     conductorRoleId: getEnvVar<string>("CONDUCTOR_ROLE_ID"),
     infoMessageChannelId: getEnvVar<string>("INFO_MESSAGE_CHANNEL_ID"),
@@ -27,5 +30,8 @@ export const config = {
     modmailLogChannelId: getEnvVar<string>("MODMAIL_LOG_CHANNEL_ID"),
     enableStickers: true,
     debugMode: false,
-    disabledStickerNetworkServerIds: ["1068066545344970783"] as string[]
+    disabledStickerNetworkServerIds: ["1068066545344970783"] as string[],
+    embedFieldLimit: 25,
+    tempBanshareServerId: getEnvVar<string>("TEMP_BANSHARE_SERVER_ID"),
+    activeWebhooks: [] as Webhook[],
 }

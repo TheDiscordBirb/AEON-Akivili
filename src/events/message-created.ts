@@ -11,7 +11,9 @@ import {
     GuildMember,
     EmbedBuilder,
     Colors,
-    DMChannel
+    DMChannel,
+    Webhook,
+    WebhookType
 } from "discord.js";
 import { Event } from "../structures/event";
 import axios from "axios";
@@ -26,10 +28,7 @@ import { metrics } from "../structures/metrics";
 import { TimeSpanMetricLabel } from "../types/metrics";
 import { NetworkJoinOptions } from "../types/command";
 import {
-    hasModerationRights,
-    isConductor,
-    isDev,
-    isNavigator,
+    clearanceLevel,
     networkChannelPingNotificationEmbedBuilder,
     replaceEmojis,
     userActivityLevelCheck,
@@ -41,6 +40,7 @@ import * as sharp from 'sharp';
 import { InteractionData } from '../types/message-created';
 import { crowdControl } from "../functions/crowd-control";
 import { modmailHandler } from "../functions/modmail";
+import { ClearanceLevel } from "../types/client";
 
 
 const logger = new Logger('MessageCreated');
@@ -52,8 +52,8 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
             return;
         } catch(error) {
         }
-        const { interactionMember, channelWebhook, broadcastRecords } = await getInteractionData(interaction);
-        const webhookChannelType = channelWebhook.channelType;
+        const { interactionMember, webhooks, broadcast } = await getInteractionData(interaction);
+        const webhookChannelType = broadcast.channelType;
         const files = await convertStickersAndImagesToFiles(interaction);
         const emojiReplacement = await replaceEmojis(interaction.content, client);
 
@@ -61,10 +61,20 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
         let sentMessage;
         let cc = false;
         if(webhookChannelType === NetworkJoinOptions.GENERAL) {
-            cc = await crowdControl.crowdControl(webhookChannelType, interaction, interactionMember, emojiReplacement);
+            try {
+                cc = await crowdControl.crowdControl(webhookChannelType, interaction, interactionMember, emojiReplacement);
+            }
+            catch(error) {
+                if((error as Error).message === "Not high enough clearance.") {
+                    logger.warn("Someone without navigator role tried to use cc.");
+                }
+                else {
+                    logger.error("Could not execute cc.", (error as Error));
+                }
+            }
         }
         if(!cc) {
-            sentMessage = await createWebhookMessages(broadcastRecords, webhookChannelType, interaction, interactionMember, files, emojiReplacement);
+            sentMessage = await createWebhookMessages(webhooks, webhookChannelType, interaction, interactionMember, files, emojiReplacement);
         } else {
             return;
         }
@@ -121,29 +131,23 @@ const getInteractionData = async (interaction: Message<boolean> ): Promise<Inter
     if (!interactionMember) throw new Error('No interaction member defined.');
     if (interactionMember.user.id === client.user?.id) throw new Error('Could not determine user id.') ;
     if (await databaseManager.hasUserBeenMutedOnNetworkChat(interactionMember.user.id)) {
-        await interaction.delete();
         throw new Error('User is muted.');
     };
     
     const channel = interaction.channel as BaseGuildTextChannel;
     if (channel.type !== ChannelType.GuildText) throw new Error('Channel type is not guild text.');
-    
-    const broadcastRecords = await databaseManager.getBroadcasts();
-    const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
+
+    const webhooks = config.activeWebhooks;
+    const channelWebhook = webhooks.find((webhook) => webhook.channelId === channel.id);
     if (!channelWebhook) throw new Error('No channel could be found in broadcasts for webhook.');
     const interactionType = interaction.type;
     if (interactionType === MessageType.ChannelPinnedMessage) throw new Error('Got pinned message message.');
+    const broadcast = await databaseManager.getBroadcast(channelWebhook.id);
+    if(!broadcast) throw new Error(`Could not get broadcast from database for webhook ${channelWebhook.id}`);
 
-    let webhook;
-    try {
-        webhook = await client.fetchWebhook(channelWebhook.webhookId);
-    } catch (error) {
-        logger.error(`Could not fetch webhook in guild: ${interaction.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`, error as Error)
-        throw new Error(`Could not fetch webhook in guild: ${interaction.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`)
-    };
     
-    if (config.nonChatWebhooks.includes(webhook.name)) {
-        if (webhook.name === `Aeon ${NetworkJoinOptions.INFO}`) {
+    if (config.nonChatWebhooks.includes(channelWebhook.name)) {
+        if (channelWebhook.name === `Aeon ${NetworkJoinOptions.INFO}`) {
             await interaction.delete();
         }
         throw new Error('Webhook name does not start with Aeon.');
@@ -151,16 +155,16 @@ const getInteractionData = async (interaction: Message<boolean> ): Promise<Inter
 
     return {
         interactionMember,
-        broadcastRecords,
-        channelWebhook  
+        webhooks,
+        broadcast  
     }
 }
 const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): Promise<AttachmentBuilder[]> => {
     const files: AttachmentBuilder[] = [];
-    const broadcasts = await databaseManager.getBroadcasts();
+    const webhooks = config.activeWebhooks;
     const broadcastGuildIds: string[] = [];
-    broadcasts.forEach((broadcast) => {
-        return broadcastGuildIds.push(broadcast.guildId);
+    webhooks.forEach((webhook) => {
+        return broadcastGuildIds.push(webhook.guildId);
     })
     
     const downloadedStickers = (await Promise.allSettled(interaction.stickers.map(async (interactionSticker) => {
@@ -253,14 +257,14 @@ const dmMessageResponse = async (interaction: Message<boolean>): Promise<void> =
 
     const dmResponseActionRow = new ActionRowBuilder<ButtonBuilder>();
 
-    const broadcasts = await databaseManager.getBroadcasts();
-    const userInfo = Object.values(broadcasts).reduce<{ guildMember?: GuildMember, userIsModerator: boolean }>((acc, broadcast) => {
-        const guild = client.guilds.cache.get(broadcast.guildId);
+    const webhooks = config.activeWebhooks;
+    const userInfo = Object.values(webhooks).reduce<{ guildMember?: GuildMember, userIsModerator: boolean }>((acc, webhook) => {
+        const guild = client.guilds.cache.get(webhook.guildId);
         if (!guild) return acc;
         if (acc.userIsModerator) return acc;
         const guildMember = guild.members.cache.find((user) => user.id === interaction.author.id);
         if (!guildMember) return acc;
-        if (hasModerationRights(guildMember)) {
+        if (clearanceLevel(guildMember.user, guildMember.guild) >= ClearanceLevel.MODERATOR) {
             return {guildMember, userIsModerator: true};
         }
         return { guildMember, userIsModerator: false };
@@ -283,7 +287,7 @@ const dmMessageResponse = async (interaction: Message<boolean>): Promise<void> =
 }
 
 const createWebhookMessages = async (
-    broadcastRecords: BroadcastRecord[],
+    webhooks: Webhook<WebhookType>[],
     webhookChannelType: string,
     interaction: Message<boolean>,
     interactionMember: GuildMember,
@@ -298,16 +302,22 @@ const createWebhookMessages = async (
         return;
     }
     
+    const cl = clearanceLevel(interactionMember.user);
     if (!interaction.guild) return undefined;
-    let nameSuffix = ` || ${interaction.guild.name}`;
-    if (isNavigator(interactionMember.user)) {
-        nameSuffix = ` | Navigator`;
-    }
-    if (isConductor(interactionMember.user)) {
-        nameSuffix = ` | Conductor`;
-    }
-    if (isDev(interactionMember.user)) {
-        nameSuffix = ` | Akivili Dev`;
+    let nameSuffix: string;
+    switch(cl) {
+        case ClearanceLevel.NAVIGATOR:
+            nameSuffix = ` | Navigator`;
+            break;
+        case ClearanceLevel.CONDUCTOR:
+            nameSuffix = ` | Conductor`;
+            break;
+        case ClearanceLevel.DEV:
+            nameSuffix = ` | Akivili Dev`;
+            break;
+        default:
+            nameSuffix = ` || ${interaction.guild.name}`;
+            break;
     }
 
     let activityIcon = "";
@@ -327,8 +337,12 @@ const createWebhookMessages = async (
     }
     nameSuffix = `${activityIcon ? ` ${activityIcon}` : ""}${nameSuffix}`;
     
-    const matchingBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === webhookChannelType);
-    const webhookMessages = await Promise.allSettled(matchingBroadcastRecords.map(async (broadcastRecord) => {
+    const broadcasts = await databaseManager.getBroadcasts();
+    const matchingBroadcastRecords = broadcasts.filter((broadcastRecord) => broadcastRecord.channelType === webhookChannelType);
+    const matchingwebhooks = webhooks.filter((webhook) => {
+        return matchingBroadcastRecords.forEach((broadcast) => broadcast.webhookId === webhook.id);
+    })
+    const webhookMessages = await Promise.allSettled(matchingwebhooks.map(async (webhook) => {
         let sendOptions;
         if (!interaction.guild) {
             return Promise.reject();
@@ -353,7 +367,7 @@ const createWebhookMessages = async (
                 logger.error(`Could not get messages. Error: `, error as Error);
                 return;
             }
-            const referencedMessageOnChannel = referencedMessages.find((referencedMessage) => referencedMessage.channelId === broadcastRecord.channelId);
+            const referencedMessageOnChannel = referencedMessages.find((referencedMessage) => referencedMessage.channelId === webhook.channelId);
             
             if (referencedMessageOnChannel) {
                 const replyArrowEmoji = client.emojis.cache.find((emoji) => emoji.id === config.replyArrowEmojiId);
@@ -456,7 +470,7 @@ const createWebhookMessages = async (
         }
         
         return {
-            webhookClient: new WebhookClient({ id: broadcastRecord.webhookId, token: broadcastRecord.webhookToken }),
+            webhook,
             messageData: {
                 avatarURL,
                 content: emojiReplacement.content,
@@ -465,7 +479,7 @@ const createWebhookMessages = async (
                 allowedMentions: { parse: [] },
                 ...sendOptions,
             },
-            guildId: broadcastRecord.guildId,
+            guildId: webhook.guildId,
             userId: interactionMember.user.id,
         }
     }));
@@ -489,14 +503,14 @@ const createWebhookMessages = async (
             messageOrigin = 1;
         }
         try {
-            const message = await webhookMessage.webhookClient.send(webhookMessage.messageData);
+            const message = await webhookMessage.webhook.send(webhookMessage.messageData);
             if (!message) {
                 logger.warn(`Received empty message. Status: ${webhookMessagePromiseResult.status}`)
                 return;
             }
             
             const messageData = {
-                channelId: message.channel_id,
+                channelId: message.channelId,
                 channelMessageId: message.id,
                 guildId: webhookMessage.guildId,
                 timestamp: interaction.createdAt.getTime(),
@@ -516,6 +530,7 @@ const createWebhookMessages = async (
                 }
                 prohibitedNick = { error: error as Error, nickFailed: true };
             }
+            if((error as Error).message === "No channel could be found in broadcasts for webhook.") return;
             logger.error('Could not send message', error as Error);
         }
     }));

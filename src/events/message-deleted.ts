@@ -23,13 +23,12 @@ export default new Event("messageDelete", async (interaction) => {
     if (!referencedMessages.length) return;
 
     const broadcasts = await databaseManager.getBroadcasts();
-    let messageChannelType = '';
-    broadcasts.forEach((broadcast) => {
-        if (broadcast.channelId === referencedMessages[0].channelId) {
-            messageChannelType = broadcast.channelType;
-            return;
-        }
-    })
+    const filteredBroadcasts = broadcasts.filter((broadcast) => broadcast.webhookId === interaction.webhookId);
+    if(!filteredBroadcasts.length) {
+        logger.warn("Could not get broadcast type.");
+        return;
+    }
+    const messageChannelType = filteredBroadcasts[0].channelType;
     
     const targetUser = client.users.cache.find((clientUser) => clientUser.id === referencedMessages[0].userId);
     let message: Message<true> | undefined;

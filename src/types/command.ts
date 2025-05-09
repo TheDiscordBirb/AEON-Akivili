@@ -41,3 +41,8 @@ export enum AutoBanLevelOptions {
     IMPORTANT = '1',
     ALL = '2'
 }
+
+export enum BanshareButtonInstructions {
+    BACK = 'back',
+    FORWARD = 'forward'
+}

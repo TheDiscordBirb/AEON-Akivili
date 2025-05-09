@@ -1,7 +1,8 @@
 import { Command } from '../../structures/command';
 import { ApplicationCommandOptionType} from 'discord.js'
 import { Logger } from '../../logger';
-import { isNavigator, rebuildNetworkInfoEmbeds } from '../../utils';
+import { clearanceLevel, rebuildNetworkInfoEmbeds } from '../../utils';
+import { ClearanceLevel } from '../../types/client';
 
 const logger = new Logger('ReplicateEmbedDataCmd');
 
@@ -23,13 +24,14 @@ export default new Command({
             logger.wtf("Interaction's creator does not exist.");
             return;
         }
-
-        if (!isNavigator(options.interaction.user)) {
-            await options.interaction.reply({ content: 'You do not have permission to use this!', ephemeral: true });
-            return;
-        }
+        
         if (!options.interaction.guild) {
             await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
+            return;
+        }
+
+        if (!(clearanceLevel(options.interaction.user) >= ClearanceLevel.NAVIGATOR)) {
+            await options.interaction.reply({ content: `You do not have permission to use this!`, ephemeral: true });
             return;
         }
 

@@ -9,6 +9,7 @@ import {
     UserReactionRecord
 } from '../types/database';
 import { Logger } from "../logger";
+import { config } from '../const';
 
 const logger = new Logger('Database');
 
@@ -47,11 +48,8 @@ class DatabaseManager {
 
         await this._db.run(
             `CREATE TABLE IF NOT EXISTS Broadcast (
-                channelId TEXT,
-                channelType TEXT,
                 webhookId TEXT,
-                webhookToken TEXT,
-                guildId TEXT,
+                channelType TEXT,
                 importantBanshareRoleId TEXT,
                 autoBanLevel INT,
                 PRIMARY KEY (webhookId)
@@ -101,7 +99,7 @@ class DatabaseManager {
                 reason TEXT,
                 proof TEXT,
                 timestamp INT,
-                PRIMARY KEY (serverId, userId, reason, proof, timestamp)
+                PRIMARY KEY (serverId, userId, reason, proof)
             )`
         )
 
@@ -124,8 +122,8 @@ class DatabaseManager {
     public async saveBroadcast(broadcastRecord: BroadcastRecord): Promise<void> {
         const db = await this.db();
         db.run(
-            `INSERT OR REPLACE INTO Broadcast (channelId, channelType, webhookId, webhookToken, guildId, importantBanshareRoleId, autoBanLevel) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [broadcastRecord.channelId, broadcastRecord.channelType, broadcastRecord.webhookId, broadcastRecord.webhookToken, broadcastRecord.guildId, broadcastRecord.importantBanshareRoleId, broadcastRecord.autoBanLevel],
+            `INSERT OR REPLACE INTO Broadcast (webhookId, channelType, importantBanshareRoleId, autoBanLevel) VALUES (?, ?, ?, ?)`,
+            [broadcastRecord.webhookId, broadcastRecord.channelType, broadcastRecord.importantBanshareRoleId, broadcastRecord.autoBanLevel],
             (error: Error) => {
                 throw new Error(`Could not save into the Broadcast table. Error: ${error.message}`);
             }
@@ -148,6 +146,14 @@ class DatabaseManager {
         }
         return this._broadcastCache;
 
+    }
+
+    public async getBroadcast(webhookId: string): Promise<BroadcastRecord | undefined> {
+        if(!this._broadcastCache) {
+            this._broadcastCache = await this.getBroadcastsFromDb();
+        }
+        const db = await this.db();
+        return this._broadcastCache.find((broadcast) => broadcast.webhookId === webhookId);
     }
 
     public async deleteBroadcastByWebhookId(webhookId: string): Promise<void> {
@@ -328,11 +334,20 @@ class DatabaseManager {
         await db.run(`INSERT OR REPLACE INTO Modmails (userId, channelId, active) VALUES (?, ?, ?)`, [modmail.userId, channelId, 0]);
     }
 
-    public async getBanshareList(serverId: string): Promise<BanshareListData> {
+    public async getBanshareList(serverId: string): Promise<BanshareListData[]> {
         const db = await this.db();
-        const result = await db.get<BanshareListData>(`SELECT * FROM Banshares WHERE serverId=?`, [serverId]);
+        const result = await db.all<BanshareListData[]>(`SELECT * FROM Banshares WHERE serverId=?`, [serverId]);
         if(!result) {
             throw new Error(`Could not get banshares for server ${serverId}.`);
+        }
+        return result;
+    }
+
+    public async getUserBanshare(serverId: string, userId: string): Promise<BanshareListData> {
+        const db = await this.db();
+        const result = await db.get<BanshareListData>(`SELECT * FROM Banshares WHERE userId=? AND serverId=?`, [userId, serverId]);
+        if(!result) {
+            throw new Error(`Could not get banshare for user.`);
         }
         return result;
     }
@@ -342,13 +357,13 @@ class DatabaseManager {
         await db.run(`INSERT OR REPLACE INTO Banshares (serverId, status, userId, reason, proof, timestamp) VALUES (?, ?, ?, ?, ?, ?)`, [data.serverId, data.status, data.userId, data.reason, data.proof, data.timestamp]);
     }
 
-    public async updateBanshareStatus(serverId: string, userId: string, status: string) {
+    public async updateBanshareStatus(serverId: string, userId: string, status: string, timestamp: number) {
         const db = await this.db();
         const banshare = await db.get<BanshareListData>(`SELECT * FROM Banshares WHERE serverId=? AND userId=?`, [serverId, userId]);
         if(!banshare) {
             throw new Error(`Could not get banshare for ${userId} in ${serverId}`);
         }
-        await db.run(`INSERT OR REPLACE INTO Banshares (serverId, status, userId, reason, proof, timestamp) VALUES (?, ?, ?, ?, ?, ?)`, [banshare.serverId, status, banshare.userId, banshare.reason, banshare.proof, banshare.timestamp]);
+        await db.run(`INSERT OR REPLACE INTO Banshares (serverId, status, userId, reason, proof, timestamp) VALUES (?, ?, ?, ?, ?, ?)`, [banshare.serverId, status, banshare.userId, banshare.reason, banshare.proof, timestamp]);
     }
 }
 

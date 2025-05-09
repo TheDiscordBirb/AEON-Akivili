@@ -19,7 +19,8 @@ import {
     GuildEmoji,
     Colors,
     Attachment,
-    BaseGuildTextChannel
+    BaseGuildTextChannel,
+    Guild
 } from 'discord.js';
 import { MessagesRecord, UserReactionRecord } from './types/database';
 import { databaseManager } from './structures/database';
@@ -28,7 +29,7 @@ import { Logger } from './logger';
 import { client } from './structures/client';
 import axios from 'axios';
 import { config } from './const';
-import { clientInfoData } from './types/client';
+import { ClearanceLevel, clientInfoData } from './types/client';
 import sharp from 'sharp';
 
 const logger = new Logger("Utils");
@@ -47,31 +48,32 @@ export const clientInfo = (): clientInfoData => {
     return { name: clientName, avatarUrl: clientAvatarUrl }
 }
 
-export const hasModerationRights = (guildUser: GuildMember): boolean => {
-    return !!(guildUser.roles.cache.find((role) => role.permissions.has(PermissionFlagsBits.BanMembers)));
-}
-export const hasMessageManageRights = (guildUser: GuildMember): boolean => {
-    return !!(guildUser.roles.cache.find((role) => role.permissions.has(PermissionFlagsBits.ManageMessages)));
+export const clearanceLevel = (user: User, guild: Guild | undefined = undefined, onlyMod: boolean = false): ClearanceLevel => {
+    let currentClearance = 0;
+    
+    if(guild) {
+        const guildUser = guild.members.cache.get(user.id);
+        if(!guildUser) {
+            logger.warn("Could not get guild user.");
+            return currentClearance;
+        }
+    
+        currentClearance = !!(guildUser.roles.cache.find((role) => role.permissions.has(PermissionFlagsBits.ManageMessages))) ? ClearanceLevel.MANAGE_MESSAGES : currentClearance;
+        currentClearance = !!(guildUser.roles.cache.find((role) => role.permissions.has(PermissionFlagsBits.BanMembers))) ? ClearanceLevel.MODERATOR : currentClearance;
+        if(onlyMod) return currentClearance;
+    }
+
+    const aeonGuild = (client.channels.cache.get(config.aeonBanshareChannelId) as GuildTextBasedChannel).guild;
+    const aeonMember = aeonGuild.members.cache.get(user.id);
+    if (!aeonMember) return currentClearance;
+    currentClearance = !!aeonMember.roles.cache.get(config.representativeRoleId)? ClearanceLevel.REPRESENTATIVE : currentClearance;
+    currentClearance = !!aeonMember.roles.cache.get(config.navigatorRoleId) ? ClearanceLevel.NAVIGATOR : currentClearance;
+    currentClearance = !!aeonMember.roles.cache.get(config.conductorRoleId) ? ClearanceLevel.CONDUCTOR : currentClearance;
+    currentClearance = config.devIds.includes(user.id) ? ClearanceLevel.DEV : currentClearance;
+    
+    return currentClearance;
 }
 
-export const isNavigator = (user: User): boolean => {
-    const aeonGuild = (client.channels.cache.get(config.aeonBanshareChannelId) as GuildTextBasedChannel).guild;
-    const aeonMember = aeonGuild.members.cache.get(user.id);
-    if (!aeonMember) return false;
-    return !!aeonMember.roles.cache.get(config.navigatorRoleId);
-}
-export const isConductor = (user: User): boolean => {
-    const aeonGuild = (client.channels.cache.get(config.aeonBanshareChannelId) as GuildTextBasedChannel).guild;
-    const aeonMember = aeonGuild.members.cache.get(user.id);
-    if (!aeonMember) return false;
-    return !!aeonMember.roles.cache.get(config.conductorRoleId);
-}
-export const isDev = (user: User): boolean => {
-    return !!config.devIds.includes(user.id);
-}
-export const doesUserOwnMessage = (userIdInDb: string | undefined, userId: string): boolean => {
-    return userIdInDb === userId;
-}
 export const userActivityLevelCheck = async (userId: string): Promise<number> => {
     try {
         const coinTierMessage = (await databaseManager.getUniqueUserMessages(userId, 1, 100))[0];
@@ -241,7 +243,7 @@ export const rebuildMessageComponentAfterUserInteraction = async (message: Messa
             }
             resultComponent[resultComponent.length - 1].addComponents(newButtonComponent);
         });
-        returnValues.push({guildID: messagesRecord.guildId, components: resultComponent});
+        returnValues.push({guildId: messagesRecord.guildId, components: resultComponent});
     }))
 
     if (deleteAll) {
@@ -259,12 +261,11 @@ export const rebuildMessageComponentAfterUserInteraction = async (message: Messa
 export const statusUpdate = async (guilds: Collection<string, OAuth2Guild>): Promise<void> => {
     let memberObjects: Collection<string, GuildMember> = new Collection();
     let guildCount = 0;
-    const broadcasts = await databaseManager.getBroadcasts();
     for await (const oauthGuild of guilds) {
         const guild = client.guilds.cache.find((guild) => guild.id === oauthGuild[0]);
         if (!guild) continue;
-        const guildBroadcasts = broadcasts.filter((broadcast) => broadcast.guildId === guild.id);
-        if (!guildBroadcasts.length) continue;
+        const guildWebhooks = config.activeWebhooks.filter((webhook) => webhook.guildId === guild.id);
+        if (!guildWebhooks.length) continue;
 
         guildCount++;
         memberObjects = memberObjects.concat(guild.members.cache);

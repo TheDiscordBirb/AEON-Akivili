@@ -5,11 +5,12 @@ import {
     ChannelType,
     TextChannel
 } from 'discord.js'
-import { hasModerationRights } from '../../utils';
 import { joinHandler } from '../../functions/join-handler';
-import { databaseManager } from '../../structures/database';
 import { NetworkJoinOptions } from '../../types/command';
 import { Logger } from '../../logger';
+import { config } from '../../const';
+import { clearanceLevel } from '../../utils';
+import { ClearanceLevel } from '../../types/client';
 
 const logger = new Logger('JoinNetworkCmd');
 
@@ -47,8 +48,8 @@ export default new Command({
             await options.interaction.reply({ content: `You cant use this here.`, ephemeral: true });
             return;
         }
-
-        if (!hasModerationRights(guildMember)) {
+            
+        if(clearanceLevel(guildMember.user, guildMember.guild, true) === ClearanceLevel.MODERATOR) {
             await options.interaction.reply({ content: 'You do not have permission to use this!', ephemeral: true });
             return;
         }
@@ -65,15 +66,12 @@ export default new Command({
             return;
         }
 
-        const broadcastRecords = await databaseManager.getBroadcasts();
-        const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
+        const webhooks = config.activeWebhooks;
+        const channelWebhook = webhooks.find((webhook) => webhook.channelId === channel.id);
         if (channelWebhook) {
             try {
-                const webhooks = await (options.interaction.channel as TextChannel).fetchWebhooks();
-                if (webhooks.get(channelWebhook.webhookId)) {
-                    await options.interaction.reply({ content: `This channel is already connected to Aeon ${channelWebhook.channelType}, please select another channel!` });   
-                    return;
-                }
+                await options.interaction.reply({ content: `This channel is already connected to ${channelWebhook.name}, please select another channel!` });   
+                return;
             } catch (error) {
                 logger.warn(`Couldnt get webhook`, (error as Error));
             }

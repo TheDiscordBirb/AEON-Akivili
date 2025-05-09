@@ -1,10 +1,11 @@
 import { Command } from '../../structures/command';
-import { ApplicationCommandOptionType } from 'discord.js'
-import { databaseManager } from '../../structures/database'; 
-import { hasModerationRights } from '../../utils';
+import { ApplicationCommandOptionType } from 'discord.js';
+import { databaseManager } from '../../structures/database';
 import { Logger } from '../../logger';
 import { client } from '../../structures/client';
 import { config } from '../../const';
+import { clearanceLevel } from '../../utils';
+import { ClearanceLevel } from '../../types/client';
 
 const logger = new Logger('GetUidCmd');
 
@@ -26,19 +27,20 @@ export default new Command({
     }],
 
     run: async (options) => {
-        const guildMember = options.interaction.guild?.members.cache.find(m => m.id === options.interaction.member.user.id);
+        if (!options.interaction.guild) {
+            await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
+            return;
+        }
+
+        const guildMember = options.interaction.guild.members.cache.find(m => m.id === options.interaction.member.user.id);
 
         if (!guildMember) {
             logger.wtf("Interaction's creator does not exist.");
             return;
         }
-
-        if (!hasModerationRights(guildMember)) {
+                    
+        if(clearanceLevel(guildMember.user, guildMember.guild, true) === ClearanceLevel.MODERATOR) {
             await options.interaction.reply({ content: 'You do not have permission to use this!', ephemeral: true });
-            return;
-        }
-        if (!options.interaction.guild) {
-            await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
             return;
         }
 
@@ -80,7 +82,7 @@ export default new Command({
             if (!user.dmChannel) {
                 user.createDM();
             }
-            let muteInfo = `\nTo dispute this join https://discord.gg/bAmwkDYZ5e and open a modmail by sending <@989173789482975262> a message.`;
+            let muteInfo = `\nTo dispute this join https://discord.gg/bAmwkDYZ5e and open a modmail by sending ${client.user} a message.`;
             if (!options.args.get('anonymous-dm')) {
                 muteInfo = `by ${options.interaction.user.username}` + muteInfo;
             }

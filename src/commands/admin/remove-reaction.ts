@@ -1,11 +1,12 @@
 import { Command } from '../../structures/command';
-import { ApplicationCommandOptionType, BaseGuildTextChannel, ChannelType } from 'discord.js'
-import { databaseManager } from '../../structures/database'; 
-import { hasModerationRights } from '../../utils';
+import { ApplicationCommandOptionType, BaseGuildTextChannel, ChannelType } from 'discord.js';
+import { databaseManager } from '../../structures/database';
 import { Logger } from '../../logger';
 import { metrics } from '../../structures/metrics';
 import { TimeSpanMetricLabel } from '../../types/metrics';
 import { RunOptions } from '../../types/command';
+import { clearanceLevel } from '../../utils';
+import { ClearanceLevel } from '../../types/client';
 
 const logger = new Logger('RemoveReactionCmd');
 
@@ -15,8 +16,8 @@ const banCommand = async (options: RunOptions): Promise<void> => {
         return;
     }
     
-    const user = options.interaction.guild.members.cache.find((member) => member.id === options.interaction.member.user.id);
-    if (!user) {
+    const guildMember = options.interaction.guild.members.cache.find((member) => member.id === options.interaction.member.user.id);
+    if (!guildMember) {
         logger.wtf("Interaction's creator does not exist.");
         return;
     }
@@ -28,7 +29,7 @@ const banCommand = async (options: RunOptions): Promise<void> => {
     const channel = options.interaction.channel as BaseGuildTextChannel;
     if (channel.type !== ChannelType.GuildText) return;
     
-    if (!hasModerationRights(user)) {
+    if(clearanceLevel(guildMember.user, guildMember.guild, true) === ClearanceLevel.MODERATOR) {
         await options.interaction.reply({ content: 'You do not have permission to use this!', ephemeral: true });
         return;
     }

@@ -23,7 +23,9 @@ export class ExtendedClient extends Client {
         super({
             intents: [
                 IntentsBitField.Flags.Guilds,
+                IntentsBitField.Flags.GuildPresences,
                 IntentsBitField.Flags.GuildMembers,
+                IntentsBitField.Flags.GuildModeration,
                 IntentsBitField.Flags.GuildMessages,
                 IntentsBitField.Flags.MessageContent,
                 IntentsBitField.Flags.DirectMessages,
@@ -32,7 +34,7 @@ export class ExtendedClient extends Client {
                 IntentsBitField.Flags.GuildEmojisAndStickers,
                 IntentsBitField.Flags.GuildMessageTyping,
             ],
-            partials: [Partials.Channel, Partials.Message],
+            partials: [Partials.Channel, Partials.Message, Partials.GuildMember],
         });
     }
 
