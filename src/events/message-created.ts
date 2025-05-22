@@ -169,18 +169,16 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
         // This code snipet ensures that out of network stickers cant be used by Akivili
         const sticker = await interactionSticker.fetch();
 
+        let bufferSticker = await cacheManager.retrieveCache('sticker', sticker.id)
+        if (bufferSticker !== false) {
+            const attachBuffer = new AttachmentBuilder(bufferSticker, { name: `${sticker.name}${isApng(bufferSticker) ? ".gif" : ".png"}` });
         
+            return attachBuffer;
+        }
+
         if (sticker.guildId && broadcastGuildIds.includes(sticker.guildId) && !config.disabledStickerNetworkServerIds.includes(sticker.guildId)) {
             if (config.enableStickers) {
-                        let bufferSticker = await cacheManager.retrieveCache('sticker', sticker.id)
-                        if (bufferSticker !== false) {
-                            const attachBuffer = new AttachmentBuilder(bufferSticker, { name: `${sticker.name}${isApng(bufferSticker) ? ".gif" : ".png"}` });
-        
-                            return attachBuffer;
-                        } else 
-                        {
-                            stickerBuffer = await axios.get(sticker.url, { responseType: 'arraybuffer' })
-                        }
+                stickerBuffer = await axios.get(sticker.url, { responseType: 'arraybuffer' })
             } else {
                 return undefined;
             }
