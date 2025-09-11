@@ -1,5 +1,4 @@
-import { Guild, StringMappedInteractionTypes, TextChannel, User } from "discord.js"
-import { NetworkJoinOptions } from "./command"
+import { Guild, Message, TextChannel, User } from "discord.js"
 
 export interface BroadcastRecord {
     channelId: string,
@@ -7,8 +6,7 @@ export interface BroadcastRecord {
     guildId: string,
     webhookId: string,
     webhookToken: string,
-    importantBanshareRoleId: string | null,
-    autoBanLevel: number
+    importantBanshareRoleId: string | null
 }
 
 export interface MessagesRecord {
@@ -22,12 +20,6 @@ export interface MessagesRecord {
     messageOrigin: number
 }
 
-export interface ModmailRecord {
-    userId: string,
-    channelId: string,
-    active: number
-}
-
 export interface UserReactionRecord {
     userMessageId: string,
     userId: string,
@@ -35,7 +27,7 @@ export interface UserReactionRecord {
 }
 
 export interface BanshareData {
-    user: User | string,
+    user: User,
     reason: string,
     proof: string[],
 }
@@ -43,21 +35,21 @@ export interface BanshareData {
 export interface JoinData {
     guild: Guild,
     channel: TextChannel,
-    type: string,
-    user: User
+    type: string
 }
 
-export interface NetworkProfileData {
-    userId: string,
-    name: string,
-    avatarUrl: string
-}
-
-export interface BanshareListData {
-    serverId: string,
-    status: string,
-    userId: string,
-    reason: string,
-    proof: string,
-    timestamp: number
+export interface NotificationData {
+    executingUser: User,
+    channelType: string
+    notificationType: string,
+    time: number,
+    guild: Guild,
+    targetUser?: User,
+    message?: Message,
+    oldContent?: string,
+    newContent?: string,
+    deletedReacionIdentifier?: string,
+    images?: string[]
+    banshareReason?: string,
+    deletedByMod?: boolean,
 }

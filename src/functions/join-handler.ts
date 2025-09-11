@@ -73,20 +73,18 @@ class JoinHandler {
                     await webhook.send({embeds: await rebuildNetworkInfoEmbeds(infoMessage)})
                 }
                 try {
-                    config.activeWebhooks.push(webhook);
-                    await databaseManager.saveBroadcast({ channelType: data.type, webhookId: webhook.id, importantBanshareRoleId: '', autoBanLevel: 0 });
+                    await databaseManager.saveBroadcast({ guildId: webhook.guildId, channelId: data.channel.id, channelType: data.type, webhookId: webhook.id, webhookToken: webhook.token, importantBanshareRoleId: '', autoBanLevel: 0 });
                     await data.guild.members.fetch();
                     if (config.nonChatWebhooks.includes(webhook.name)) return;
-                    const webhooks = config.activeWebhooks;
-                    const relatedBroadcastRecords = (await databaseManager.getBroadcasts()).filter((broadcast) => broadcast.channelType === data.type);
+                    const broadcastRecords = await databaseManager.getBroadcasts();
+                    const relatedBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === data.type);
 
                     await Promise.allSettled(relatedBroadcastRecords.map(async (broadcastRecord) => {
-                        const webhook = webhooks.find((webhook) => webhook.id === broadcastRecord.webhookId);
-                        if(!webhook) return;
+                        const webhook = new WebhookClient({ id: broadcastRecord.webhookId, token: broadcastRecord.webhookToken });
 
                         const webhookMessage = `${data.guild.name} has joined Aeon ${data.type}`;
                         const formating = '`';
-                        if (webhook.guildId === data.guild.id) return;
+                        if (broadcastRecord.guildId === data.guild.id) return;
                         await webhook.send({content: `${formating}${webhookMessage}${formating}`, username: 'Akivili'});
                     }))
                 } catch (error) {

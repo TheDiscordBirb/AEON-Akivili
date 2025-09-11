@@ -1,12 +1,11 @@
 import { Command } from '../../structures/command';
-import { clearanceLevel } from '../../utils';
-import { ClearanceLevel } from '../../types/client';
+import { isNavigator, } from '../../utils';
 import { Logger } from '../../logger';
 import { databaseManager } from '../../structures/database';
 import { modmailHandler } from '../../functions/modmail';
 import { ApplicationCommandOptionType } from 'discord.js';
 
-const logger = new Logger('ModmailResponseCmd');
+const logger = new Logger('CrowdControlCmd');
 
 export default new Command({
     name: 'modmail-response',
@@ -25,7 +24,7 @@ export default new Command({
             logger.warn(`Didnt get interaction member`);
             return;
         }
-        if (!(clearanceLevel(options.interaction.user) >= ClearanceLevel.NAVIGATOR)) {
+        if (!isNavigator(options.interaction.user)) {
             await options.interaction.reply({ content: `You do not have permission to use this!`, ephemeral: true });
             return;
         }

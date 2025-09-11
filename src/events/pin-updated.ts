@@ -1,9 +1,11 @@
 import { BaseGuildTextChannel, ChannelType, GuildTextBasedChannel } from "discord.js";
 import { Event } from "../structures/event";
+import { hasModerationRights } from "../utils";
 import { Logger } from "../logger";
 import { databaseManager } from "../structures/database";
 import { client } from "../structures/client";
 import { config } from "../const";
+import { NetworkJoinOptions } from "../types/command";
 const logger = new Logger(`PinEvent`);
 
 export default new Event("messageUpdate", async (oldMessage, newMessage) => {
@@ -16,13 +18,21 @@ export default new Event("messageUpdate", async (oldMessage, newMessage) => {
     const message = channel.messages.cache.get(newMessage.id);
     if (!message) return;
 
-    const webhooks = config.activeWebhooks;
-    if (!webhooks.find((webhook) => webhook.channelId === newMessage.channel.id)) return;
+    const broadcastRecords = await databaseManager.getBroadcasts();
+    if (!broadcastRecords.find((broadcastRecord) => broadcastRecord.channelId === newMessage.channel.id)) return;
     
-    const channelWebhook = webhooks.find((broadcast) => broadcast.channelId === channel.id);
+    const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
     if (!channelWebhook) return;
     
-    if (config.nonChatWebhooks.includes(channelWebhook.name)) return;
+    let webhook;
+    try {
+        webhook = await client.fetchWebhook(channelWebhook.webhookId);
+    } catch (error) { 
+        logger.error(`Could not fetch webhook in guild: ${newMessage.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`, error as Error)
+        return;
+    };
+    
+    if (config.nonChatWebhooks.includes(webhook.name)) return;
     if (message.type !== 6) return;
     const messageUid = await databaseManager.getMessageUid(message.channel.id, message.id);
     const relatedMessageRecords = (await databaseManager.getMessages(newMessage.channel.id, newMessage.id)).filter((relatedMessageRecord) => relatedMessageRecord.userMessageId === messageUid);

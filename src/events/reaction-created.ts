@@ -1,6 +1,6 @@
 import { Logger } from "../logger"
 import { Event } from "../structures/event";
-import { BaseGuildTextChannel, ChannelType, Message, WebhookClient } from "discord.js";
+import { ActionRow, ActionRowComponent, BaseGuildTextChannel, ChannelType, Message, MessageActionRowComponent, WebhookClient } from "discord.js";
 import { databaseManager } from "../structures/database";
 import { config } from "../const";
 import { rebuildMessageComponentAfterUserInteraction } from "../utils";
@@ -43,7 +43,7 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
         logger.error(`Could not get messages. Error: `, error as Error);
         return;
     }
-    const newActionRows = await rebuildMessageComponentAfterUserInteraction(interaction.message as Message<boolean>, actionRows, { userId: user.id, userMessageId: messageUidInDb, reactionIdentifier: interaction.emoji.identifier });
+    const newActionRows = await rebuildMessageComponentAfterUserInteraction(interaction.message as Message<boolean>, actionRows as ActionRow<MessageActionRowComponent>[], { userId: user.id, userMessageId: messageUidInDb, reactionIdentifier: interaction.emoji.identifier });
 
     await Promise.allSettled(matchingBroadcastRecords.map(async (broadcastRecord) => {
         if (!interaction.emoji.identifier) return;

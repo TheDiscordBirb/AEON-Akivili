@@ -1,14 +1,15 @@
 import { Command } from '../../structures/command';
 import { ApplicationCommandOptionType} from 'discord.js'
-import { databaseManager } from '../../structures/database'; 
-import { hasModerationRights } from '../../utils';
 import { Logger } from '../../logger';
+import { writeFileSync, unlinkSync } from 'fs';
+import path from 'path';
+import { hasModerationRights } from '../../utils';
 
-const logger = new Logger('GetUidCmd');
+const logger = new Logger('GetEmbedData');
 
 export default new Command({
-    name: 'get-uid',
-    description: "Gets a person's uid using a message id from Aeon Chat",
+    name: 'get-embed-data',
+    description: "Getting the data from embeds.",
     options:
     [{
         name: 'message-id',
@@ -45,14 +46,25 @@ export default new Command({
             await options.interaction.reply({ content: 'No message id provided.', ephemeral: true });
             return;
         }
-        let userId: string;
+
+        const message = await options.interaction.channel.messages.fetch(messageId);
+
         try {
-            userId = await databaseManager.getUserId(options.interaction.channel.id, messageId);
+            unlinkSync(path.join(__dirname, '..', '..', '..', 'embed.json'));
         } catch (error) {
-            await options.interaction.reply({ content: 'There was an error fetching this user.', ephemeral: true });
-            logger.error(`There was an error fetching this user: ${messageId}`, error as Error);
-            return;
+            logger.warn(`Couldnt unlink embed.json`, (error as Error));
         }
-        await options.interaction.reply({ content: userId, ephemeral: true });
+
+        let embedJsonData = '[';
+        for (const embed of message.embeds) {
+            embedJsonData += `${JSON.stringify(embed.toJSON(), null, 2)},\n`;
+        }
+        embedJsonData = embedJsonData.slice(0, embedJsonData.length - 2) + ']';
+        if (!message.embeds.length) {
+            embedJsonData = '[]';
+        }
+
+        writeFileSync(path.join(__dirname, '..', '..', '..', 'embed.json'), embedJsonData, { flag: 'a' });
+        await options.interaction.reply({ files: [path.join(__dirname, '..', '..', '..', 'embed.json')], ephemeral: true });
     }
 });

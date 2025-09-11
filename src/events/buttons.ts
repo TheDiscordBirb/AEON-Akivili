@@ -9,16 +9,18 @@ import {
     WebhookClient,
     User,
     ButtonInteraction,
-    CacheType
+    CacheType,
+    ActionRowComponent,
+    MessageActionRowComponent,
+    ActionRow
 } from "discord.js";
 import { banshareManager } from "../functions/banshare";
 import { Event } from "../structures/event";
-import { clearanceLevel, rebuildMessageComponentAfterUserInteraction } from "../utils";
-import { ClearanceLevel } from "../types/client";
+import { hasModerationRights, rebuildMessageComponentAfterUserInteraction } from "../utils";
 import { client } from "../structures/client";
 import { joinHandler } from "../functions/join-handler";
 import { Logger } from "../logger";
-import { BanShareButtonArg, BanshareStatus, DmMessageButtonArg } from "../types/event";
+import { BanShareButtonArg, DmMessageButtonArg } from "../types/event";
 import { config } from "../const";
 import { databaseManager } from "../structures/database";
 import { ChannelType } from "discord.js";
@@ -26,7 +28,6 @@ import { MessagesRecord } from "../types/database";
 import { modmailHandler } from "../functions/modmail";
 
 const logger = new Logger("Buttons");
-const webhooks = config.activeWebhooks;
 
 export default new Event("interactionCreate", async (interaction) => {
     if (!interaction.isButton()) return;
@@ -66,7 +67,6 @@ export default new Event("interactionCreate", async (interaction) => {
     const standardEmojiRegex = new RegExp(/%[A-Z0-9][A-Z0-9]/gm);
 
     if (!!buttonCustomId.match(customEmojiRegex) || !!buttonCustomId.match(standardEmojiRegex)) {
-        if(interaction.message.embeds.length != 0) return;
         await emojiButtonFunction(interaction);
         return;
     }
@@ -153,22 +153,27 @@ const emojiButtonFunction = async (interaction: ButtonInteraction<CacheType>): P
     const channel = interaction.message.channel as BaseGuildTextChannel;
     if (channel.type !== ChannelType.GuildText) return;
     
-    const webhooks = config.activeWebhooks;
-    const channelWebhook = webhooks.find((webhook) => webhook.channelId === channel.id);
+    const broadcastRecords = await databaseManager.getBroadcasts();
+    const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
     if (!channelWebhook) return;
+
+    let webhook;
+    try {
+        webhook = await client.fetchWebhook(channelWebhook.webhookId);
+    } catch (error) { 
+        logger.error(`Could not fetch webhook in guild: ${interaction.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`, error as Error)
+        return;
+    };
     
-    if (config.nonChatWebhooks.includes(channelWebhook.name)) return;
+    if (config.nonChatWebhooks.includes(webhook.name)) return;
     
-    const webhookNameParts = channelWebhook.name.split(' ');
+    const webhookNameParts = webhook.name.split(' ');
     const webhookChannelType = webhookNameParts[webhookNameParts.length - 1];
-    const dbWebhooks = await databaseManager.getBroadcasts();
-    const matchingBroadcastRecords = dbWebhooks.filter((webhook) => webhook.channelType === webhookChannelType);
-    const newActionRows = await rebuildMessageComponentAfterUserInteraction(interaction.message, interaction.message.components, { userId, userMessageId, reactionIdentifier }, (interaction.user.id === client.user?.id ? true : false));
+    const matchingBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === webhookChannelType);
+    const newActionRows = await rebuildMessageComponentAfterUserInteraction(interaction.message, interaction.message.components as ActionRow<MessageActionRowComponent>[], { userId, userMessageId, reactionIdentifier }, (interaction.user.id === client.user?.id ? true : false));
 
-    await Promise.allSettled(matchingBroadcastRecords.map(async (dbWebhook) => {
-        const webhook = config.activeWebhooks.find((activeWebhook) => activeWebhook.id === dbWebhook.webhookId);
-        if(!webhook) return;
-
+    await Promise.allSettled(matchingBroadcastRecords.map(async (broadcastRecord) => {
+        const webhookClient = new WebhookClient({ id: broadcastRecord.webhookId, token: broadcastRecord.webhookToken });
         let messagesOnNetwork: MessagesRecord[];
         try {
             messagesOnNetwork = await databaseManager.getMessages(interaction.message.channel.id, interaction.message.id);
@@ -176,7 +181,7 @@ const emojiButtonFunction = async (interaction: ButtonInteraction<CacheType>): P
             logger.error(`Could not get messages. Error: `, error as Error);
             return;
         }
-        const correctMessageOnNetwork = messagesOnNetwork.find((messageOnNetwork) => messageOnNetwork.channelId === webhook.channelId);
+        const correctMessageOnNetwork = messagesOnNetwork.find((messageOnNetwork) => messageOnNetwork.channelId === broadcastRecord.channelId);
         if (!correctMessageOnNetwork) {
             logger.warn(`Could not get correct message on network`);
             return;
@@ -188,13 +193,13 @@ const emojiButtonFunction = async (interaction: ButtonInteraction<CacheType>): P
             logger.warn(`No message components, message id: ${message.id}`)
             return;
         }
-        await webhook.editMessage(message, { components: [...newActionRows[newActionRows.indexOf(newActionRows.find((actionRow) => actionRow.guildId === webhook.guildId) || newActionRows[0])].components] });
+        await webhookClient.editMessage(message, { components: [...newActionRows[newActionRows.indexOf(newActionRows.find((actionRow) => actionRow.guildID === broadcastRecord.guildId) || newActionRows[0])].components] });
     }))
     await interaction.editReply({ components: [...newActionRows[0].components] });
 }
 
 const moderationButtonFunction = async (interaction: ButtonInteraction<CacheType>, guildMember: GuildMember): Promise<void> => {
-    if (!(clearanceLevel(guildMember.user, guildMember.guild, true) === ClearanceLevel.MODERATOR)) {
+    if (!hasModerationRights(guildMember)) {
         if (!interaction.user.dmChannel) {
             await interaction.user.createDM(true);
         }
@@ -224,17 +229,18 @@ const moderationButtonFunction = async (interaction: ButtonInteraction<CacheType
             }
             const userId = customIdArgs[0];
 
-            const description = interaction.message.embeds[0].description;
-            const reasonPos = description?.search("Reason:") ?? 0;
-            const proofPos = description?.search("Proof:") ?? 0;
-            const reason = description?.slice(reasonPos+7, proofPos-2);
+            const reason = interaction.message.embeds[0].description;
             if (!reason) {
                 await errorButtonFunction(interaction);
                 return;
             }
 
-            const proofString = description?.slice(proofPos+6);
-            const proof = proofString?.split(/\n+/) ?? [];
+            const proof: string[] = [];
+            interaction.message.embeds.forEach((embed) => {
+                if (embed.image) {
+                    proof.push(embed.image.url);
+                }
+            });
 
             const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
 
@@ -249,14 +255,14 @@ const moderationButtonFunction = async (interaction: ButtonInteraction<CacheType
             try {
                 await interaction.message.edit({ components: [banshareActionRow] });
                 const tempBanServer = client.guilds.cache.get(config.tempBanshareServerId);
-                await tempBanServer?.bans.create(userId)
-                .then(async (guildBan) => {
-                    if(typeof(guildBan) != "string") {
-                        guildBan = (guildBan as User);
-                    }
-                    await banshareManager.shareBanshare({user: guildBan, reason, proof}),
-                    await tempBanServer.bans.remove(guildBan);
-                })
+                    await tempBanServer?.bans.create(userId)
+                    .then(async (guildBan) => {
+                        if(typeof(guildBan) != "string") {
+                            guildBan = (guildBan as User);
+                        }
+                        await banshareManager.shareBanshare({user: guildBan, reason, proof});
+                        await tempBanServer.bans.remove(guildBan);
+                    })
             } catch (error) {
                 logger.error('Failed to edit buttons/send banshare.',error as Error);
             }
@@ -368,13 +374,22 @@ const moderationButtonFunction = async (interaction: ButtonInteraction<CacheType
                 return;
             }
 
-            const channelWebhook = webhooks.find((webhook) => webhook.channelId === guildChannel.id);
+            const broadcastRecords = await databaseManager.getBroadcasts();
+            const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === guildChannel.id);
             if (!channelWebhook) {
                 logger.warn(`Couldnt get webhook.`);
                 return;
             }
+
+            let webhook;
+            try {
+                webhook = await client.fetchWebhook(channelWebhook.webhookId);
+            } catch (error) { 
+                logger.error(`Could not fetch webhook in guild: ${interaction.guild?.name ?? 'Unknown'} channel: ${guildChannel.name ?? 'Unknown'}`, error as Error)
+                return;
+            };
             
-            if (!config.nonChatWebhooks.includes(channelWebhook.name)) return;
+            if (!config.nonChatWebhooks.includes(webhook.name)) return;
 
             const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
 
@@ -388,8 +403,7 @@ const moderationButtonFunction = async (interaction: ButtonInteraction<CacheType
 
             try {
                 await interaction.guild?.bans.create(customIdArgs[0]);
-                await channelWebhook.editMessage(interaction.message, { components: [banshareActionRow] });
-                await databaseManager.updateBanshareStatus(guildChannel.guildId, customIdArgs[0], BanshareStatus.ENFORCED, Date.now());
+                await webhook.editMessage(interaction.message, { components: [banshareActionRow] });
             } catch (error) {
                 (interaction.member?.user as User).dmChannel ? await (interaction.member?.user as User).send(`Could not execute ban, please contact birb`) : (await (interaction.member?.user as User).createDM()).send(`Could not execute ban, please contact birb`)
                 logger.error(`Could not ban user`, (error as Error));
@@ -407,13 +421,19 @@ const moderationButtonFunction = async (interaction: ButtonInteraction<CacheType
                 return;
             }
 
-            const channelWebhook = webhooks.find((webhook) => webhook.channelId === guildChannel.id);
-            if (!channelWebhook) {
-                logger.warn(`Couldnt get webhook.`);
+            const broadcastRecords = await databaseManager.getBroadcasts();
+            const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === guildChannel.id);
+            if (!channelWebhook) return;
+
+            let webhook;
+            try {
+                webhook = await client.fetchWebhook(channelWebhook.webhookId);
+            } catch (error) { 
+                logger.error(`Could not fetch webhook in guild: ${interaction.guild?.name ?? 'Unknown'} channel: ${guildChannel.name ?? 'Unknown'}`, error as Error)
                 return;
-            }
+            };
             
-            if (!config.nonChatWebhooks.includes(channelWebhook.name)) return;
+            if (!config.nonChatWebhooks.includes(webhook.name)) return;
 
             const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
 
@@ -425,8 +445,7 @@ const moderationButtonFunction = async (interaction: ButtonInteraction<CacheType
 
             banshareActionRow.addComponents(rejectButton);
 
-            await channelWebhook.editMessage(interaction.message, { components: [banshareActionRow] });
-            await databaseManager.updateBanshareStatus(guildChannel.guildId, customIdArgs[0], BanshareStatus.REJECTED, Date.now());
+            await webhook.editMessage(interaction.message, { components: [banshareActionRow] });
             break
         }
             

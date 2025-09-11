@@ -7,7 +7,7 @@ const logger = new Logger(`UnbanEvent`);
 
 export default new Event("guildBanRemove", async (guildBan) => {
     try {
-        await databaseManager.updateBanshareStatus(guildBan.guild.id, guildBan.user.id, BanshareStatus.OVERTURNED, Date.now());
+        await databaseManager.updateBanshareStatus(guildBan.guild.id, guildBan.user.id, BanshareStatus.OVERTURNED);
     } catch(error) {
         logger.error(`${guildBan.user.username}`, (error as Error));
     }

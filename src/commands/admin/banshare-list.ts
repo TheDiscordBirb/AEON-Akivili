@@ -9,7 +9,6 @@ import {
     ComponentType,
     MessageActionRowComponentBuilder
 } from 'discord.js'
-import { clearanceLevel } from '../../utils';
 import { Logger } from '../../logger';
 import { databaseManager } from '../../structures/database';
 import { BanshareListData } from '../../types/database';
@@ -17,7 +16,7 @@ import { BanshareButtonInstructions } from '../../types/command';
 import { config } from '../../const';
 import { StringSelectMenuBuilder } from '@discordjs/builders';
 import { BanshareStatus } from '../../types/event';
-import { ClearanceLevel } from '../../types/client';
+import { hasModerationRights } from '../../utils';
 
 const logger = new Logger('BanshareListCmd');
 
@@ -40,7 +39,7 @@ export default new Command({
             return;
         }
 
-        if(clearanceLevel(guildMember.user, guildMember.guild) >= ClearanceLevel.MODERATOR) {
+        if(!hasModerationRights(guildMember)) {
             await options.interaction.reply({ content: 'You do not have permission to use this!', ephemeral: true });
             return;
         }
@@ -50,7 +49,7 @@ export default new Command({
             return;
         }
         
-        let unsortedBanshares : BanshareListData[] = []
+        let unsortedBanshares : BanshareListData[] = [];
         try {
             unsortedBanshares = await databaseManager.getBanshareList(options.interaction.guild?.id);
         } catch(error) {

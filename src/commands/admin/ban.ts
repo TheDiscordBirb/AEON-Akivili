@@ -1,7 +1,7 @@
 import { Command } from '../../structures/command';
 import { ApplicationCommandOptionType, GuildMember } from 'discord.js'
 import { databaseManager } from '../../structures/database'; 
-import { clearanceLevel } from '../../utils';
+import { hasModerationRights } from '../../utils';
 import { banshareManager } from '../../functions/banshare';
 import { MessagesRecord } from '../../types/database';
 import { BanShareOption } from '../../types/command';
@@ -11,8 +11,6 @@ import { NotificationType } from '../../types/event';
 import { metrics } from '../../structures/metrics';
 import { TimeSpanMetricLabel } from '../../types/metrics';
 import { RunOptions } from '../../types/command';
-import { config } from '../../const';
-import { ClearanceLevel } from '../../types/client';
 
 const logger = new Logger('BanCmd');
 
@@ -22,13 +20,13 @@ const banCommand = async (options: RunOptions): Promise<void> => {
         return;
     }
     
-    const user = options.interaction.guild.members.cache.find((member) => member.id === options.interaction.member.user.id);
-    if (!user) {
+    const guildMember = options.interaction.guild.members.cache.find((member) => member.id === options.interaction.member.user.id);
+    if (!guildMember) {
         logger.wtf("Interaction's creator does not exist.");
         return;
     }
     
-    if(clearanceLevel(user.user, options.interaction.guild, true) === ClearanceLevel.MODERATOR) {
+    if (!hasModerationRights(guildMember)) {
         await options.interaction.reply({ content: 'You do not have permission to use this!', ephemeral: true });
         return;
     }
@@ -59,12 +57,7 @@ const banCommand = async (options: RunOptions): Promise<void> => {
         logger.error(`There was an error fetching this user: ${messageId}`, error as Error);
         return;
     }
-    const broadcasts = config.activeWebhooks;
-    const correctBroadcastChannel = broadcasts.filter((webhook) => webhook.channelId === message.channelId);
-    if(!correctBroadcastChannel.length) {
-        logger.warn("Could not get correct broadcast channel.");
-        return;
-    }
+    const broadcasts = await databaseManager.getBroadcasts();
 
     let messageRecords: MessagesRecord[];
     try {
@@ -74,11 +67,13 @@ const banCommand = async (options: RunOptions): Promise<void> => {
         return;
     }
 
-    const messageChannel = (await databaseManager.getBroadcast(correctBroadcastChannel[0].channelId));
-    if(!messageChannel) {
-        logger.warn("Could not get message channel.");
-        return;
-    }
+    let messageChannelType = '';
+    broadcasts.forEach((broadcast) => {
+        if (broadcast.channelId === messageRecords[0].channelId) {
+            messageChannelType = broadcast.channelType;
+            return;
+        }
+    })
     
     const userInfo = Object.values(broadcasts).reduce<{ guildMember?: GuildMember, userIsModerator: boolean }>((acc, broadcast) => {
         const guild = options.client.guilds.cache.get(broadcast.guildId);
@@ -86,7 +81,7 @@ const banCommand = async (options: RunOptions): Promise<void> => {
         if (acc.userIsModerator) return acc;
         const guildMember = guild.members.cache.find((user) => user.id === userId);
         if (!guildMember) return acc;
-        if (clearanceLevel(guildMember.user, guildMember.guild) >= ClearanceLevel.MODERATOR) {
+        if (hasModerationRights(guildMember)) {
             return {guildMember, userIsModerator: true};
         }
         return { guildMember, userIsModerator: false };
@@ -98,7 +93,7 @@ const banCommand = async (options: RunOptions): Promise<void> => {
         notificationManager.sendNotification({
             executingUser: options.interaction.user,
             targetUser: userInfo.guildMember?.user,
-            channelType: messageChannel.channelType,
+            channelType: messageChannelType,
             message,
             notificationType: NotificationType.MODERATOR_BAN,
             time: Date.now(),
@@ -120,7 +115,7 @@ const banCommand = async (options: RunOptions): Promise<void> => {
     notificationManager.sendNotification({
         executingUser: options.interaction.user,
         targetUser: userInfo.guildMember?.user,
-        channelType: messageChannel.channelType,
+        channelType: messageChannelType,
         message,
         notificationType: userInfo.userIsModerator ? NotificationType.MODERATOR_BAN : NotificationType.MODERATOR_BAN,
         time: Date.now(),

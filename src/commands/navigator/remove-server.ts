@@ -14,8 +14,6 @@ import { Logger } from '../../logger';
 import { databaseManager } from '../../structures/database';
 import { config } from '../../const';
 import { client } from '../../structures/client';
-import { clearanceLevel } from '../../utils';
-import { ClearanceLevel } from '../../types/client';
 
 const logger = new Logger('RemoveServerCmd');
 
@@ -34,8 +32,14 @@ export default new Command({
             await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
             return;
         }
-        
-        if (!(clearanceLevel(options.interaction.user) >= ClearanceLevel.NAVIGATOR)) {
+        const mainGuild = client.guilds.cache.get(config.mainServerId);
+        if(!mainGuild) return; //TODO: log
+        const guildUser = mainGuild.members.cache.get(options.interaction.user.id);
+        if(!guildUser) {
+            await options.interaction.reply({ content: `You do not have permission to use this!`, ephemeral: true });
+            return;
+        }
+        if(!guildUser.roles.cache.has(config.navigatorRoleId)) {
             await options.interaction.reply({ content: `You do not have permission to use this!`, ephemeral: true });
             return;
         }
@@ -73,12 +77,16 @@ export default new Command({
         const collector = reply.createMessageComponentCollector({ filter });
         collector.on('collect', async (componentInteraction) => {
             const selectedWebhook = serverAeonWebhooks.find((webhook) => webhook.id === componentInteraction.customId);
+            if(!selectedWebhook) {
+                logger.warn("Could not find webhook")
+                return;
+            }
             const selectedWebhookPosition = config.activeWebhooks.findIndex((webhook) => webhook === selectedWebhook)
             try {
                 console.log(config.activeWebhooks);
                 config.activeWebhooks.slice(selectedWebhookPosition, selectedWebhookPosition);
                 console.log(config.activeWebhooks);
-                await selectedWebhook?.delete();
+                await selectedWebhook.delete();
                 await databaseManager.deleteBroadcastByWebhookId(componentInteraction.customId);
             } catch(error) {
                 logger.error('Could not delete webhook.', (error as Error));

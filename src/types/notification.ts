@@ -2,10 +2,10 @@ import { Guild, Message, User } from "discord.js"
 
 export interface NotificationData {
     executingUser: User,
+    channelType: string
     notificationType: string,
     time: number,
     guild: Guild,
-    channelType?: string
     targetUser?: User,
     message?: Message,
     oldContent?: string,

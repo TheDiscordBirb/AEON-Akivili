@@ -1,4 +1,4 @@
-import { Webhook, WebhookType } from "discord.js"
+import { Webhook } from "discord.js"
 import { getEnvVar } from "./get-env-var"
 
 export const config = {
@@ -8,16 +8,16 @@ export const config = {
     maxConcurrentRequestCount: 10,
     networkJoinChannelId: getEnvVar<string>("NETWORK_JOIN_CHANNEL_ID"),
     nonChatWebhooks: getEnvVar<string>("NON_CHAT_WEBHOOKS").split(','),
+    nonChatWebhooksTypes: getEnvVar<string>("NON_CHAT_WEBHOOK_TYPES").split(' '),
     notificationChannelId: getEnvVar<string>("NOTIFICATION_CHANNEL_ID"),
     numberOfMessagesToLoad: 100,
     replyPictureEmojiId: getEnvVar<string>("REPLY_PICTURE_EMOJI_ID"),
     replyArrowEmojiId: getEnvVar<string>("REPLY_ARROW_EMOJI_ID"),
     birbId: getEnvVar<string>("BIRB_ID"),
     devIds: getEnvVar<string>("DEV_IDS").split(' '),
-    mainServerId: getEnvVar<string>("MAIN_SERVER_ID"),
-    representativeRoleId: getEnvVar<string>("REPRESENTATIVE_ROLE_ID"),
     navigatorRoleId: getEnvVar<string>("NAVIGATOR_ROLE_ID"),
     conductorRoleId: getEnvVar<string>("CONDUCTOR_ROLE_ID"),
+    mainServerId: getEnvVar<string>("MAIN_SERVER_ID"),
     infoMessageChannelId: getEnvVar<string>("INFO_MESSAGE_CHANNEL_ID"),
     infoMessageId: getEnvVar<string>("INFO_MESSAGE_ID"),
     maxEmbedColumnValueLength: 1024,
@@ -34,4 +34,5 @@ export const config = {
     embedFieldLimit: 25,
     tempBanshareServerId: getEnvVar<string>("TEMP_BANSHARE_SERVER_ID"),
     activeWebhooks: [] as Webhook[],
+    cleanDbMode: true,
 }
