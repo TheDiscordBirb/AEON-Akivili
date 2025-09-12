@@ -12,20 +12,22 @@ import {
     CacheType,
     ActionRowComponent,
     MessageActionRowComponent,
-    ActionRow
+    ActionRow,
+    GuildEmoji
 } from "discord.js";
 import { banshareManager } from "../functions/banshare";
 import { Event } from "../structures/event";
-import { hasModerationRights, rebuildMessageComponentAfterUserInteraction } from "../utils";
+import { deleteEmojis, hasModerationRights, rebuildMessageComponentAfterUserInteraction, replaceEmojis, Time } from "../utils";
 import { client } from "../structures/client";
 import { joinHandler } from "../functions/join-handler";
 import { Logger } from "../logger";
-import { BanShareButtonArg, DmMessageButtonArg } from "../types/event";
+import { BanShareButtonArg, DmMessageButtonArg, guildEmojiCooldowns } from "../types/event";
 import { config } from "../const";
 import { databaseManager } from "../structures/database";
 import { ChannelType } from "discord.js";
 import { MessagesRecord } from "../types/database";
 import { modmailHandler } from "../functions/modmail";
+import { cacheManager } from "../structures/memcache";
 
 const logger = new Logger("Buttons");
 
@@ -171,6 +173,14 @@ const emojiButtonFunction = async (interaction: ButtonInteraction<CacheType>): P
     const webhookChannelType = webhookNameParts[webhookNameParts.length - 1];
     const matchingBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === webhookChannelType);
     const newActionRows = await rebuildMessageComponentAfterUserInteraction(interaction.message, interaction.message.components as ActionRow<MessageActionRowComponent>[], { userId, userMessageId, reactionIdentifier }, (interaction.user.id === client.user?.id ? true : false));
+    let messageContent = interaction.message.content; 
+    await Promise.allSettled(config.cachedEmojiDictionaries.map(async (cachedEmojiDic) => {
+        if(messageContent.includes(`:${cachedEmojiDic.emojiName}:`)) {
+            messageContent.replace(`:${cachedEmojiDic.emojiName}:`, `:${cachedEmojiDic.emojiName}:${cachedEmojiDic.emojiId}`);
+        }
+    }));
+    const emojiReplacement = await replaceEmojis(messageContent, client);
+
 
     await Promise.allSettled(matchingBroadcastRecords.map(async (broadcastRecord) => {
         const webhookClient = new WebhookClient({ id: broadcastRecord.webhookId, token: broadcastRecord.webhookToken });
@@ -193,9 +203,10 @@ const emojiButtonFunction = async (interaction: ButtonInteraction<CacheType>): P
             logger.warn(`No message components, message id: ${message.id}`)
             return;
         }
-        await webhookClient.editMessage(message, { components: [...newActionRows[newActionRows.indexOf(newActionRows.find((actionRow) => actionRow.guildID === broadcastRecord.guildId) || newActionRows[0])].components] });
+        await webhookClient.editMessage(message, {content: emojiReplacement.content, components: [...newActionRows[newActionRows.indexOf(newActionRows.find((actionRow) => actionRow.guildID === broadcastRecord.guildId) || newActionRows[0])].components] });
     }))
     await interaction.editReply({ components: [...newActionRows[0].components] });
+    deleteEmojis(emojiReplacement);
 }
 
 const moderationButtonFunction = async (interaction: ButtonInteraction<CacheType>, guildMember: GuildMember): Promise<void> => {

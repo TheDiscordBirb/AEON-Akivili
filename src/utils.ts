@@ -28,8 +28,9 @@ import { Logger } from './logger';
 import { client } from './structures/client';
 import axios from 'axios';
 import { config } from './const';
-import { clientInfoData } from './types/client';
+import { CachedEmojiName, clientInfoData } from './types/client';
 import sharp from 'sharp';
+import { cacheManager } from './structures/memcache';
 
 const logger = new Logger("Utils");
 
@@ -393,7 +394,7 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
         }
     });
   
-    await Promise.allSettled(extractedEmojiData.map(async (emoji, idx) => {
+    await Promise.allSettled(extractedEmojiData.map(async (emoji) => {
         if (client.emojis.cache.get(emoji[2])) return;
             
         if (guildEmojiCooldowns.length === 0 || guildEmojiCooldowns[guildEmojiCooldowns.length - 1].length >= config.maxEmojiPerServer + 1) {
@@ -408,11 +409,21 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
         if (!guild) return;
 
         const url = `https://cdn.discordapp.com/emojis/${emoji[2]}.${emoji[0] ? "gif" : "png"}?v=1`;
-        const attachmentBuffer = await axios.get(url, { responseType: 'arraybuffer' });
-        const attachment = Buffer.from(attachmentBuffer.data, 'utf-8');
-        await guild.emojis.create({ attachment, name: emoji[1] }).then((emoji) => {
+        let attachment = await cacheManager.retrieveCache('emoji', emoji[2]);
+        if(!attachment) {
+            const attachmentBuffer = await axios.get(url, { responseType: 'arraybuffer' });
+            attachment = Buffer.from(attachmentBuffer.data, 'utf-8');
+            await cacheManager.saveCache('emoji', emoji[2], attachment);
+        }
+        let localCachedEmojiDic = config.cachedEmojiDictionaries.find((emojiDic) => emojiDic.emojiId === emoji[2]);
+        if(!localCachedEmojiDic) {
+            localCachedEmojiDic = ({emojiId: emoji[2], emojiName: emoji[1]}) as CachedEmojiName;
+            config.cachedEmojiDictionaries.push(localCachedEmojiDic);
+        }
+
+        await guild.emojis.create({ attachment, name: emoji[1] }).then((guildEmoji) => {
             guildEmojiCooldowns[guildEmojiCooldowns.length - 1].push(`${Date.now() + Time.HOUR}`);
-            emojis.push(emoji);
+            emojis.push(guildEmoji);
         });
     }));
     let messageContent = content;
@@ -421,6 +432,15 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
         messageContent = messageContent.replaceAll(regex, `${emoji}`);
     })
     return { content: messageContent, emojis: emojis };
+}
+
+export const deleteEmojis = (emojiReplacement: EmojiReplacementData | undefined): void => {
+    if(!emojiReplacement) return;
+    emojiReplacement.emojis.forEach(async (emoji) => {
+        const guildEmoji = client.emojis.cache.get(emoji.id)
+        if (!guildEmoji) return;
+        await guildEmoji.guild.emojis.delete(emoji);
+    });
 }
 
 export const watermarkSize = async (metadata: sharp.Metadata, serverName: string): Promise<number> => {

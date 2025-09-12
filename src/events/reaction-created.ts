@@ -3,9 +3,10 @@ import { Event } from "../structures/event";
 import { ActionRow, ActionRowComponent, BaseGuildTextChannel, ChannelType, Message, MessageActionRowComponent, WebhookClient } from "discord.js";
 import { databaseManager } from "../structures/database";
 import { config } from "../const";
-import { rebuildMessageComponentAfterUserInteraction } from "../utils";
+import { deleteEmojis, rebuildMessageComponentAfterUserInteraction, replaceEmojis } from "../utils";
 import { MessagesRecord } from "../types/database";
 import { client } from "../structures/client";
+import { EmojiReplacementData } from "../types/event";
 
 const logger = new Logger("ReactionCreated");
 
@@ -44,6 +45,16 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
         return;
     }
     const newActionRows = await rebuildMessageComponentAfterUserInteraction(interaction.message as Message<boolean>, actionRows as ActionRow<MessageActionRowComponent>[], { userId: user.id, userMessageId: messageUidInDb, reactionIdentifier: interaction.emoji.identifier });
+    let messageContent = interaction.message.content;
+    let emojiReplacement : EmojiReplacementData | undefined;
+    if(messageContent) {
+        await Promise.allSettled(config.cachedEmojiDictionaries.map(async (cachedEmojiDic) => {
+            if(messageContent.includes(`:${cachedEmojiDic.emojiName}:`)) {
+                messageContent.replace(`:${cachedEmojiDic.emojiName}:`, `:${cachedEmojiDic.emojiName}:${cachedEmojiDic.emojiId}`);
+            }
+        }));
+        emojiReplacement = await replaceEmojis(messageContent, client);
+    }
 
     await Promise.allSettled(matchingBroadcastRecords.map(async (broadcastRecord) => {
         if (!interaction.emoji.identifier) return;
@@ -61,7 +72,8 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
         }
         
         const webhookMessage = await webhookClient.fetchMessage(correctMessageOnNetwork.channelMessageId);
-        await webhookClient.editMessage(webhookMessage.id, { components: [...newActionRows[newActionRows.indexOf(newActionRows.find((actionRow) => actionRow.guildID === broadcastRecord.guildId) || newActionRows[0])].components] });
+        await webhookClient.editMessage(webhookMessage.id, { content: emojiReplacement?.content, components: [...newActionRows[newActionRows.indexOf(newActionRows.find((actionRow) => actionRow.guildID === broadcastRecord.guildId) || newActionRows[0])].components] });
+        deleteEmojis(emojiReplacement);
         return;
     }))
 })

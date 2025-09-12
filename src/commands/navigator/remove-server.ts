@@ -1,5 +1,6 @@
 import { Command } from '../../structures/command';
 import {
+    ActionRow,
     ActionRowBuilder,
     ApplicationCommandOptionType,
     ButtonBuilder,
@@ -7,6 +8,7 @@ import {
     ComponentType,
     EmbedBuilder,
     Interaction,
+    MessageActionRowComponent,
     Webhook,
     WebhookType
 } from 'discord.js'
@@ -97,7 +99,7 @@ export default new Command({
             const message = componentInteraction.message;
             webhookButtons.components.length = 0;
             message.components.forEach((row) => {
-                row.components.forEach((buttonComponent) => {
+                (row as ActionRow<MessageActionRowComponent>).components.forEach((buttonComponent) => {
                     if(buttonComponent.type === ComponentType.Button) {
                         if(!buttonComponent.customId) {
                             logger.wtf("No button custom id.");

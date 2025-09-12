@@ -221,7 +221,7 @@ class DatabaseManager {
 
     public async getUniqueUserMessages(userId: string, amount: number, offset = 0): Promise<MessagesRecord[]> {
         const db = await this.db();
-        const allUniqueUserMessageRecords = await db.all<MessagesRecord[]>(`SELECT * FROM Messages WHERE userId=? AND messageOrigin=1`);
+        const allUniqueUserMessageRecords = await db.all<MessagesRecord[]>(`SELECT * FROM Messages WHERE userId=? AND messageOrigin=1`, [userId]);
         if(allUniqueUserMessageRecords.length < offset) {
             throw new Error('User does not have enough messages.');
         }

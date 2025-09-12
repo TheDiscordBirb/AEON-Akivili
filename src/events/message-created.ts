@@ -26,6 +26,7 @@ import { metrics } from "../structures/metrics";
 import { TimeSpanMetricLabel } from "../types/metrics";
 import { NetworkJoinOptions } from "../types/command";
 import {
+    deleteEmojis,
     hasModerationRights,
     isConductor,
     isDev,
@@ -41,6 +42,7 @@ import * as sharp from 'sharp';
 import { InteractionData } from '../types/message-created';
 import { crowdControl } from "../functions/crowd-control";
 import { modmailHandler } from "../functions/modmail";
+import { cacheManager } from "../structures/memcache";
 
 
 const logger = new Logger('MessageCreated');
@@ -166,8 +168,12 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
     
     const downloadedStickers = (await Promise.allSettled(interaction.stickers.map(async (interactionSticker) => {
         let stickerBuffer;
-        // This code snipet ensures that out of network stickers cant be used by Akivili
         const sticker = await interactionSticker.fetch();
+        const cachedSticker = await cacheManager.retrieveCache('sticker', sticker.id);
+        if(cachedSticker) {
+            return new AttachmentBuilder(cachedSticker, { name: `${sticker.name}${isApng(cachedSticker) ? ".gif" : ".png"}` });
+        }
+        // This if statement ensures that out of network and disabled server stickers cant be used by Akivili
         if (sticker.guildId && broadcastGuildIds.includes(sticker.guildId) && !config.disabledStickerNetworkServerIds.includes(sticker.guildId)) {
             if (config.enableStickers) {
                 stickerBuffer = await axios.get(sticker.url, { responseType: 'arraybuffer' })
@@ -194,7 +200,6 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
         }
         const metadata = await sharpAttachment.metadata();
         let pages = metadata.pages ?? 1;
-        console.log(await watermarkSize(metadata, watermarkText));
         const watermark = `
         <svg width="${metadata.width}" height="${metadata.height! / pages}" opacity="0.5">
             <text
@@ -215,8 +220,10 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
             `;
         const watermarkBuffer = Buffer.from(watermark);
         const watermarked = sharpAttachment.composite([{input: watermarkBuffer, gravity: 'northeast', 'tile': true}]);
+        const watermarkedStickerBuffer = await (watermarked as sharp.Sharp).toBuffer();
+        await cacheManager.saveCache('sticker', sticker.id, watermarkedStickerBuffer)
 
-        const attachBuffer = new AttachmentBuilder(await (watermarked as sharp.Sharp).toBuffer(), { name: `${sticker.name}${isGif ? ".gif" : ".png"}` });
+        const attachBuffer = new AttachmentBuilder(watermarkedStickerBuffer, { name: `${sticker.name}${isGif ? ".gif" : ".png"}` });
         
         return attachBuffer;
     }))).reduce<AttachmentBuilder[]>((acc, item) => {
@@ -591,10 +598,4 @@ const sendNotification = async (interaction: Message<boolean>, interactionMember
     }
 }
 
-const deleteEmojis = (emojiReplacement: EmojiReplacementData): void => {
-    emojiReplacement.emojis.forEach(async (emoji) => {
-        const guildEmoji = client.emojis.cache.get(emoji.id)
-        if (!guildEmoji) return;
-        await guildEmoji.guild.emojis.delete(emoji);
-    });
-}
+

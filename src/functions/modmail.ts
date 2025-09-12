@@ -9,7 +9,6 @@ import {
     ChannelType,
     Colors,
     EmbedBuilder,
-    GuildChannel,
     GuildTextBasedChannel,
     Message,
 } from "discord.js";
@@ -162,8 +161,8 @@ class ModmailHandler {
                 publicMessages.push(message);
             }
         });
-        const publicLog = await dhtml.generateFromMessages(publicMessages, channel);
-        const privateLog = await dhtml.createTranscript(channel);
+        const publicLog = await dhtml.generateFromMessages(publicMessages, channel, {saveImages: true});
+        const privateLog = await dhtml.createTranscript(channel, {saveImages: true});
         publicLog.setName(`${channel.id}.htm`);
         privateLog.setName(`${channel.id}_private.htm`);
         return [publicLog, privateLog];
