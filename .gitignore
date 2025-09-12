@@ -1,7 +1,7 @@
 .env
 envBeta.txt
 envLive.txt
-bot.log
+*.log
 aeon.db
 node_modules
 /src/commands/birb

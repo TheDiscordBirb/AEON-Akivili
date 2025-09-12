@@ -14,7 +14,8 @@ export const config = {
     crowdControlActive: false,
     crowdControlChannelId: getEnvVar<string>("CROWD_CONTROL_CHANNEL_ID"),
     debugMode: false,
-    deleteLogsOnStartup: false,
+    numberOfDaysLogsAreDeletedAfter: 7,
+    currentLogFileName: '',
     devIds: getEnvVar<string>("DEV_IDS").split(' '),
     disabledStickerNetworkServerIds: ["1068066545344970783"] as string[], //This will be put into the db soon, im just lazy
     embedFieldLimit: 25,
