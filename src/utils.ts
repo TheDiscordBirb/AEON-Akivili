@@ -413,32 +413,23 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
         if (!guild) return;
 
         const url = `https://cdn.discordapp.com/emojis/${emoji[2]}.${emoji[0] ? "gif" : "png"}?v=1`;
-
-        //This is a mess, but other than id and name we have no other info about the cloned emoji, so to make sure the emoji is saved
-        //and readable this is needed.
         let attachment: Buffer<ArrayBuffer> | undefined;
-        let localCachedEmojiDic = config.cachedEmojiDictionaries.find((emojiDic) => emojiDic.emojiName === emoji[1]);
-        if(!localCachedEmojiDic) {
+        let localCachedEmojiDict = config.cachedEmojiDictionaries.find((emojiDict) => emojiDict.emojiName === emoji[1]);
+        if(!localCachedEmojiDict) {
             const attachmentBuffer = await axios.get(url, { responseType: 'arraybuffer' });
-            localCachedEmojiDic = ({emojiId: emoji[2], emojiName: emoji[1]}) as CachedEmojiNameReference;
-            config.cachedEmojiDictionaries.push(localCachedEmojiDic);
             attachment = Buffer.from(attachmentBuffer.data, 'utf-8');
             await cacheManager.saveCache('emoji', emoji[2], attachment);
+            localCachedEmojiDict = ({emojiId: emoji[2], emojiName: emoji[1]}) as CachedEmojiNameReference;
+            config.cachedEmojiDictionaries.push(localCachedEmojiDict);
         }
+        attachment = await cacheManager.retrieveCache('emoji', emoji[2]);
         if(!attachment) {
-            attachment = await cacheManager.retrieveCache('emoji', localCachedEmojiDic.emojiId);
-            if(!attachment) {
-                await cacheManager.emptyCache();
-                config.cachedEmojiDictionaries = [];
-                const attachmentBuffer = await axios.get(url, { responseType: 'arraybuffer' });
-                localCachedEmojiDic = ({emojiId: emoji[2], emojiName: emoji[1]}) as CachedEmojiNameReference;
-                config.cachedEmojiDictionaries.push(localCachedEmojiDic);
-                attachment = Buffer.from(attachmentBuffer.data, 'utf-8');
-                await cacheManager.saveCache('emoji', emoji[2], attachment);
-            }
+            logger.warn("Catastrophic failure during emoji caching.");
+            await cacheManager.emptyCache();
+            return;
         }
 
-        await guild.emojis.create({ attachment, name: emoji[1], reason: emoji[2] }).then((guildEmoji) => {
+        await guild.emojis.create({ attachment, name: emoji[1] }).then((guildEmoji) => {
             guildEmojiCooldowns[guildEmojiCooldowns.length - 1].push(`${Date.now() + Time.HOUR}`);
             emojis.push(guildEmoji);
         });

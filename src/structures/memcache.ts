@@ -37,7 +37,7 @@ class CacheManager {
     public async emptyCache() {
         const mem = this._mem;
         mem.clear();
-        logger.info('Cache has been cleared by force.');
+        logger.info('MEM MEM. (Cache has been cleared by force.)');
     }
 }
 
