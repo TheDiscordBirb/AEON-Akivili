@@ -12,10 +12,10 @@ export enum LogLevel {
 
 export const LogLevelName: Record<LogLevel, string> = {
     [LogLevel.WTF]  : '[WTF  ]',
-    [LogLevel.WARN] : '[WARN ]',
-    [LogLevel.DEBUG]: '[DEBUG]',
     [LogLevel.ERROR]: '[ERROR]',
+    [LogLevel.WARN] : '[WARN ]',
     [LogLevel.INFO] : '[INFO ]',
+    [LogLevel.DEBUG]: '[DEBUG]',
 }
 
 export class Logger {
@@ -25,7 +25,7 @@ export class Logger {
         protected moduleName: string,
         protected fileName?: string,
         protected logFileBatchSize = 1,
-        protected defaultLogLevel = 3,
+        protected defaultLogLevel = 3 + (config.debugMode ? 1 : 0),
     ) {
         this.moduleName = this.moduleName.padEnd(20,' ');
     }

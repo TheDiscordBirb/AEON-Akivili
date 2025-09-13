@@ -10,7 +10,7 @@ export interface clientInfoData {
     avatarUrl: string | undefined,
 }
 
-export interface CachedEmojiName {
+export interface CachedEmojiNameReference {
     emojiId: string,
     emojiName: string
 }

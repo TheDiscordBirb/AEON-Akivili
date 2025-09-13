@@ -1,6 +1,13 @@
 import { Logger } from "../logger"
 import { Event } from "../structures/event";
-import { ActionRow, ActionRowComponent, BaseGuildTextChannel, ChannelType, Message, MessageActionRowComponent, WebhookClient } from "discord.js";
+import {
+    ActionRow,
+    BaseGuildTextChannel,
+    ChannelType,
+    Message,
+    MessageActionRowComponent,
+    WebhookClient 
+} from "discord.js";
 import { databaseManager } from "../structures/database";
 import { config } from "../const";
 import { deleteEmojis, rebuildMessageComponentAfterUserInteraction, replaceEmojis } from "../utils";
@@ -73,7 +80,7 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
         
         const webhookMessage = await webhookClient.fetchMessage(correctMessageOnNetwork.channelMessageId);
         await webhookClient.editMessage(webhookMessage.id, { content: emojiReplacement?.content, components: [...newActionRows[newActionRows.indexOf(newActionRows.find((actionRow) => actionRow.guildID === broadcastRecord.guildId) || newActionRows[0])].components] });
-        deleteEmojis(emojiReplacement);
         return;
     }))
+    deleteEmojis(emojiReplacement);
 })

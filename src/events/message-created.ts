@@ -221,7 +221,7 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
         const watermarkBuffer = Buffer.from(watermark);
         const watermarked = sharpAttachment.composite([{input: watermarkBuffer, gravity: 'northeast', 'tile': true}]);
         const watermarkedStickerBuffer = await (watermarked as sharp.Sharp).toBuffer();
-        await cacheManager.saveCache('sticker', sticker.id, watermarkedStickerBuffer)
+        await cacheManager.saveCache('sticker', sticker.id, watermarkedStickerBuffer as Buffer<ArrayBuffer>)
 
         const attachBuffer = new AttachmentBuilder(watermarkedStickerBuffer, { name: `${sticker.name}${isGif ? ".gif" : ".png"}` });
         

@@ -8,8 +8,7 @@ import { Time } from "./utils";
 
 const logger = new Logger("Index");
 
-const today = new Date(Date.now());
-config.currentLogFileName = today.toISOString().split("T")[0].replaceAll('-', '_');
+config.currentLogFileName = new Date(Date.now()).toISOString().split("T")[0].replaceAll('-', '_');
 
 fs.readdir(path.join(__dirname, '..'), (err, files) => {
     const logFiles = files.filter((file) => file.endsWith('.log'));
