@@ -9,8 +9,3 @@ export interface clientInfoData {
     name: string,
     avatarUrl: string | undefined,
 }
-
-export interface CachedEmojiNameReference {
-    emojiId: string,
-    emojiName: string
-}

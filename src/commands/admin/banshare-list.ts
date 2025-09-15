@@ -58,7 +58,6 @@ export default new Command({
         const sortedBanshares : BanshareListData[][] = [];
         const sortedBanshareBlock : BanshareListData[] = [];
         
-
         unsortedBanshares.forEach((banshareData, idx) => {
             if(idx%config.embedFieldLimit == 0 && idx != 0) {
                 sortedBanshares.push(sortedBanshareBlock);
@@ -119,7 +118,7 @@ export default new Command({
         }
 
         sortedBanshares[0].forEach((banshare) => {
-            banshareListEmbed.addFields({name: `${banshare.userId}${config.mainServerId === options.interaction.guildId ? "" : ` | ${banshare.status}`}`, value: `Reason: ${banshare.reason.slice(0, 228)}\nTimestamp: ${new Date(banshare.timestamp).getFullYear()}.${new Date(banshare.timestamp).getMonth() + 1}.${new Date(banshare.timestamp).getDate()}. ${new Date(banshare.timestamp).getHours()}:${new Date(banshare.timestamp).getMinutes()}:${new Date(banshare.timestamp).getSeconds()}`});
+            banshareListEmbed.addFields({name: `${banshare.userId}${config.mainServerId === options.interaction.guildId ? "" : ` | ${banshare.status}`}`, value: `Reason: ${banshare.reason}\nProof:\n${banshare.proof}\nTimestamp: ${new Date(banshare.timestamp).getFullYear()}.${new Date(banshare.timestamp).getMonth() + 1}.${new Date(banshare.timestamp).getDate()}. ${new Date(banshare.timestamp).getHours()}:${new Date(banshare.timestamp).getMinutes()}:${new Date(banshare.timestamp).getSeconds()}`});
         });
 
         try {
@@ -143,7 +142,7 @@ export default new Command({
                     const currentPage = parseInt(componentInteraction.customId.split(/ +/)[2]);
                     const pageInstruction = componentInteraction.customId.split(/ +/)[1] === BanshareButtonInstructions.BACK ? 0 : 1;
                     sortedBanshares[currentPage+(pageInstruction ? 1 : -1)].forEach((banshare) => {
-                        fields.push({name: `${banshare.userId} | ${banshare.status}`, value: `Reason: ${banshare.reason.slice(0, 228)}\nTimestamp: ${new Date(banshare.timestamp).getFullYear()}.${new Date(banshare.timestamp).getMonth() + 1}.${new Date(banshare.timestamp).getDate()}. ${new Date(banshare.timestamp).getHours()}:${new Date(banshare.timestamp).getMinutes()}:${new Date(banshare.timestamp).getSeconds()}`})
+                        fields.push({name: `${banshare.userId} | ${banshare.status}`, value: `Reason: ${banshare.reason}\nProof:\n${banshare.proof}\nTimestamp: ${new Date(banshare.timestamp).getFullYear()}.${new Date(banshare.timestamp).getMonth() + 1}.${new Date(banshare.timestamp).getDate()}. ${new Date(banshare.timestamp).getHours()}:${new Date(banshare.timestamp).getMinutes()}:${new Date(banshare.timestamp).getSeconds()}`})
                     })
                     banshareListEmbed.setFields(fields);
                     backButton.setCustomId(`${options.interaction.user.id} 0 ${currentPage+(pageInstruction ? 1 : -1)}`);
@@ -192,7 +191,7 @@ export default new Command({
 
                     try {
                         sortedBanshares[0].forEach((banshare) => {
-                            banshareListEmbed.addFields({name: `${banshare.userId}${config.mainServerId === options.interaction.guildId ? "" : ` | ${banshare.status}`}`, value: `Reason: ${banshare.reason.slice(0, 228)}\nTimestamp: ${new Date(banshare.timestamp).getFullYear()}.${new Date(banshare.timestamp).getMonth() + 1}.${new Date(banshare.timestamp).getDate()}. ${new Date(banshare.timestamp).getHours()}:${new Date(banshare.timestamp).getMinutes()}:${new Date(banshare.timestamp).getSeconds()}`});
+                            banshareListEmbed.addFields({name: `${banshare.userId}${config.mainServerId === options.interaction.guildId ? "" : ` | ${banshare.status}`}`, value: `Reason: ${banshare.reason}\nProof:${banshare.proof}\nTimestamp: ${new Date(banshare.timestamp).getFullYear()}.${new Date(banshare.timestamp).getMonth() + 1}.${new Date(banshare.timestamp).getDate()}. ${new Date(banshare.timestamp).getHours()}:${new Date(banshare.timestamp).getMinutes()}:${new Date(banshare.timestamp).getSeconds()}`});
                         });
                         banshareListEmbed.setDescription("Found the following banshares:");
                     } catch (error) {

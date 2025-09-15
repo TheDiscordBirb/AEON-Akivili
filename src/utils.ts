@@ -28,9 +28,10 @@ import { Logger } from './logger';
 import { client } from './structures/client';
 import axios from 'axios';
 import { config } from './const';
-import { CachedEmojiNameReference, clientInfoData } from './types/client';
+import { clientInfoData } from './types/client';
 import sharp from 'sharp';
 import { cacheManager } from './structures/memcache';
+import { nanoid } from 'nanoid';
 
 const logger = new Logger("Utils");
 
@@ -414,29 +415,35 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
 
         const url = `https://cdn.discordapp.com/emojis/${emoji[2]}.${emoji[0] ? "gif" : "png"}?v=1`;
         let attachment: Buffer<ArrayBuffer> | undefined;
-        let localCachedEmojiDict = config.cachedEmojiDictionaries.find((emojiDict) => emojiDict.emojiName === emoji[1]);
-        if(!localCachedEmojiDict) {
-            const attachmentBuffer = await axios.get(url, { responseType: 'arraybuffer' });
-            attachment = Buffer.from(attachmentBuffer.data, 'utf-8');
-            await cacheManager.saveCache('emoji', emoji[2], attachment);
-            localCachedEmojiDict = ({emojiId: emoji[2], emojiName: emoji[1]}) as CachedEmojiNameReference;
-            config.cachedEmojiDictionaries.push(localCachedEmojiDict);
+        const emojiUid = "_Aki" + nanoid(7);
+        config.cachedEmojiUids.push(emojiUid);
+        if(emoji[1].length > 32-emojiUid.length) {
+            logger.info(`${emoji[1]} has been shortened.`);
+            emoji[1].slice(0, 32-emojiUid.length);
         }
-        attachment = await cacheManager.retrieveCache('emoji', emoji[2]);
-        if(!attachment) {
-            logger.warn("Catastrophic failure during emoji caching.");
-            await cacheManager.emptyCache();
+        const emojiCheckRegex = /(.*)(?:_Aki)(.{7})/g;
+        const emojiCheck = emojiCheckRegex.exec(emoji[1]);
+        if(!emojiCheck) return;
+        if(!config.cachedEmojiUids.includes(emojiCheck[1])) {
+            logger.info(`Someone tried to retrieve from cache with key ${emojiCheck[1]}.`);
             return;
         }
+        attachment = await cacheManager.retrieveCache('emoji', emojiCheck[1]);
+        if(!attachment) {
+            const attachmentBuffer = await axios.get(url, { responseType: 'arraybuffer' });
+            attachment = Buffer.from(attachmentBuffer.data, 'utf-8');
+            await cacheManager.saveCache('emoji', emojiUid, attachment);
+        }
 
-        await guild.emojis.create({ attachment, name: emoji[1] }).then((guildEmoji) => {
+        await guild.emojis.create({ attachment, name: emojiCheck[0] + emojiCheck[1] }).then((guildEmoji) => {
             guildEmojiCooldowns[guildEmojiCooldowns.length - 1].push(`${Date.now() + Time.HOUR}`);
             emojis.push(guildEmoji);
         });
     }));
+    
     let messageContent = content;
     emojis.forEach(async (emoji) => {
-        const regex = new RegExp(`<a?:${emoji.name}:\\d+>`, "g");
+        const regex = new RegExp(`<a?:${emoji.name.slice(0, 11)}.*:\\d+>`, "g");
         messageContent = messageContent.replaceAll(regex, `${emoji}`);
     })
     return { content: messageContent, emojis: emojis };

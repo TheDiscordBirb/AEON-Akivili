@@ -85,9 +85,7 @@ export default new Command({
             }
             const selectedWebhookPosition = config.activeWebhooks.findIndex((webhook) => webhook === selectedWebhook)
             try {
-                console.log(config.activeWebhooks);
                 config.activeWebhooks.slice(selectedWebhookPosition, selectedWebhookPosition);
-                console.log(config.activeWebhooks);
                 await selectedWebhook.delete();
                 await databaseManager.deleteBroadcastByWebhookId(componentInteraction.customId);
             } catch(error) {

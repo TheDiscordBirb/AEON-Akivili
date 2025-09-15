@@ -54,11 +54,7 @@ class BanshareManager {
         
             
         const embeds: EmbedBuilder[] = [];
-        
         embeds.push(banshareRequestEmbed);
-        
-        
-        
         
         const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
 
@@ -97,7 +93,7 @@ class BanshareManager {
         })
         const banshareRequestEmbed = new EmbedBuilder()
             .setTitle(`**Banshare for ${dataUsername} | ${dataUserId}**`)
-            .setDescription(`${data.reason}\n\nProof:\n${proofMessage}`)
+            .setDescription(`Reason: ${data.reason}\n\nProof:\n${proofMessage}`)
             .setURL(`https://discord.com/users/${dataUserId}`);
         
         embeds.push(banshareRequestEmbed);

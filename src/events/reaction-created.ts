@@ -55,11 +55,6 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
     let messageContent = interaction.message.content;
     let emojiReplacement : EmojiReplacementData | undefined;
     if(messageContent) {
-        await Promise.allSettled(config.cachedEmojiDictionaries.map(async (cachedEmojiDic) => {
-            if(messageContent.includes(`:${cachedEmojiDic.emojiName}:`)) {
-                messageContent.replace(`:${cachedEmojiDic.emojiName}:`, `:${cachedEmojiDic.emojiName}:${cachedEmojiDic.emojiId}`);
-            }
-        }));
         emojiReplacement = await replaceEmojis(messageContent, client);
     }
 

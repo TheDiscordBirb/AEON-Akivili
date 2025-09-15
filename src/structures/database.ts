@@ -312,7 +312,7 @@ class DatabaseManager {
 
     public async getModmail(channelId: string): Promise<ModmailRecord> {
         const db = await this.db();
-        const result = await db.get(`SELECT * FROM Modmails WHERE channelId = ?`, [channelId]);
+        const result = await db.get<ModmailRecord>(`SELECT * FROM Modmails WHERE channelId = ?`, [channelId]);
         if(!result) {
             throw new Error("Could not find modmail.");
         }
@@ -341,7 +341,7 @@ class DatabaseManager {
 
     public async getBanshareList(serverId: string): Promise<BanshareListData[]> {
         const db = await this.db();
-        const result = await db.get<BanshareListData[]>(`SELECT * FROM Banshares WHERE serverId=?`, [serverId]);
+        const result = await db.all<BanshareListData[]>(`SELECT * FROM Banshares WHERE serverId=?`, [serverId]);
         if(!result) {
             throw new Error(`Could not get banshares for server ${serverId}.`);
         }

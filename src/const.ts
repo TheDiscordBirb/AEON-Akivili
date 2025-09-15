@@ -1,6 +1,5 @@
 import { Webhook } from "discord.js"
 import { getEnvVar } from "./get-env-var"
-import { CachedEmojiNameReference } from "./types/client"
 
 export const config = {
     activeBanshareFuncionUserIds: [] as string[],
@@ -8,7 +7,7 @@ export const config = {
     aeonBanshareChannelId: getEnvVar<string>("AEON_BANSHARE_CHANNEL_ID"),
     approvalCountNeededForImportantBanshare: 2,
     birbId: getEnvVar<string>("BIRB_ID"),
-    cachedEmojiDictionaries: [] as CachedEmojiNameReference[],
+    cachedEmojiUids: [] as string[],
     cleanDbMode: true,
     conductorRoleId: getEnvVar<string>("CONDUCTOR_ROLE_ID"),
     crowdControlActive: false,

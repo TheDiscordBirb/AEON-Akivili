@@ -1,6 +1,5 @@
 import { Cacheable } from "cacheable";
 import * as os from 'os';
-import * as util from 'util';
 import { Logger } from '../logger';
 import { config } from "../const";
 
@@ -13,7 +12,7 @@ class CacheManager {
         if(os.freemem()/os.totalmem() > 0.85) {
             logger.info('Mem mem mem (Mem is clearing the cache, you are running out of memory)');
             mem.clear();
-            config.cachedEmojiDictionaries = [];
+            config.cachedEmojiUids = [];
         }
         return await mem.set(''.concat(...[record, key.toString()]), value);
     }
@@ -29,7 +28,7 @@ class CacheManager {
         } else {
             logger.warn(`MEM?!??!?!? (Cache returned ${typeof(buffer)} instead of Buffer<ArrayBuffer>, restart ASAP. Gonna try clearing)`);
             mem.clear()
-            config.cachedEmojiDictionaries = [];
+            config.cachedEmojiUids = [];
             return;
         }
     }
