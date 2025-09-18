@@ -8,9 +8,7 @@ import {
     ComponentType,
     EmbedBuilder,
     Interaction,
-    MessageActionRowComponent,
-    Webhook,
-    WebhookType
+    MessageActionRowComponent
 } from 'discord.js'
 import { Logger } from '../../logger';
 import { databaseManager } from '../../structures/database';
@@ -35,7 +33,10 @@ export default new Command({
             return;
         }
         const mainGuild = client.guilds.cache.get(config.mainServerId);
-        if(!mainGuild) return; //TODO: log
+        if(!mainGuild) {
+            logger.warn('Could not get main server.');
+            return;
+        }
         const guildUser = mainGuild.members.cache.get(options.interaction.user.id);
         if(!guildUser) {
             await options.interaction.reply({ content: `You do not have permission to use this!`, ephemeral: true });

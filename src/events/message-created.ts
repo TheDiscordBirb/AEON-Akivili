@@ -1,7 +1,6 @@
 import {
     AttachmentBuilder,
     BaseGuildTextChannel,
-    WebhookClient,
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
@@ -56,8 +55,8 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
         }
         const interactionData = await getInteractionData(interaction);
         if(!interactionData) return;
-        const { interactionMember, channelWebhook, broadcastRecords } = interactionData;
-        const webhookChannelType = channelWebhook.channelType;
+        const { interactionMember, channelWebhookBroadcast, broadcastRecords } = interactionData;
+        const webhookChannelType = channelWebhookBroadcast.channelType;
         const files = await convertStickersAndImagesToFiles(interaction);
         const emojiReplacement = await replaceEmojis(interaction.content, client);
 
@@ -132,18 +131,26 @@ const getInteractionData = async (interaction: Message<boolean> ): Promise<Inter
     if (channel.type !== ChannelType.GuildText) throw new Error('Channel type is not guild text.');
     
     const broadcastRecords = await databaseManager.getBroadcasts();
-    const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
-    if (!channelWebhook) throw new Error('No channel could be found in broadcasts for webhook.');
+    const channelWebhookBroadcast = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
+    if (!channelWebhookBroadcast) throw new Error('No channel could be found in broadcasts for webhook.');
     const interactionType = interaction.type;
     if (interactionType === MessageType.ChannelPinnedMessage) throw new Error('Got pinned message message.');
 
-    let webhook;
-    try {
-        webhook = await client.fetchWebhook(channelWebhook.webhookId);
-    } catch (error) {
-        logger.error(`Could not fetch webhook in guild: ${interaction.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`, error as Error)
-        throw new Error(`Could not fetch webhook in guild: ${interaction.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`)
-    };
+    const webhooks = config.activeWebhooks.filter((webhook) => webhook.guildId === interaction.guildId);
+    if(!webhooks) {
+        return;
+    }
+    const webhook = webhooks.find((channelWebhook) => channelWebhook.name.includes("Aeon"));
+    if (!webhook) {
+        await interaction.reply({ content: "Couldnt find Aeon webhook, contact Birb to resolve this issue." });
+        return;
+    }
+    const webhookBroadcast = await databaseManager.getBroadcastBywebhookId(webhook.id);
+    if (!webhookBroadcast) {
+        await interaction.reply({ content: `Could not remove this channel from the network, for more info contact Birb.` });
+        logger.warn(`Could not get webhook broadcast`);
+        return
+    }
     
     if (config.nonChatWebhooks.includes(webhook.name)) {
         if (webhook.name === `Aeon ${NetworkJoinOptions.INFO}`) {
@@ -155,7 +162,8 @@ const getInteractionData = async (interaction: Message<boolean> ): Promise<Inter
     return {
         interactionMember,
         broadcastRecords,
-        channelWebhook  
+        channelWebhookBroadcast,
+        webhook
     }
 }
 const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): Promise<AttachmentBuilder[]> => {
@@ -454,6 +462,11 @@ const createWebhookMessages = async (
             }
         }
 
+        const webhook = config.activeWebhooks.find((webhook) => webhook.id === broadcastRecord.webhookId);
+        if(!webhook) {
+            logger.warn(`Could not get webhook ${broadcastRecord.webhookId}`);
+            return;
+        }
         let avatarURL = (interactionMember.avatarURL() ? interactionMember.avatarURL() : interactionMember.displayAvatarURL()) ?? undefined;
         let username = `${interactionMember.nickname ? interactionMember.nickname : interactionMember.displayName}`;
         username = username.replaceAll("💵", "").replaceAll("💎", "").replaceAll("👑", "") + nameSuffix;
@@ -464,7 +477,7 @@ const createWebhookMessages = async (
         }
         
         return {
-            webhookClient: new WebhookClient({ id: broadcastRecord.webhookId, token: broadcastRecord.webhookToken }),
+            webhook: webhook,
             messageData: {
                 avatarURL,
                 content: emojiReplacement.content,
@@ -497,14 +510,14 @@ const createWebhookMessages = async (
             messageOrigin = 1;
         }
         try {
-            const message = await webhookMessage.webhookClient.send(webhookMessage.messageData);
+            const message = await webhookMessage.webhook.send(webhookMessage.messageData);
             if (!message) {
                 logger.warn(`Received empty message. Status: ${webhookMessagePromiseResult.status}`)
                 return;
             }
             
             const messageData = {
-                channelId: message.channel_id,
+                channelId: message.channelId,
                 channelMessageId: message.id,
                 guildId: webhookMessage.guildId,
                 timestamp: interaction.createdAt.getTime(),

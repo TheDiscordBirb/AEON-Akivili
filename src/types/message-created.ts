@@ -1,8 +1,9 @@
-import { GuildMember } from "discord.js";
+import { GuildMember, Webhook } from "discord.js";
 import { BroadcastRecord } from "./database";
 
 export interface InteractionData {
     interactionMember: GuildMember;
     broadcastRecords: BroadcastRecord[];
-    channelWebhook: BroadcastRecord
+    channelWebhookBroadcast: BroadcastRecord,
+    webhook: Webhook
 }

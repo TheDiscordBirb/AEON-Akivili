@@ -104,6 +104,14 @@ class NotificationManager {
                 // TODO
                 break;
             }
+            case NotificationType.SERVER_DISCONNECT: {
+                // TODO
+                break;
+            }
+            case NotificationType.SERVER_REMOVE: {
+                // TODO
+                break;
+            }
         }
 
         await (notificationChannel as GuildTextBasedChannel).send({ embeds: embedCollection });

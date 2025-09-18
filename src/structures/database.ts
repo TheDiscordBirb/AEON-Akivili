@@ -50,7 +50,6 @@ class DatabaseManager {
                 channelId TEXT,
                 channelType TEXT,
                 webhookId TEXT,
-                webhookToken TEXT,
                 guildId TEXT,
                 importantBanshareRoleId TEXT,
                 autoBanLevel INT,
@@ -124,8 +123,8 @@ class DatabaseManager {
     public async saveBroadcast(broadcastRecord: BroadcastRecord): Promise<void> {
         const db = await this.db();
         db.run(
-            `INSERT OR REPLACE INTO Broadcast (channelId, channelType, webhookId, webhookToken, guildId, importantBanshareRoleId, autoBanLevel) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [broadcastRecord.channelId, broadcastRecord.channelType, broadcastRecord.webhookId, broadcastRecord.webhookToken, broadcastRecord.guildId, broadcastRecord.importantBanshareRoleId, broadcastRecord.autoBanLevel],
+            `INSERT OR REPLACE INTO Broadcast (channelId, channelType, webhookId, guildId, importantBanshareRoleId, autoBanLevel) VALUES (?, ?, ?, ?, ?, ?)`,
+            [broadcastRecord.channelId, broadcastRecord.channelType, broadcastRecord.webhookId, broadcastRecord.guildId, broadcastRecord.importantBanshareRoleId, broadcastRecord.autoBanLevel],
             (error: Error) => {
                 throw new Error(`Could not save into the Broadcast table. Error: ${error.message}`);
             }

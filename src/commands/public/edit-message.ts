@@ -1,12 +1,11 @@
 import {
-    APIMessage,
     ApplicationCommandOptionType,
     BaseGuildTextChannel,
     ChannelType,
     GuildTextBasedChannel,
-    WebhookClient,
     Message,
-    User
+    User,
+    MessageFlags
 } from "discord.js";
 import { Command } from "../../structures/command"; 
 import { Logger } from "../../logger";
@@ -65,28 +64,25 @@ export default new Command({
             return;
         }
 
-        const broadcastRecords = await databaseManager.getBroadcasts();
-        const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
-        if (!channelWebhook) {
-            await options.interaction.reply({ content: `No channel webhook.`, ephemeral: true });
+        const webhooks = config.activeWebhooks.filter((webhook) => webhook.guildId === options.interaction.guildId);
+        if(!webhooks) {
+            await options.interaction.reply({content: 'This server is not connected to any Aeon channels.', flags: MessageFlags.Ephemeral});
             return;
         }
-
-        let webhook;
-        try {
-            webhook = await client.fetchWebhook(channelWebhook.webhookId);
-        } catch (error) { 
-            logger.error(`Could not fetch webhook in guild: ${options.interaction.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`, error as Error)
-            return;
-        };
-        
+        const webhook = webhooks.find((channelWebhook) => channelWebhook.name.includes("Aeon"));
         if (!webhook) {
-            await options.interaction.reply({ content: `No webhook in this channel`, ephemeral: true });
+            await options.interaction.reply({ content: "Couldnt find Aeon webhook, contact Birb to resolve this issue." });
             return;
         }
-        if (config.nonChatWebhooks.includes(webhook.name)) return;
+        const webhookBroadcast = await databaseManager.getBroadcastBywebhookId(webhook.id);
+        if (!webhookBroadcast) {
+            await options.interaction.reply({ content: `Could not remove this channel from the network, for more info contact Birb.`, flags: MessageFlags.Ephemeral });
+            logger.warn(`Could not get webhook broadcast`);
+            return
+        }
+        if(config.nonChatWebhooksTypes.includes(webhookBroadcast.channelType)) return;
         
-        const webhookChannelType = channelWebhook.channelType;
+        const webhookChannelType = webhookBroadcast.channelType;
 
         //DO NOT TOUCH, THIS HOLDS THE WHOLE THING TOGETHER
         //WITHOUT THIS THE COMMAND DOESNT GET REGISTERED AND I DONT KNOW WHY
@@ -115,16 +111,16 @@ export default new Command({
 
         const oldMessageContent = message.content;
 
-        await Promise.allSettled(matchingBroadcastRecords.map(async (matchingBroadcastRecord) => {
+        await Promise.allSettled(matchingBroadcastRecords.map(async (broadcastRecord) => {
             let networkMessage;
             try {
-                const networkMessageRecord = relatedMessageRecords.find((relatedMessage) => relatedMessage.channelId === matchingBroadcastRecord.channelId);
+                const networkMessageRecord = relatedMessageRecords.find((relatedMessage) => relatedMessage.channelId === broadcastRecord.channelId);
                 if (!networkMessageRecord) {
                     await options.interaction.reply({ content: `Could not get network message record`, ephemeral: true });
                     logger.warn(`Could not get network message record`);
                     return;
                 }
-                const networkChannel = client.channels.cache.find((clientChannel) => clientChannel.id === matchingBroadcastRecord.channelId);
+                const networkChannel = client.channels.cache.find((clientChannel) => clientChannel.id === broadcastRecord.channelId);
                 if (!networkChannel) {
                     await options.interaction.reply({ content: `Could not find network channel`, ephemeral: true });
                     logger.warn(`Could not find network channel`);
@@ -142,9 +138,13 @@ export default new Command({
                 logger.warn(`Could not get network message`);
                 return;
             }
-            const webhookClient = new WebhookClient({ id: matchingBroadcastRecord.webhookId, token: matchingBroadcastRecord.webhookToken });
+            const webhook = webhooks.find((webhook) => webhook.id === broadcastRecord.webhookId);
+            if(!webhook) {
+                logger.warn(`Could not find webhook ${broadcastRecord.webhookId}`);
+                return;
+            }
 
-            await webhookClient.editMessage(networkMessage, { content: options.args.getString('content') });
+            await webhook.editMessage(networkMessage, { content: options.args.getString('content') });
             await options.interaction.reply({ content: `Successfully edited message.`, ephemeral: true });
         }));
         

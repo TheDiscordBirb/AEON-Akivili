@@ -33,7 +33,9 @@ export enum NotificationType {
     REACTION_DELETE = 'reactionDelete',
     MUTE = 'mute',
     PIN = 'pin',
-    CROWD_CONTROL = 'crowdControl'
+    CROWD_CONTROL = 'crowdControl',
+    SERVER_REMOVE = 'serverRemove',
+    SERVER_DISCONNECT = 'serverDisconnect'
 }
 
 export interface EmojiReplacementData {

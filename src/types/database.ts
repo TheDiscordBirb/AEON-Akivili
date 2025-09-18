@@ -6,7 +6,6 @@ export interface BroadcastRecord {
     channelType: string,
     guildId: string,
     webhookId: string,
-    webhookToken: string,
     importantBanshareRoleId: string | null,
     autoBanLevel: number
 }

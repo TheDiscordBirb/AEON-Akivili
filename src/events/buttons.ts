@@ -6,28 +6,25 @@ import {
     TextChannel,
     ButtonComponent,
     BaseGuildTextChannel,
-    WebhookClient,
     User,
     ButtonInteraction,
     CacheType,
-    ActionRowComponent,
     MessageActionRowComponent,
     ActionRow,
-    GuildEmoji
+    MessageFlags
 } from "discord.js";
 import { banshareManager } from "../functions/banshare";
 import { Event } from "../structures/event";
-import { deleteEmojis, hasModerationRights, rebuildMessageComponentAfterUserInteraction, replaceEmojis, Time } from "../utils";
+import { deleteEmojis, hasModerationRights, rebuildMessageComponentAfterUserInteraction, replaceEmojis } from "../utils";
 import { client } from "../structures/client";
 import { joinHandler } from "../functions/join-handler";
 import { Logger } from "../logger";
-import { BanShareButtonArg, BanshareStatus, DmMessageButtonArg, guildEmojiCooldowns } from "../types/event";
+import { BanShareButtonArg, BanshareStatus, DmMessageButtonArg } from "../types/event";
 import { config } from "../const";
 import { databaseManager } from "../structures/database";
 import { ChannelType } from "discord.js";
 import { MessagesRecord } from "../types/database";
 import { modmailHandler } from "../functions/modmail";
-import { cacheManager } from "../structures/memcache";
 
 const logger = new Logger("Buttons");
 
@@ -156,18 +153,25 @@ const emojiButtonFunction = async (interaction: ButtonInteraction<CacheType>): P
     if (channel.type !== ChannelType.GuildText) return;
     
     const broadcastRecords = await databaseManager.getBroadcasts();
-    const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
-    if (!channelWebhook) return;
 
-    let webhook;
-    try {
-        webhook = await client.fetchWebhook(channelWebhook.webhookId);
-    } catch (error) { 
-        logger.error(`Could not fetch webhook in guild: ${interaction.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`, error as Error)
+    const webhooks = config.activeWebhooks.filter((webhook) => webhook.guildId === interaction.guildId);
+    if(!webhooks) {
+        await interaction.followUp({content: 'This server is not connected to any Aeon channels.', flags: MessageFlags.Ephemeral});
         return;
-    };
-    
-    if (config.nonChatWebhooks.includes(webhook.name)) return;
+    }
+    const webhook = webhooks.find((channelWebhook) => channelWebhook.name.includes("Aeon"));
+    if (!webhook) {
+        await interaction.followUp({ content: "Couldnt find Aeon webhook, contact Birb to resolve this issue." });
+        return;
+    }
+    const webhookBroadcast = await databaseManager.getBroadcastBywebhookId(webhook.id);
+    if (!webhookBroadcast) {
+        await interaction.followUp({ content: `Could not remove this channel from the network, for more info contact Birb.`, ephemeral: true });
+        logger.warn(`Could not get webhook broadcast`);
+        return
+    }
+    if(config.nonChatWebhooksTypes.includes(webhookBroadcast.channelType)) return;
+            
     
     const webhookNameParts = webhook.name.split(' ');
     const webhookChannelType = webhookNameParts[webhookNameParts.length - 1];
@@ -177,7 +181,11 @@ const emojiButtonFunction = async (interaction: ButtonInteraction<CacheType>): P
 
 
     await Promise.allSettled(matchingBroadcastRecords.map(async (broadcastRecord) => {
-        const webhookClient = new WebhookClient({ id: broadcastRecord.webhookId, token: broadcastRecord.webhookToken });
+        const webhook = webhooks.find((webhook) => webhook.id === broadcastRecord.webhookId);
+        if(!webhook) {
+            logger.warn(`Could not find webhook ${broadcastRecord.webhookId}`);
+            return;
+        }
         let messagesOnNetwork: MessagesRecord[];
         try {
             messagesOnNetwork = await databaseManager.getMessages(interaction.message.channel.id, interaction.message.id);
@@ -197,7 +205,7 @@ const emojiButtonFunction = async (interaction: ButtonInteraction<CacheType>): P
             logger.warn(`No message components, message id: ${message.id}`)
             return;
         }
-        await webhookClient.editMessage(message, {content: emojiReplacement.content, components: [...newActionRows[newActionRows.indexOf(newActionRows.find((actionRow) => actionRow.guildID === broadcastRecord.guildId) || newActionRows[0])].components] });
+        await webhook.editMessage(message, {content: emojiReplacement.content, components: [...newActionRows[newActionRows.indexOf(newActionRows.find((actionRow) => actionRow.guildID === broadcastRecord.guildId) || newActionRows[0])].components] });
     }))
     await interaction.editReply({ components: [...newActionRows[0].components] });
     deleteEmojis(emojiReplacement);

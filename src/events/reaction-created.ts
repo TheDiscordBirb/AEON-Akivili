@@ -5,8 +5,7 @@ import {
     BaseGuildTextChannel,
     ChannelType,
     Message,
-    MessageActionRowComponent,
-    WebhookClient 
+    MessageActionRowComponent
 } from "discord.js";
 import { databaseManager } from "../structures/database";
 import { config } from "../const";
@@ -27,13 +26,19 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
     const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
     if (!channelWebhook) return;
 
-    let webhook;
-    try {
-        webhook = await client.fetchWebhook(channelWebhook.webhookId);
-    } catch (error) { 
-        logger.error(`Could not fetch webhooks in guild: ${interaction.message.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`, error as Error)
+    const webhooks = config.activeWebhooks.filter((webhook) => webhook.guildId === interaction.message.guildId);
+    if(!webhooks) {
         return;
-    };
+    }
+    const webhook = webhooks.find((channelWebhook) => channelWebhook.name.includes("Aeon"));
+    if (!webhook) {
+        return;
+    }
+    const webhookBroadcast = await databaseManager.getBroadcastBywebhookId(webhook.id);
+    if (!webhookBroadcast) {
+        logger.warn(`Could not get webhook broadcast`);
+        return
+    }
     
     if (config.nonChatWebhooks.includes(webhook.name)) return;
     
@@ -60,7 +65,11 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
 
     await Promise.allSettled(matchingBroadcastRecords.map(async (broadcastRecord) => {
         if (!interaction.emoji.identifier) return;
-        const webhookClient = new WebhookClient({ id: broadcastRecord.webhookId, token: broadcastRecord.webhookToken });
+        const webhook = webhooks.find((webhook) => webhook.id === broadcastRecord.webhookId);
+        if(!webhook) {
+            logger.warn(`Could not find webhook ${broadcastRecord.webhookId}`);
+            return;
+        }
         let messagesOnNetwork: MessagesRecord[];
         try {
             messagesOnNetwork = await databaseManager.getMessages(interaction.message.channel.id, interaction.message.id);
@@ -73,8 +82,8 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
             return;
         }
         
-        const webhookMessage = await webhookClient.fetchMessage(correctMessageOnNetwork.channelMessageId);
-        await webhookClient.editMessage(webhookMessage.id, { content: emojiReplacement?.content, components: [...newActionRows[newActionRows.indexOf(newActionRows.find((actionRow) => actionRow.guildID === broadcastRecord.guildId) || newActionRows[0])].components] });
+        const webhookMessage = await webhook.fetchMessage(correctMessageOnNetwork.channelMessageId);
+        await webhook.editMessage(webhookMessage.id, { content: emojiReplacement?.content, components: [...newActionRows[newActionRows.indexOf(newActionRows.find((actionRow) => actionRow.guildID === broadcastRecord.guildId) || newActionRows[0])].components] });
         return;
     }))
     deleteEmojis(emojiReplacement);

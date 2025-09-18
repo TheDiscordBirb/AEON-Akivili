@@ -1,9 +1,16 @@
-import { ApplicationCommandOptionType, BaseGuildTextChannel, ChannelType, GuildTextBasedChannel, WebhookClient } from 'discord.js'
+import { 
+    ApplicationCommandOptionType,
+    BaseGuildTextChannel, 
+    ChannelType, 
+    GuildTextBasedChannel, 
+    MessageFlags 
+} from 'discord.js'
 import { Command } from '../../structures/command';
 import { isNavigator, rebuildNetworkInfoEmbeds } from '../../utils';
 import { databaseManager } from '../../structures/database';
 import { NetworkJoinOptions } from '../../types/command';
 import { Logger } from '../../logger';
+import { config } from '../../const';
 
 const logger = new Logger('AddToServersEmbed');
 
@@ -50,26 +57,26 @@ export default new Command({
         }
         const webhookChannelType = channelWebhook.channelType;
 
-        let webhook;
-        try {
-            webhook = await options.client.fetchWebhook(channelWebhook.webhookId);
-        } catch (error) {
-            logger.error(`Could not fetch webhook in guild: ${options.interaction.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`, error as Error)
-            return;
-        };
-        
-        if (!webhook) {
-            await options.interaction.reply({ content: `No webhook in this channel`, ephemeral: true });
+        const webhooks = config.activeWebhooks.filter((webhook) => webhook.guildId === options.interaction.guildId);
+        if(!webhooks) {
+            await options.interaction.reply({content: 'This server is not connected to any Aeon channels.', flags: MessageFlags.Ephemeral});
             return;
         }
-        if (!webhook.token) {
-            await options.interaction.reply({ content: "Couldnt get Aeon webhook token, contact Birb to resolve this issue." });
+        const webhook = webhooks.find((channelWebhook) => channelWebhook.name.includes("Aeon"));
+        if (!webhook) {
+            await options.interaction.reply({ content: "Couldnt find Aeon webhook, contact Birb to resolve this issue." });
             return;
+        }
+        const webhookBroadcast = await databaseManager.getBroadcastBywebhookId(webhook.id);
+        if (!webhookBroadcast) {
+            await options.interaction.reply({ content: `Could not remove this channel from the network, for more info contact Birb.`, flags: MessageFlags.Ephemeral });
+            logger.warn(`Could not get webhook broadcast`);
+            return
         }
 
         const embedMessage = options.interaction.channel?.messages.cache.find((message) => message.webhookId);
         if (!embedMessage) {
-
+            //TODO: write log
             return;
         }
 
@@ -77,7 +84,11 @@ export default new Command({
 
         const matchingBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === webhookChannelType);
         await Promise.allSettled(matchingBroadcastRecords.map(async (broadcastRecord) => {
-            const webhookClient = new WebhookClient({ id: broadcastRecord.webhookId, token: broadcastRecord.webhookToken });
+            const webhook = webhooks.find((webhook) => webhook.id === broadcastRecord.webhookId);
+            if(!webhook) {
+                logger.warn(`Could not find webhook ${broadcastRecord.webhookId}`);
+                return;
+            }
 
             const broadcastGuild = options.client.guilds.cache.get(broadcastRecord.guildId);
             if (!broadcastGuild) {
@@ -95,7 +106,7 @@ export default new Command({
                 return undefined;
             }
 
-            await webhookClient.editMessage(guildMessage, { embeds: embeds });
+            await webhook.editMessage(guildMessage, { embeds: embeds });
         }));
         await options.interaction.reply({ content: `Network info embed has been successfully edited.`, ephemeral: true });
     }

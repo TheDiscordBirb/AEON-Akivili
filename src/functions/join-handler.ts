@@ -4,8 +4,7 @@ import {
     ButtonBuilder,
     ButtonStyle,
     TextChannel,
-    GuildTextBasedChannel,
-    WebhookClient
+    GuildTextBasedChannel
 } from "discord.js";
 import { JoinData } from "../types/database";
 import { client } from "../structures/client";
@@ -73,14 +72,18 @@ class JoinHandler {
                     await webhook.send({embeds: await rebuildNetworkInfoEmbeds(infoMessage)})
                 }
                 try {
-                    await databaseManager.saveBroadcast({ guildId: webhook.guildId, channelId: data.channel.id, channelType: data.type, webhookId: webhook.id, webhookToken: webhook.token, importantBanshareRoleId: '', autoBanLevel: 0 });
+                    await databaseManager.saveBroadcast({ guildId: webhook.guildId, channelId: data.channel.id, channelType: data.type, webhookId: webhook.id, importantBanshareRoleId: '', autoBanLevel: 0 });
                     await data.guild.members.fetch();
                     if (config.nonChatWebhooks.includes(webhook.name)) return;
                     const broadcastRecords = await databaseManager.getBroadcasts();
                     const relatedBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === data.type);
 
                     await Promise.allSettled(relatedBroadcastRecords.map(async (broadcastRecord) => {
-                        const webhook = new WebhookClient({ id: broadcastRecord.webhookId, token: broadcastRecord.webhookToken });
+                        const webhook = config.activeWebhooks.find((webhook) => webhook.id === broadcastRecord.webhookId);
+                        if(!webhook) {
+                            logger.warn(`Could not find webhook ${broadcastRecord.webhookId}`);
+                            return;
+                        }
 
                         const webhookMessage = `${data.guild.name} has joined Aeon ${data.type}`;
                         const formating = '`';

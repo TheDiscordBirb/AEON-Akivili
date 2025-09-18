@@ -6,7 +6,6 @@ import {
     ButtonBuilder,
     ActionRowBuilder,
     ButtonStyle,
-    WebhookClient,
     TextChannel,
     Colors,
     ButtonInteraction,
@@ -156,9 +155,13 @@ class BanshareManager {
             }
 
             await databaseManager.registerBanshare({serverId: broadcast.guildId, status: BanshareStatus.PENDING, userId: dataUserId, reason: data.reason, proof: proofMessage, timestamp: Date.now()});
-            const webhookClient = new WebhookClient({ id: broadcast.webhookId, token: broadcast.webhookToken });
+            const webhook = config.activeWebhooks.find((webhook) => webhook.id === broadcast.webhookId);
+            if(!webhook) {
+                logger.warn(`Could not find webhook ${broadcast.webhookId}`);
+                return;
+            }
             return {
-                webhookClient,
+                webhook,
                 data: { content: `${banshareContent ? proofMessage + banshareContent : proofMessage}`, embeds, components: [banshareActionRow] },
                 serverId: broadcast.guildId,
                 userId: dataUserId
@@ -168,7 +171,7 @@ class BanshareManager {
         await Promise.allSettled(webhookMessages.map(async (webhookMessage) => {
             const awaitedWebhookMessage = await webhookMessage;
             if (!awaitedWebhookMessage) return;
-            awaitedWebhookMessage.webhookClient.send(awaitedWebhookMessage.data)
+            awaitedWebhookMessage.webhook.send(awaitedWebhookMessage.data)
                 .then(async (message) => {
                     if (message.content === autoBannedContent) {
                         if (!message.components) {
@@ -176,7 +179,7 @@ class BanshareManager {
                             return;
                         }
                         const broadcasts = await databaseManager.getBroadcasts();
-                        const correctBroadcast = broadcasts.find((broadcast) => broadcast.webhookId === awaitedWebhookMessage.webhookClient.id);
+                        const correctBroadcast = broadcasts.find((broadcast) => broadcast.webhookId === awaitedWebhookMessage.webhook.id);
                         if (!correctBroadcast) return;
                         const guild = client.guilds.cache.get(correctBroadcast.guildId);
                         if (!guild) return;
