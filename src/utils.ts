@@ -552,3 +552,14 @@ export const networkChannelPingNotificationEmbedBuilder = async (pingedUserId: s
 
     return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};
 }
+
+export const experimentalPatchWarning = async () => {
+    const broadcasts = await databaseManager.getBroadcasts();
+        await Promise.allSettled(broadcasts.map(async (broadcast) => {
+            if(!config.nonChatWebhooksTypes.includes(broadcast.channelType)) {
+                const activeWebhook = config.activeWebhooks.find((webhook) => webhook.id === broadcast.webhookId)
+                if(!activeWebhook) return;
+                await activeWebhook.send({content: "This patch is highly experimental and due to limitations could not be tested fully in beta, if you encounter any problems please let your server's staff or an aeon navigator know.", username: "Akivili"});
+            }
+        }))
+}

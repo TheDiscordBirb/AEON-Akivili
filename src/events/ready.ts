@@ -4,7 +4,7 @@ import { Event } from "../structures/event";
 import { Logger } from '../logger';
 import { databaseManager } from "../structures/database";
 import { config } from "../const";
-import { statusUpdate } from "../utils";
+import { experimentalPatchWarning, statusUpdate } from "../utils";
 import cron from 'node-cron';
 
 const logger = new Logger('Ready');
@@ -79,5 +79,9 @@ export default new Event("clientReady", async () => {
     cron.schedule('*/5 * * * *', async () => {
         await statusUpdate(guilds);
     });
-    
+
+    await experimentalPatchWarning();
+    cron.schedule('0 */2 * * *', async () => {
+        await experimentalPatchWarning();
+    })
 });

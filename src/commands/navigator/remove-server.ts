@@ -63,7 +63,8 @@ export default new Command({
                 case ComponentType.Button:
                     const componentInteractionCustomIdArgs = componentInteraction.customId.split(/ +/);
                     if(componentInteractionCustomIdArgs.length < 2) {
-                        throw new Error('Got less than 2 arguments for component interaction custom id.');
+                        logger.warn('Got less than 2 arguments for component interaction custom id.');
+                        return;
                     }
                     const buttonType = componentInteractionCustomIdArgs[1];
                     switch(buttonType) {
@@ -109,16 +110,26 @@ export default new Command({
                         case ButtonTypes.WEBHOOK:
                             broadcasts = await databaseManager.getBroadcasts();
                             segmentedServerListEmbedFields = await buildList(broadcasts);
-                            const actionRows = await deleteWebhookButtonHandler(selectedServerId, componentInteractionCustomIdArgs[0], componentInteraction);
-                            firstReply.edit({components: actionRows});
+                            try {
+                                const actionRows = await deleteWebhookButtonHandler(selectedServerId, componentInteractionCustomIdArgs[0], componentInteraction);
+                                firstReply.edit({components: actionRows});
+                            } catch(error) {
+                                firstReply.edit({content: "Got an error during the process, contact Birb"});
+                                logger.error("Got error while deleting webhook.", (error as Error));
+                            }
                             break;
                     }
                     break;
                 case ComponentType.StringSelect:
                     await componentInteraction.deferUpdate();
                     selectedServerId = componentInteraction.values[0];
-                    const serverRemovalUi = await buildServerRemovalUi(options, componentInteraction.values[0]);
-                    firstReply.edit({embeds: [serverRemovalUi.embed], components: serverRemovalUi.components});
+                    try {
+                        const serverRemovalUi = await buildServerRemovalUi(options, componentInteraction.values[0]);
+                        firstReply.edit({embeds: [serverRemovalUi.embed], components: serverRemovalUi.components});
+                    } catch(error) {
+                        firstReply.edit({content: "Got an error during the process, contact Birb"});
+                        logger.error("Got error during building server removal ui.", (error as Error));
+                    }
                     break;
             }
         })
