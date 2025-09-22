@@ -34,7 +34,7 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
     if (!webhook) {
         return;
     }
-    const webhookBroadcast = await databaseManager.getBroadcastBywebhookId(webhook.id);
+    const webhookBroadcast = await databaseManager.getBroadcastByWebhookId(webhook.id);
     if (!webhookBroadcast) {
         logger.warn(`Could not get webhook broadcast`);
         return

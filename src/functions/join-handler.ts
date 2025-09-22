@@ -55,6 +55,7 @@ class JoinHandler {
             .then(async (webhook) => {
                 if (data.type !== NetworkJoinOptions.INFO) {
                     await webhook.send(`This channel is now connected to ${webhook.name}.`);
+                    config.activeWebhooks.push(webhook);
                 }
                 if (data.type === NetworkJoinOptions.BANSHARE) {
                     await webhook.send(`Dont forget to use ***/set-important-banshare-role*** to set role that will be pinged when an important banshare is shared. (This is disabled by default)`);
@@ -79,16 +80,17 @@ class JoinHandler {
                     const relatedBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === data.type);
 
                     await Promise.allSettled(relatedBroadcastRecords.map(async (broadcastRecord) => {
-                        const webhook = config.activeWebhooks.find((webhook) => webhook.id === broadcastRecord.webhookId);
-                        if(!webhook) {
+                        const broadcastWebhook = config.activeWebhooks.find((webhook) => webhook.id === broadcastRecord.webhookId);
+                        if(!broadcastWebhook) {
                             logger.warn(`Could not find webhook ${broadcastRecord.webhookId}`);
                             return;
                         }
+                        if(broadcastWebhook.id === webhook.id) return;
 
                         const webhookMessage = `${data.guild.name} has joined Aeon ${data.type}`;
                         const formating = '`';
                         if (broadcastRecord.guildId === data.guild.id) return;
-                        await webhook.send({content: `${formating}${webhookMessage}${formating}`, username: 'Akivili'});
+                        await broadcastWebhook.send({content: `${formating}${webhookMessage}${formating}`, username: 'Akivili'});
                     }))
                 } catch (error) {
                     logger.error(`Could not save broadcast. Error: `, error as Error);

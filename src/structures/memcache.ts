@@ -11,24 +11,22 @@ class CacheManager {
         const mem = this._mem;
         if(os.freemem()/os.totalmem() > 0.85) {
             logger.info('Mem mem mem (Mem is clearing the cache, you are running out of memory)');
-            mem.clear();
-            config.cachedEmojiUids = [];
+            this.emptyCache();
         }
-        return await mem.set(''.concat(...[record, key.toString()]), value);
+        return await mem.set(''.concat(...[record, key]), value);
     }
 
     public async retrieveCache(record: 'emoji' | 'sticker', key: string): Promise<Buffer<ArrayBuffer> | undefined> {
         const mem = this._mem;
-        const buffer = await mem.get<Buffer<ArrayBuffer>>(''.concat(...[record, key.toString()]));
+        const buffer = await mem.get<Buffer<ArrayBuffer>>(''.concat(...[record, key]));
         if(!buffer) {
-            logger.warn(`Memi mem mem. (Could not get buffer from ${key.toString()})`);
+            logger.warn(`Memi mem mem. (Could not get buffer from ${key})`);
             return;
         } else if(Buffer.isBuffer(buffer)) {
             return buffer;
         } else {
             logger.warn(`MEM?!??!?!? (Cache returned ${typeof(buffer)} instead of Buffer<ArrayBuffer>, restart ASAP. Gonna try clearing)`);
-            mem.clear()
-            config.cachedEmojiUids = [];
+            this.emptyCache();
             return;
         }
     }
@@ -36,6 +34,7 @@ class CacheManager {
     public async emptyCache() {
         const mem = this._mem;
         mem.clear();
+        config.cachedEmojiUids = [];
         logger.info('MEM MEM. (Cache has been cleared by force.)');
     }
 }

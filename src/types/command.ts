@@ -42,7 +42,11 @@ export enum AutoBanLevelOptions {
     ALL = '2'
 }
 
-export enum BanshareButtonInstructions {
+export enum ButtonTypes {
     BACK = 'back',
-    FORWARD = 'forward'
+    FORWARD = 'forward',
+    SERVER_SELECTOR = 'serverSelector',
+    WEBHOOK = 'webhook',
+    MENU_BACK = 'menuBack',
+    REMOVE_SERVER = 'removeServer'
 }

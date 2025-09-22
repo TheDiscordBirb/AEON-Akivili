@@ -1,4 +1,5 @@
 import { ActionRowBuilder, ButtonBuilder, GuildEmoji } from "discord.js";
+import { ServerCooldowns } from "./utils";
 
 export enum BanShareButtonArg {
     BANSHARE = 'banshare',
@@ -35,7 +36,8 @@ export enum NotificationType {
     PIN = 'pin',
     CROWD_CONTROL = 'crowdControl',
     SERVER_REMOVE = 'serverRemove',
-    SERVER_DISCONNECT = 'serverDisconnect'
+    SERVER_DISCONNECT = 'serverDisconnect',
+    SERVER_JOIN = 'serverJoin'
 }
 
 export interface EmojiReplacementData {
@@ -48,7 +50,7 @@ export interface ActionRowComponentReconstructionData {
     components: ActionRowBuilder<ButtonBuilder>[]
 }
 
-export const guildEmojiCooldowns: string[][] = [];
+export const guildEmojiCooldowns: ServerCooldowns[] = [];
 
 export enum BanshareStatus {
     PENDING = 'pending',

@@ -12,7 +12,7 @@ import {
 import { Logger } from '../../logger';
 import { databaseManager } from '../../structures/database';
 import { BanshareListData } from '../../types/database';
-import { BanshareButtonInstructions } from '../../types/command';
+import { ButtonTypes } from '../../types/command';
 import { config } from '../../const';
 import { StringSelectMenuBuilder } from '@discordjs/builders';
 import { BanshareStatus } from '../../types/event';
@@ -75,13 +75,13 @@ export default new Command({
 
         const backButton = new ButtonBuilder()
             .setEmoji('⬅️')
-            .setCustomId(`${options.interaction.user.id} ${BanshareButtonInstructions.BACK} 0`)
+            .setCustomId(`${options.interaction.user.id} ${ButtonTypes.BACK} 0`)
             .setDisabled(true)
             .setStyle(ButtonStyle.Secondary)
 
         const forwardButton = new ButtonBuilder()
             .setEmoji('➡️')
-            .setCustomId(`${options.interaction.user.id} ${BanshareButtonInstructions.FORWARD} 0`)
+            .setCustomId(`${options.interaction.user.id} ${ButtonTypes.FORWARD} 0`)
             .setStyle(ButtonStyle.Secondary)
 
         const filterSelector = new StringSelectMenuBuilder()
@@ -121,9 +121,7 @@ export default new Command({
             banshareListEmbed.addFields({name: `${banshare.userId}${config.mainServerId === options.interaction.guildId ? "" : ` | ${banshare.status}`}`, value: `Reason: ${banshare.reason}\nProof:\n${banshare.proof}\nTimestamp: ${new Date(banshare.timestamp).getFullYear()}.${new Date(banshare.timestamp).getMonth() + 1}.${new Date(banshare.timestamp).getDate()}. ${new Date(banshare.timestamp).getHours()}:${new Date(banshare.timestamp).getMinutes()}:${new Date(banshare.timestamp).getSeconds()}`});
         });
 
-        try {
-            sortedBanshares[1].length;
-        } catch(error) {
+        if(sortedBanshares.length == 1) {
             forwardButton.setDisabled(true);
             banshareListEmbedButtonRow.components.length = 0;
             banshareListEmbedButtonRow.addComponents([backButton, forwardButton]);
@@ -140,13 +138,13 @@ export default new Command({
                 case ComponentType.Button:
                     const fields : APIEmbedField[] = [];
                     const currentPage = parseInt(componentInteraction.customId.split(/ +/)[2]);
-                    const pageInstruction = componentInteraction.customId.split(/ +/)[1] === BanshareButtonInstructions.BACK ? 0 : 1;
+                    const pageInstruction = componentInteraction.customId.split(/ +/)[1] === ButtonTypes.BACK ? 0 : 1;
                     sortedBanshares[currentPage+(pageInstruction ? 1 : -1)].forEach((banshare) => {
                         fields.push({name: `${banshare.userId} | ${banshare.status}`, value: `Reason: ${banshare.reason}\nProof:\n${banshare.proof}\nTimestamp: ${new Date(banshare.timestamp).getFullYear()}.${new Date(banshare.timestamp).getMonth() + 1}.${new Date(banshare.timestamp).getDate()}. ${new Date(banshare.timestamp).getHours()}:${new Date(banshare.timestamp).getMinutes()}:${new Date(banshare.timestamp).getSeconds()}`})
                     })
                     banshareListEmbed.setFields(fields);
-                    backButton.setCustomId(`${options.interaction.user.id} 0 ${currentPage+(pageInstruction ? 1 : -1)}`);
-                    forwardButton.setCustomId(`${options.interaction.user.id} 1 ${currentPage+(pageInstruction ? 1 : -1)}`);
+                    backButton.setCustomId(`${options.interaction.user.id} ${ButtonTypes.BACK} ${currentPage+(pageInstruction ? 1 : -1)}`);
+                    forwardButton.setCustomId(`${options.interaction.user.id} ${ButtonTypes.FORWARD} ${currentPage+(pageInstruction ? 1 : -1)}`);
         
                     try {
                         sortedBanshares[currentPage+(pageInstruction ? 1 : -1) - 1]
@@ -208,9 +206,9 @@ export default new Command({
                         return;
                     }
                     
-                    backButton.setCustomId(`${options.interaction.user.id} ${BanshareButtonInstructions.BACK} 0`);
+                    backButton.setCustomId(`${options.interaction.user.id} ${ButtonTypes.BACK} 0`);
                     backButton.setDisabled(true);
-                    forwardButton.setCustomId(`${options.interaction.user.id} ${BanshareButtonInstructions.FORWARD} 0`);
+                    forwardButton.setCustomId(`${options.interaction.user.id} ${ButtonTypes.FORWARD} 0`);
                     
                     try {
                         sortedBanshares[1].length;

@@ -145,7 +145,7 @@ const getInteractionData = async (interaction: Message<boolean> ): Promise<Inter
         await interaction.reply({ content: "Couldnt find Aeon webhook, contact Birb to resolve this issue." });
         return;
     }
-    const webhookBroadcast = await databaseManager.getBroadcastBywebhookId(webhook.id);
+    const webhookBroadcast = await databaseManager.getBroadcastByWebhookId(webhook.id);
     if (!webhookBroadcast) {
         await interaction.reply({ content: `Could not remove this channel from the network, for more info contact Birb.` });
         logger.warn(`Could not get webhook broadcast`);

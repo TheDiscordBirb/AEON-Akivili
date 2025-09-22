@@ -95,7 +95,7 @@ export class ExtendedClient extends Client {
             }
         }));
 
-        this.on('ready', () => {
+        this.on('clientReady', () => {
             this.registerCommands({commands: slashCommands})
             .then(() => {
                 logger.info('Commands registered.');

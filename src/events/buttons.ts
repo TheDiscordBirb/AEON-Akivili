@@ -30,7 +30,7 @@ const logger = new Logger("Buttons");
 
 export default new Event("interactionCreate", async (interaction) => {
     if (!interaction.isButton()) return;
-
+    
     await interaction.deferUpdate();
     const buttonComponent = (interaction.component as ButtonComponent);
     if(!buttonComponent) {
@@ -164,7 +164,7 @@ const emojiButtonFunction = async (interaction: ButtonInteraction<CacheType>): P
         await interaction.followUp({ content: "Couldnt find Aeon webhook, contact Birb to resolve this issue." });
         return;
     }
-    const webhookBroadcast = await databaseManager.getBroadcastBywebhookId(webhook.id);
+    const webhookBroadcast = await databaseManager.getBroadcastByWebhookId(webhook.id);
     if (!webhookBroadcast) {
         await interaction.followUp({ content: `Could not remove this channel from the network, for more info contact Birb.`, ephemeral: true });
         logger.warn(`Could not get webhook broadcast`);

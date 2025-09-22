@@ -9,7 +9,7 @@ import cron from 'node-cron';
 
 const logger = new Logger('Ready');
 
-export default new Event("ready", async () => {
+export default new Event("clientReady", async () => {
     logger.info(`${client.user?.username} is online`);
     const guilds = await client.guilds.fetch();
     const broadcasts = await databaseManager.getBroadcasts();
@@ -38,7 +38,7 @@ export default new Event("ready", async () => {
                     return;
                 }
                 if(webhook.owner.id !== client.user.id) return;
-                const broadcast = await databaseManager.getBroadcastBywebhookId(webhook.id);
+                const broadcast = await databaseManager.getBroadcastByWebhookId(webhook.id);
                 if(!broadcast) {
                     logger.warn(`Could not get broadcast for webhook ${webhook.id}`);
                     return;

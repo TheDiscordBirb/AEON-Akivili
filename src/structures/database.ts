@@ -149,7 +149,7 @@ class DatabaseManager {
         
     }
 
-    public async getBroadcastBywebhookId(webhookId: string): Promise<BroadcastRecord | undefined> {
+    public async getBroadcastByWebhookId(webhookId: string): Promise<BroadcastRecord | undefined> {
         const db = await this.db();
         const result = await db.get<BroadcastRecord>(`SELECT * FROM Broadcast WHERE webhookId=?`, [webhookId]);
         return result;

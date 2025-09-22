@@ -32,6 +32,7 @@ import { clientInfoData } from './types/client';
 import sharp from 'sharp';
 import { cacheManager } from './structures/memcache';
 import { nanoid } from 'nanoid';
+import { ParsedEmoji } from './types/utils';
 
 const logger = new Logger("Utils");
 
@@ -365,64 +366,76 @@ export const rebuildNetworkInfoEmbeds = async (message: Message, name?: string, 
     return embeds;
 }
 
+export const createParsedEmoji = (parts: string[]): ParsedEmoji => {
+    if(parts.length != 4) {
+        throw new Error(`Emoji parts length does not match. Parts: ${parts.join(":")}`);
+    }
+
+    return {
+        isAnimated: parts[0] === "a",
+        name: parts[1],
+        id: parts[2]
+    };
+};
+
 export const replaceEmojis = async (content: string, client: Client): Promise<EmojiReplacementData> => {
     const emoteCapture = /(a?):([^:]+):(\d+)/g;
-    const extractedEmojiData: string[][] = [];
+    const allParsedEmojis: ParsedEmoji[] = [];
     let currentEmojiCapture = emoteCapture.exec(content);
     while (currentEmojiCapture) {
-        const currentEmojiData = [currentEmojiCapture[1], currentEmojiCapture[2], currentEmojiCapture[3]];
-        if (!extractedEmojiData.find((data) => data[2] === currentEmojiData[2])) {
-            extractedEmojiData.push(currentEmojiData);
+        const currentParsedEmoji = createParsedEmoji(currentEmojiCapture)
+        if (!allParsedEmojis.find((data) => data.id === currentParsedEmoji.id)) {
+            allParsedEmojis.push(currentParsedEmoji);
         }
         currentEmojiCapture = emoteCapture.exec(content);
     };
     
     const emojis: GuildEmoji[] = [];
-    guildEmojiCooldowns.forEach(async (guildEmojiCooldown, cooldownsIdx) => {
+    guildEmojiCooldowns.forEach((guildEmojiCooldown, cooldownsIdx) => {
         if (guildEmojiCooldowns.length === 0) return;
-        guildEmojiCooldown.forEach(async (cooldown, cooldownIdx) => {
-            if (cooldownIdx === 0) return;
+        guildEmojiCooldown.cooldowns.forEach((cooldown, cooldownIdx) => {
+            if (!guildEmojiCooldown.serverId) return;
             const cooldownInt = parseInt(cooldown);
             if (isNaN(cooldownInt)) {
                 logger.warn(`Got a NaN instead of Int: ${cooldown}`);
-                guildEmojiCooldown.splice(cooldownIdx, 1);
+                guildEmojiCooldown.cooldowns.splice(cooldownIdx, 1);
                 return;
             }
             if (Date.now() >= cooldownIdx) {
-                guildEmojiCooldown.splice(cooldownIdx, 1);
+                guildEmojiCooldown.cooldowns.splice(cooldownIdx, 1);
                 return;
             }
         });
-        if (guildEmojiCooldown.length <= 1) {
+        if (guildEmojiCooldown.cooldowns.length <= 1) {
             guildEmojiCooldowns.splice(cooldownsIdx);
             return;
         }
     });
   
-    await Promise.allSettled(extractedEmojiData.map(async (emoji) => {
-        if (client.emojis.cache.get(emoji[2])) return;
+    await Promise.allSettled(allParsedEmojis.map(async (emoji) => {
+        if (client.emojis.cache.get(emoji.id)) return;
             
-        if (guildEmojiCooldowns.length === 0 || guildEmojiCooldowns[guildEmojiCooldowns.length - 1].length >= config.maxEmojiPerServer + 1) {
+        if (guildEmojiCooldowns.length === 0 || guildEmojiCooldowns[guildEmojiCooldowns.length - 1].cooldowns.length >= config.maxEmojiPerServer + 1) {
             if (guildEmojiCooldowns.length >= config.emojiServerIds.length) {
                 return;
             }
-            guildEmojiCooldowns.push([`${config.emojiServerIds[guildEmojiCooldowns.length ? guildEmojiCooldowns.length - 1 : 0]}`]);
-        }
+            guildEmojiCooldowns.push({serverId: config.emojiServerIds[guildEmojiCooldowns.length ? guildEmojiCooldowns.length - 1 : 0], cooldowns: []});
+        } 
 
-        const guildId = guildEmojiCooldowns[guildEmojiCooldowns.length - 1][0];
+        const guildId = guildEmojiCooldowns[guildEmojiCooldowns.length - 1].serverId;
         const guild = client.guilds.cache.get(guildId);
         if (!guild) return;
 
-        const url = `https://cdn.discordapp.com/emojis/${emoji[2]}.${emoji[0] ? "gif" : "png"}?v=1`;
+        const url = `https://cdn.discordapp.com/emojis/${emoji.name}.${emoji.isAnimated ? "gif" : "png"}?v=1`;
         let attachment: Buffer<ArrayBuffer> | undefined;
         const emojiUid = "_Aki" + nanoid(7);
         config.cachedEmojiUids.push(emojiUid);
-        if(emoji[1].length > 32-emojiUid.length) {
-            logger.info(`${emoji[1]} has been shortened.`);
-            emoji[1].slice(0, 32-emojiUid.length);
+        if(emoji.name.length > 32-emojiUid.length) {
+            logger.info(`${emoji.name} has been shortened.`);
+            emoji.name.slice(0, 32-emojiUid.length);
         }
         const emojiCheckRegex = /(.*)(?:_Aki)(.{7})/g;
-        const emojiCheck = emojiCheckRegex.exec(emoji[1]);
+        const emojiCheck = emojiCheckRegex.exec(emoji.name);
         if(!emojiCheck) return;
         if(!config.cachedEmojiUids.includes(emojiCheck[1])) {
             logger.info(`Someone tried to retrieve from cache with key ${emojiCheck[1]}.`);
@@ -436,7 +449,7 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
         }
 
         await guild.emojis.create({ attachment, name: emojiCheck[0] + emojiCheck[1] }).then((guildEmoji) => {
-            guildEmojiCooldowns[guildEmojiCooldowns.length - 1].push(`${Date.now() + Time.HOUR}`);
+            guildEmojiCooldowns[guildEmojiCooldowns.length - 1].cooldowns.push(`${Date.now() + Time.HOUR}`);
             emojis.push(guildEmoji);
         });
     }));

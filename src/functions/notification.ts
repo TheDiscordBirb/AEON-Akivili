@@ -10,7 +10,7 @@ const logger = new Logger("Notification");
 
 class NotificationManager {
     public async sendNotification(data: NotificationData) {
-        const notificationChannel = client.channels.cache.find((clientChannel) => clientChannel.id === config.notificationChannelId);
+        const notificationChannel = client.channels.cache.find((clientChannel) => clientChannel.id === (data.privateNotification ? config.privateNotificationChannelId : config.publicNotificationChannelId ));
         if (!notificationChannel) {
             logger.warn(`No notification channel found`);
             return;
@@ -110,6 +110,17 @@ class NotificationManager {
             }
             case NotificationType.SERVER_REMOVE: {
                 // TODO
+                break;
+            }
+            case NotificationType.SERVER_JOIN: {
+                if(!data.guildData) {
+                    logger.warn('Didnt get guild data.');
+                    return;
+                }
+                notificationEmbed.setTitle(`Bot has been added to ${data.guild.name}`);
+                notificationEmbed.setDescription(`Server has ${data.guildData.guildChannels.size} channels and ${data.guildData.guildMembers.size} members.`);
+                notificationEmbed.setColor(Colors.DarkPurple);
+                embedCollection.push(notificationEmbed);
                 break;
             }
         }
