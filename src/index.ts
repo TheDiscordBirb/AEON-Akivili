@@ -30,7 +30,7 @@ fs.readdir(path.join(__dirname, '..', '/logs'), (err, files) => {
         }
     })
 })
-/*
+
 import process from 'node:process';
 process.on('unhandledRejection', async (reason, promise) => {
     console.log(`Unhandled rejection at: ${promise}, reason: ${reason}`);
@@ -38,5 +38,5 @@ process.on('unhandledRejection', async (reason, promise) => {
 process.on('uncaughtException', (err) => {
     console.log(`Uncaught exception: ${err}`);
 })
-*/
+
 client.start();

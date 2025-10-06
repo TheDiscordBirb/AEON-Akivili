@@ -1,4 +1,4 @@
-import { GuildTextBasedChannel, Collection, Webhook, WebhookType } from "discord.js";
+import { GuildTextBasedChannel, Collection, Webhook, WebhookType, Guild } from "discord.js";
 import { client } from "../structures/client";
 import { Event } from "../structures/event";
 import { Logger } from '../logger';
@@ -17,17 +17,31 @@ export default new Event("clientReady", async () => {
     const otherBroadcasts = broadcasts.filter((broadcast) => config.nonChatWebhooksTypes.includes(broadcast.channelType));
     let guildCount = 0;
     logger.info('Loading guilds...');
+    const noBroadcastGuilds : Guild[] = [];
+    const infoOrBanshareBroadcastGuilds : Guild[] = [];
     for await (const oauthGuild of guilds) {
         const guild = client.guilds.cache.get(oauthGuild[0]);
         if (!guild) continue;
         let webhooks: Collection<string, Webhook<WebhookType.Incoming | WebhookType.ChannelFollower>>;
-        await Promise.all([
-            await guild.members.fetch(),
-            webhooks = await guild.fetchWebhooks(),
-        ]);
+        try {
+            await Promise.all([
+                await guild.members.fetch(),
+                webhooks = await guild.fetchWebhooks(),
+            ]);
+        } catch(error) {
+            logger.error(`Could not load ${guild.name}`, (error as Error));
+            continue;
+        }
         webhooks = webhooks.filter((webhook) => webhook.owner?.id === client.user?.id);
-        const guildBroadcasts = chatBroadcasts.filter((broadcast) => broadcast.guildId === guild.id);
-        if (!guildBroadcasts.length) continue;
+        const guildChatBroadcasts = chatBroadcasts.filter((broadcast) => broadcast.guildId === guild.id);
+        const guildOtherBroadcasts = otherBroadcasts.filter((broadcast) => broadcast.guildId === guild.id);
+        if (!guildChatBroadcasts.length) {
+            if(!guildOtherBroadcasts.length) {
+                noBroadcastGuilds.push(guild);
+            } else {
+                infoOrBanshareBroadcastGuilds.push(guild);
+            }
+        }
         guildCount++;
         let networkServer = false;
         logger.info(`Trying to load guild "${guild.name}" (id: ${guild.id})`);
@@ -61,8 +75,8 @@ export default new Event("clientReady", async () => {
             }
         })
         if(config.cleanDbMode) {
-            if(guildBroadcasts.length) {
-                guildBroadcasts.forEach(async (broadcast) => {
+            if(guildChatBroadcasts.length) {
+                guildChatBroadcasts.forEach(async (broadcast) => {
                     if(!webhooks.find((webhook) => webhook.id === broadcast.webhookId)) {
                         logger.warn(`Deleted Aeon ${broadcast.channelType} (id: ${broadcast.webhookId}) from guild with id ${broadcast.guildId}, because it had no reference.`)
                         await databaseManager.deleteBroadcastByWebhookId(broadcast.webhookId);
@@ -73,6 +87,10 @@ export default new Event("clientReady", async () => {
     }
 
     logger.info(`Loaded ${guildCount} guild${guildCount === 1 ? '' : 's'}`);
+    logger.info(`Got ${noBroadcastGuilds.length} servers with no broadcasts.`);
+    await Promise.all(noBroadcastGuilds.map((noBroadcastGuild) => {
+        logger.info(`${noBroadcastGuild.name} ${noBroadcastGuild.id}\nMembers: ${noBroadcastGuild.memberCount} Channels: ${noBroadcastGuild.channels.cache.size}`);
+    }))
 
     
     await statusUpdate(guilds);
@@ -80,8 +98,7 @@ export default new Event("clientReady", async () => {
         await statusUpdate(guilds);
     });
 
-    await experimentalPatchWarning();
-    cron.schedule('0 */2 * * *', async () => {
+    cron.schedule('0 */4 * * *', async () => {
         await experimentalPatchWarning();
     })
 });

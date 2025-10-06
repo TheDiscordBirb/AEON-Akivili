@@ -25,6 +25,10 @@ class CacheManager {
         } else if(Buffer.isBuffer(buffer)) {
             return buffer;
         } else {
+            const uintBuffer = Buffer.from(buffer);
+            if(Buffer.isBuffer(uintBuffer)) {
+                return uintBuffer;
+            }
             logger.warn(`MEM?!??!?!? (Cache returned ${typeof(buffer)} instead of Buffer<ArrayBuffer>, restart ASAP. Gonna try clearing)`);
             this.emptyCache();
             return;

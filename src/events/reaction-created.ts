@@ -26,11 +26,12 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
     const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
     if (!channelWebhook) return;
 
-    const webhooks = config.activeWebhooks.filter((webhook) => webhook.guildId === interaction.message.guildId);
-    if(!webhooks) {
+    const webhooks = config.activeWebhooks;
+    const guildWebhooks = webhooks.filter((webhook) => webhook.guildId === interaction.message.guildId);
+    if(!guildWebhooks) {
         return;
     }
-    const webhook = webhooks.find((channelWebhook) => channelWebhook.name.includes("Aeon"));
+    const webhook = guildWebhooks.find((channelWebhook) => channelWebhook.name.includes("Aeon"));
     if (!webhook) {
         return;
     }

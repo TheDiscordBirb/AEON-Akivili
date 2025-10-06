@@ -31,7 +31,6 @@ import { config } from './const';
 import { clientInfoData } from './types/client';
 import sharp from 'sharp';
 import { cacheManager } from './structures/memcache';
-import { nanoid } from 'nanoid';
 import { ParsedEmoji } from './types/utils';
 
 const logger = new Logger("Utils");
@@ -368,9 +367,9 @@ export const createParsedEmoji = (parts: string[]): ParsedEmoji => {
     }
 
     return {
-        isAnimated: parts[0] === "a",
-        name: parts[1],
-        id: parts[2]
+        isAnimated: parts[1] === "a",
+        name: parts[2],
+        id: parts[3]
     };
 };
 
@@ -409,7 +408,9 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
     });
   
     await Promise.allSettled(allParsedEmojis.map(async (emoji) => {
-        if (client.emojis.cache.get(emoji.id)) return;
+        if (client.emojis.cache.get(emoji.id)) {
+            return;
+        }
             
         if (guildEmojiCooldowns.length === 0 || guildEmojiCooldowns[guildEmojiCooldowns.length - 1].cooldowns.length >= config.maxEmojiPerServer + 1) {
             if (guildEmojiCooldowns.length >= config.emojiServerIds.length) {
@@ -420,31 +421,44 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
 
         const guildId = guildEmojiCooldowns[guildEmojiCooldowns.length - 1].serverId;
         const guild = client.guilds.cache.get(guildId);
-        if (!guild) return;
+        if (!guild) {
+            return;
+        }
 
-        const url = `https://cdn.discordapp.com/emojis/${emoji.name}.${emoji.isAnimated ? "gif" : "png"}?v=1`;
+        const url = `https://cdn.discordapp.com/emojis/${emoji.id}.${emoji.isAnimated ? "gif" : "png"}?v=1`;
         let attachment: Buffer<ArrayBuffer> | undefined;
-        const emojiUid = "_Aki" + nanoid(7);
-        config.cachedEmojiUids.push(emojiUid);
+        const emojiUid = "_Aki" + makeUid(7);
+        const emojiCheckRegex = /(.*)(?:_Aki)(.{7})/g;
+        const emojiCheck = emojiCheckRegex.exec(emoji.name);
+        if(emojiCheck) {
+            emoji.name = emoji.name.slice(0, emoji.name.length-11);
+            console.log(emoji.name);
+            if(!config.cachedEmojiUids.includes(emojiCheck[2])) {
+                logger.info(`Someone tried to retrieve from cache with key ${emojiCheck[2]}.`);
+                return;
+            }
+            attachment = await cacheManager.retrieveCache('emoji', emojiCheck[2]);
+        }
+        if(!attachment) {
+            const attachmentBuffer = await axios.get(url, { responseType: 'arraybuffer' });
+            attachment = Buffer.from(attachmentBuffer.data, 'utf-8');
+            console.log(emojiUid.slice(4));
+            await cacheManager.saveCache('emoji', emojiUid.slice(4), attachment);
+            config.cachedEmojiUids.push(emojiUid.slice(4));
+        }
         if(emoji.name.length > 32-emojiUid.length) {
             logger.info(`${emoji.name} has been shortened.`);
             emoji.name.slice(0, 32-emojiUid.length);
         }
-        const emojiCheckRegex = /(.*)(?:_Aki)(.{7})/g;
-        const emojiCheck = emojiCheckRegex.exec(emoji.name);
-        if(!emojiCheck) return;
-        if(!config.cachedEmojiUids.includes(emojiCheck[1])) {
-            logger.info(`Someone tried to retrieve from cache with key ${emojiCheck[1]}.`);
-            return;
-        }
-        attachment = await cacheManager.retrieveCache('emoji', emojiCheck[1]);
-        if(!attachment) {
-            const attachmentBuffer = await axios.get(url, { responseType: 'arraybuffer' });
-            attachment = Buffer.from(attachmentBuffer.data, 'utf-8');
-            await cacheManager.saveCache('emoji', emojiUid, attachment);
-        }
 
-        await guild.emojis.create({ attachment, name: emojiCheck[0] + emojiCheck[1] }).then((guildEmoji) => {
+        console.log(`${emoji.name} ${emojiUid}`)
+        let emojiName = "";
+        if(emojiCheck) {
+            emojiName = emojiCheck[1] + "_Aki" + emojiCheck[2];
+        } else {
+            emojiName = emoji.name + emojiUid;
+        }
+        await guild.emojis.create({ attachment, name: emojiName }).then((guildEmoji) => {
             guildEmojiCooldowns[guildEmojiCooldowns.length - 1].cooldowns.push(`${Date.now() + Time.HOUR}`);
             emojis.push(guildEmoji);
         });
@@ -556,4 +570,14 @@ export const experimentalPatchWarning = async () => {
             if(!activeWebhook) return;
             await activeWebhook.send({content: "This patch is highly experimental and due to limitations could not be tested fully in beta, if you encounter any problems please let your server's staff or an aeon navigator know.", username: "Akivili"});
         }))
+}
+
+const makeUid = (length: number): string => {
+    let result = '';
+    let characters = '123445678ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+    var charactersLength = characters.length;
+    for ( var i = 0; i < length; i++ ) {
+        result += characters.charAt(Math.floor(Math.random() * charactersLength));
+    }
+    return result;
 }

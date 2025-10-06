@@ -120,6 +120,8 @@ export default new Event("messageCreate", async (interaction) => {
 
 const getInteractionData = async (interaction: Message<boolean> ): Promise<InteractionData | undefined> => {
     if (interaction.webhookId) return;
+    const webhook = config.activeWebhooks.find((webhook) => webhook.channelId === interaction.channelId);
+    if(!webhook) return;
     const interactionMember = interaction.member;
     if (!interactionMember) throw new Error('No interaction member defined.');
     if (interactionMember.user.id === client.user?.id) throw new Error('Could not determine user id.') ;
@@ -136,15 +138,6 @@ const getInteractionData = async (interaction: Message<boolean> ): Promise<Inter
     const interactionType = interaction.type;
     if (interactionType === MessageType.ChannelPinnedMessage) throw new Error('Got pinned message message.');
 
-    const webhooks = config.activeWebhooks.filter((webhook) => webhook.guildId === interaction.guildId);
-    if(!webhooks) {
-        return;
-    }
-    const webhook = webhooks.find((channelWebhook) => channelWebhook.name.includes("Aeon"));
-    if (!webhook) {
-        await interaction.reply({ content: "Couldnt find Aeon webhook, contact Birb to resolve this issue." });
-        return;
-    }
     const webhookBroadcast = await databaseManager.getBroadcastByWebhookId(webhook.id);
     if (!webhookBroadcast) {
         await interaction.reply({ content: `Could not remove this channel from the network, for more info contact Birb.` });
@@ -152,11 +145,11 @@ const getInteractionData = async (interaction: Message<boolean> ): Promise<Inter
         return
     }
     
-    if (config.nonChatWebhooks.includes(webhook.name)) {
-        if (webhook.name === `Aeon ${NetworkJoinOptions.INFO}`) {
+    if (config.nonChatWebhooksTypes.includes(webhookBroadcast.channelType)) {
+        if (webhookBroadcast.channelType === NetworkJoinOptions.INFO) {
             await interaction.delete();
         }
-        throw new Error('Webhook name does not start with Aeon.');
+        throw new Error('Typing in non chat channel.');
     }
 
     return {
