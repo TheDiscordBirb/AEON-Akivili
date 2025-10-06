@@ -268,17 +268,13 @@ export const rebuildMessageComponentAfterUserInteraction = async (message: Messa
 export const statusUpdate = async (guilds: Collection<string, OAuth2Guild>): Promise<void> => {
     let memberObjects: Collection<string, GuildMember> = new Collection();
     let guildCount = 0;
-    const broadcasts = await databaseManager.getBroadcasts();
-    const chatBroadcasts = broadcasts.filter((broadcast) => !config.nonChatWebhooksTypes.includes(broadcast.channelType));
-    for await (const oauthGuild of guilds) {
-        const guild = client.guilds.cache.find((guild) => guild.id === oauthGuild[0]);
-        if (!guild) continue;
-        const guildBroadcasts = chatBroadcasts.filter((broadcast) => broadcast.guildId === guild.id);
-        if (!guildBroadcasts.length) continue;
-
+    const chatBroadcasts = await databaseManager.getChatBroadcasts();
+    await Promise.allSettled(chatBroadcasts.map(async (broadcast) => {
+        const guild = client.guilds.cache.get(broadcast.guildId);
+        if(!guild) return;
         guildCount++;
         memberObjects = memberObjects.concat(guild.members.cache);
-    }
+    }))
 
     if (!client.user) {
         logger.wtf(`No client user.`);
@@ -554,12 +550,10 @@ export const networkChannelPingNotificationEmbedBuilder = async (pingedUserId: s
 }
 
 export const experimentalPatchWarning = async () => {
-    const broadcasts = await databaseManager.getBroadcasts();
+    const broadcasts = await databaseManager.getChatBroadcasts()
         await Promise.allSettled(broadcasts.map(async (broadcast) => {
-            if(!config.nonChatWebhooksTypes.includes(broadcast.channelType)) {
-                const activeWebhook = config.activeWebhooks.find((webhook) => webhook.id === broadcast.webhookId)
-                if(!activeWebhook) return;
-                await activeWebhook.send({content: "This patch is highly experimental and due to limitations could not be tested fully in beta, if you encounter any problems please let your server's staff or an aeon navigator know.", username: "Akivili"});
-            }
+            const activeWebhook = config.activeWebhooks.find((webhook) => webhook.id === broadcast.webhookId)
+            if(!activeWebhook) return;
+            await activeWebhook.send({content: "This patch is highly experimental and due to limitations could not be tested fully in beta, if you encounter any problems please let your server's staff or an aeon navigator know.", username: "Akivili"});
         }))
 }

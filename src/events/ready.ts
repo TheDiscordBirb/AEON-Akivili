@@ -1,4 +1,4 @@
-import { GuildMember, GuildTextBasedChannel, Collection, Webhook, WebhookType } from "discord.js";
+import { GuildTextBasedChannel, Collection, Webhook, WebhookType } from "discord.js";
 import { client } from "../structures/client";
 import { Event } from "../structures/event";
 import { Logger } from '../logger';

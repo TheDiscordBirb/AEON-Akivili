@@ -9,6 +9,7 @@ import {
     UserReactionRecord
 } from '../types/database';
 import { Logger } from "../logger";
+import { config } from '../const';
 
 const logger = new Logger('Database');
 
@@ -138,7 +139,6 @@ class DatabaseManager {
 
     public async getBroadcasts(): Promise<BroadcastRecord[]> {
         if (this._broadcastCache) return this._broadcastCache;
-        const db = await this.db();
         try {
             this._broadcastCache = await this.getBroadcastsFromDb();
         } catch (error) {
@@ -153,6 +153,19 @@ class DatabaseManager {
         const db = await this.db();
         const result = await db.get<BroadcastRecord>(`SELECT * FROM Broadcast WHERE webhookId=?`, [webhookId]);
         return result;
+    }
+
+    public async getChatBroadcasts(): Promise<BroadcastRecord[]> {
+        if(this._broadcastCache) {
+            return this._broadcastCache.filter((broadcast) => !config.nonChatWebhooksTypes.includes(broadcast.channelType));
+        }
+        try {
+            this._broadcastCache = await this.getBroadcastsFromDb();
+        } catch (error) {
+            logger.error(`Could not get broadcast records. Error: `, error as Error);
+            return [];
+        }
+        return this._broadcastCache.filter((broadcast) => !config.nonChatWebhooksTypes.includes(broadcast.channelType));
     }
 
     private getBroadcastsFromDb = async (): Promise<BroadcastRecord[]> => {
