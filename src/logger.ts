@@ -69,7 +69,7 @@ export class Logger {
 
     private logBufferIntoFile = (): void => {
         try {
-            writeFileSync(path.join(__dirname, '..', `${config.currentLogFileName}.log`), this.logFileBuffer.join('\n'), { flag:'a' });
+            writeFileSync(path.join(__dirname, '..', '/logs', `${config.currentLogFileName}.log`), this.logFileBuffer.join('\n'), { flag:'a' });
         } catch (error) {
             console.log('Could not write into the log file. Error: ', (error as Error).message);
         }

@@ -10,7 +10,7 @@ const logger = new Logger("Index");
 
 config.currentLogFileName = new Date(Date.now()).toISOString().split("T")[0].replaceAll('-', '_');
 
-fs.readdir(path.join(__dirname, '..'), (err, files) => {
+fs.readdir(path.join(__dirname, '..', '/logs'), (err, files) => {
     const logFiles = files.filter((file) => file.endsWith('.log'));
     if(logFiles.length === 1) return;
     logFiles.forEach((file) => {
