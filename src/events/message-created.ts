@@ -19,7 +19,7 @@ import { ulid } from "ulid";
 import { config } from "../const";
 import { Logger } from "../logger";
 import { client } from "../structures/client";
-import { CustomId, DmMessageButtonArg, EmojiReplacementData } from "../types/event";
+import { CustomId, DmMessageButtonArg, EmojiReplacementData, NotificationType } from "../types/event";
 import { BroadcastRecord, MessagesRecord } from "../types/database";
 import { metrics } from "../structures/metrics";
 import { TimeSpanMetricLabel } from "../types/metrics";
@@ -42,6 +42,9 @@ import { InteractionData } from '../types/message-created';
 import { crowdControl } from "../functions/crowd-control";
 import { modmailHandler } from "../functions/modmail";
 import { cacheManager } from "../structures/memcache";
+import { FilterOutput } from "../structures/message-filter";
+import { messageFilter } from "../functions/message-filter";
+import { notificationManager } from "../functions/notification";
 
 
 const logger = new Logger('MessageCreated');
@@ -55,6 +58,8 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
         }
         const interactionData = await getInteractionData(interaction);
         if(!interactionData) return;
+        const filterData = await filterHandling(interaction);
+        if(!filterData.resultClean) return;
         const { interactionMember, channelWebhookBroadcast, broadcastRecords } = interactionData;
         const webhookChannelType = channelWebhookBroadcast.channelType;
         const files = await convertStickersAndImagesToFiles(interaction);
@@ -602,6 +607,20 @@ const sendNotification = async (interaction: Message<boolean>, interactionMember
             }
         })
     }
+}
+
+const filterHandling = async (message: Message<boolean>): Promise<FilterOutput> => {
+    const result = await messageFilter.filterMessage(message.content.toLowerCase());
+    if(result.resultClean) {
+        return result;
+    }
+    if(!message.guild) {
+        logger.warn("Could not get guild from message.");
+        return result;
+    }
+    await notificationManager.sendNotification({executingUser: message.author, notificationType: NotificationType.FILTERED_MESSAGE, filteredWords: result.detectedFilteredContent, guild: message.guild, time: Date.now()})
+    await message.delete();
+    return result;
 }
 
 

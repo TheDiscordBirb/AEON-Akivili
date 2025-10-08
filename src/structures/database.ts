@@ -3,6 +3,7 @@ import { Database, open } from 'sqlite';
 import { 
     BanshareListData,
     BroadcastRecord,
+    FilteredWords,
     MessagesRecord,
     ModmailRecord,
     NetworkProfileData,
@@ -102,6 +103,13 @@ class DatabaseManager {
                 proof TEXT,
                 timestamp INT,
                 PRIMARY KEY (serverId, userId, reason, proof, timestamp)
+            )`
+        )
+
+        await this._db.run(
+            `CREATE TABLE IF NOT EXISTS FilteredWords (
+                word TEXT,
+                PRIMARY KEY (word)
             )`
         )
 
@@ -372,6 +380,20 @@ class DatabaseManager {
             throw new Error(`Could not get banshare for ${userId} in ${serverId}`);
         }
         await db.run(`INSERT OR REPLACE INTO Banshares (serverId, status, userId, reason, proof, timestamp) VALUES (?, ?, ?, ?, ?, ?)`, [banshare.serverId, status, banshare.userId, banshare.reason, banshare.proof, banshare.timestamp]);
+    }
+
+    public async getFilteredWords(): Promise<FilteredWords[]> {
+        const db = await this.db();
+        const result = await db.all<FilteredWords[]>(`SELECT word FROM FilteredWords`);
+        return result;
+    }
+
+    public async addToFilteredWords(word: string) {
+        const db = await this.db();
+        const currentWords = await this.getFilteredWords();
+        if(!currentWords.includes({word})) {
+            await db.run(`INSERT INTO FilteredWords (word) VALUES (?)`, [word]);
+        }
     }
 }
 

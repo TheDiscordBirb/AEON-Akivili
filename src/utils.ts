@@ -432,7 +432,6 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
         const emojiCheck = emojiCheckRegex.exec(emoji.name);
         if(emojiCheck) {
             emoji.name = emoji.name.slice(0, emoji.name.length-11);
-            console.log(emoji.name);
             if(!config.cachedEmojiUids.includes(emojiCheck[2])) {
                 logger.info(`Someone tried to retrieve from cache with key ${emojiCheck[2]}.`);
                 return;
@@ -442,7 +441,6 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
         if(!attachment) {
             const attachmentBuffer = await axios.get(url, { responseType: 'arraybuffer' });
             attachment = Buffer.from(attachmentBuffer.data, 'utf-8');
-            console.log(emojiUid.slice(4));
             await cacheManager.saveCache('emoji', emojiUid.slice(4), attachment);
             config.cachedEmojiUids.push(emojiUid.slice(4));
         }
@@ -451,7 +449,6 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
             emoji.name.slice(0, 32-emojiUid.length);
         }
 
-        console.log(`${emoji.name} ${emojiUid}`)
         let emojiName = "";
         if(emojiCheck) {
             emojiName = emojiCheck[1] + "_Aki" + emojiCheck[2];

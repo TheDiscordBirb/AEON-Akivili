@@ -123,6 +123,18 @@ class NotificationManager {
                 embedCollection.push(notificationEmbed);
                 break;
             }
+            case NotificationType.FILTERED_MESSAGE: {
+                if(!data.filteredWords) {
+                    logger.warn('Didnte get filtered words.');
+                    return;
+                }
+                notificationEmbed.setTitle(`A message has been filtered from ${data.guild.name}`);
+                notificationEmbed.setDescription(`${data.executingUser} has said the following:\n${data.filteredWords.join(", ")}`);
+                notificationEmbed.setColor(Colors.Orange);
+                embedCollection.push(notificationEmbed);
+
+                break;
+            }
         }
 
         await (notificationChannel as GuildTextBasedChannel).send({ embeds: embedCollection });

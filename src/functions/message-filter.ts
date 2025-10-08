@@ -1,16 +1,16 @@
 import { Logger } from "../logger";
 import { FilterOutput } from "../structures/message-filter";
+import { FilteredWords } from "../types/database";
 
 const logger = new Logger("MsgFilter");
 
 class MessageFilter {
     protected filterArray : string[] = [];
 
-    public addToFilterArray(list: string[]): void {
-        list.map((word) => {
-            this.filterArray.push(...this.getEveryVariationOfWord(word));
+    public async addToFilterArray(list: FilteredWords[]) {
+        list.map((filteredWord) => {
+            this.filterArray.push(...this.getEveryVariationOfWord(filteredWord.word.toString().toLowerCase()));
         })
-        console.log(this.filterArray);
     }
 
     public getEveryVariationOfWord(word: string): string[] {
@@ -33,8 +33,6 @@ class MessageFilter {
             let wordArgs = word.split("");
             wordArgs.map((value, idx) => {
                 if(filteredCharArray.find((filter) => filter === value)) {
-                    console.log(value);
-                    console.log(template);
                     if(template[0] === "0") {
                         template = template.slice(1);
                         return;

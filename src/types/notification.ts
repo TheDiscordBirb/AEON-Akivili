@@ -1,7 +1,5 @@
 import { Collection, Guild, GuildMember, Message, NonThreadGuildBasedChannel, Snowflake, User } from "discord.js"
 
-type Default<T, S> = T | undefined
-
 export interface NotificationData {
     executingUser: User,
     notificationType: string,
@@ -17,7 +15,8 @@ export interface NotificationData {
     images?: string[]
     banshareReason?: string,
     deletedByMod?: boolean,
-    guildData?: GuildData
+    guildData?: GuildData,
+    filteredWords?: string[]
 }
 
 interface GuildData {

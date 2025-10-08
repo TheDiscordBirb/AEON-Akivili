@@ -1,5 +1,4 @@
-import { Guild, StringMappedInteractionTypes, TextChannel, User } from "discord.js"
-import { NetworkJoinOptions } from "./command"
+import { Guild, TextChannel, User } from "discord.js"
 
 export interface BroadcastRecord {
     channelId: string,
@@ -59,4 +58,8 @@ export interface BanshareListData {
     reason: string,
     proof: string,
     timestamp: number
+}
+
+export interface FilteredWords {
+    word: string
 }

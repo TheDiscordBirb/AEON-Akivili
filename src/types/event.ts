@@ -28,16 +28,17 @@ export enum CustomId {
 
 export enum NotificationType {
     BAN = 'ban',
-    MODERATOR_BAN = "modBan",
-    MESSAGE_EDIT = 'messageEdit',
+    CROWD_CONTROL = 'crowdControl',
+    FILTERED_MESSAGE = 'filteredMessage',
     MESSAGE_DELETE = 'messageDelete',
-    REACTION_DELETE = 'reactionDelete',
+    MESSAGE_EDIT = 'messageEdit',
+    MODERATOR_BAN = "modBan",
     MUTE = 'mute',
     PIN = 'pin',
-    CROWD_CONTROL = 'crowdControl',
-    SERVER_REMOVE = 'serverRemove',
+    REACTION_DELETE = 'reactionDelete',
     SERVER_DISCONNECT = 'serverDisconnect',
-    SERVER_JOIN = 'serverJoin'
+    SERVER_JOIN = 'serverJoin',
+    SERVER_REMOVE = 'serverRemove',
 }
 
 export interface EmojiReplacementData {

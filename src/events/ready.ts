@@ -11,7 +11,7 @@ import { messageFilter } from "../functions/message-filter";
 const logger = new Logger('Ready');
 
 export default new Event("clientReady", async () => {
-    await messageFilter.addToFilterArray(["hello"]);
+    await messageFilter.addToFilterArray(await databaseManager.getFilteredWords());
     logger.info(`${client.user?.username} is online`);
     const guilds = await client.guilds.fetch();
     const broadcasts = await databaseManager.getBroadcasts();
