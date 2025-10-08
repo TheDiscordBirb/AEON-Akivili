@@ -6,10 +6,12 @@ import { databaseManager } from "../structures/database";
 import { config } from "../const";
 import { experimentalPatchWarning, statusUpdate } from "../utils";
 import cron from 'node-cron';
+import { messageFilter } from "../functions/message-filter";
 
 const logger = new Logger('Ready');
 
 export default new Event("clientReady", async () => {
+    await messageFilter.addToFilterArray(["hello"]);
     logger.info(`${client.user?.username} is online`);
     const guilds = await client.guilds.fetch();
     const broadcasts = await databaseManager.getBroadcasts();
@@ -98,7 +100,7 @@ export default new Event("clientReady", async () => {
         await statusUpdate(guilds);
     });
 
-    cron.schedule('0 */4 * * *', async () => {
+    cron.schedule('7 1 */2 * *', async () => {
         await experimentalPatchWarning();
     })
 });

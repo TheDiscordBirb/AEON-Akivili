@@ -266,12 +266,12 @@ export const rebuildMessageComponentAfterUserInteraction = async (message: Messa
 
 export const statusUpdate = async (guilds: Collection<string, OAuth2Guild>): Promise<void> => {
     let memberObjects: Collection<string, GuildMember> = new Collection();
-    let guildCount = 0;
+    const guildIds : string[] = [];
     const chatBroadcasts = await databaseManager.getChatBroadcasts();
     await Promise.allSettled(chatBroadcasts.map(async (broadcast) => {
         const guild = client.guilds.cache.get(broadcast.guildId);
         if(!guild) return;
-        guildCount++;
+        if(!guildIds.includes(broadcast.guildId)) guildIds.push(broadcast.guildId);
         memberObjects = memberObjects.concat(guild.members.cache);
     }))
 
@@ -282,7 +282,7 @@ export const statusUpdate = async (guilds: Collection<string, OAuth2Guild>): Pro
 
     client.user.setPresence({
         activities: [{
-            name: `over ${memberObjects.size} trailblazers in ${guildCount} train cars`,
+            name: `over ${memberObjects.size} trailblazers in ${guildIds.length} train cars`,
             type: ActivityType.Watching
         }],
         status: 'online'
@@ -574,7 +574,7 @@ export const experimentalPatchWarning = async () => {
 
 const makeUid = (length: number): string => {
     let result = '';
-    let characters = '123445678ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+    let characters = '01234456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     var charactersLength = characters.length;
     for ( var i = 0; i < length; i++ ) {
         result += characters.charAt(Math.floor(Math.random() * charactersLength));
