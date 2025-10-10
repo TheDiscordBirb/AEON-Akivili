@@ -59,6 +59,7 @@ export default new Event("clientReady", async () => {
                     logger.warn(`Could not get broadcast for webhook ${webhook.id}`);
                     return;
                 }
+                logger.info(`Loaded ${broadcast.channelType} ${webhook.id}`);
                 config.activeWebhooks.push(webhook);
                 if(config.nonChatWebhooksTypes.includes(broadcast.channelType)) return;
                 if(!networkServer) {                

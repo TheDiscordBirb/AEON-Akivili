@@ -154,12 +154,13 @@ const emojiButtonFunction = async (interaction: ButtonInteraction<CacheType>): P
     
     const broadcastRecords = await databaseManager.getBroadcasts();
 
-    const webhooks = config.activeWebhooks.filter((webhook) => webhook.guildId === interaction.guildId);
-    if(!webhooks) {
+    const webhooks = config.activeWebhooks;
+    const guildWebhooks = webhooks.filter((webhook) => webhook.guildId === interaction.guildId);
+    if(!guildWebhooks) {
         await interaction.followUp({content: 'This server is not connected to any Aeon channels.', flags: MessageFlags.Ephemeral});
         return;
     }
-    const webhook = webhooks.find((channelWebhook) => channelWebhook.name.includes("Aeon"));
+    const webhook = guildWebhooks.find((channelWebhook) => channelWebhook.channelId === interaction.channelId);
     if (!webhook) {
         await interaction.followUp({ content: "Couldnt find Aeon webhook, contact Birb to resolve this issue." });
         return;
@@ -217,7 +218,7 @@ const moderationButtonFunction = async (interaction: ButtonInteraction<CacheType
             await interaction.user.createDM(true);
         }
         
-        interaction.user.send('You do not have permission to use this.')
+        await interaction.user.send('You do not have permission to use this.')
         .catch();
         return;
     };

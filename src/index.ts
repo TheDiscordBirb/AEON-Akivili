@@ -9,6 +9,7 @@ import { Time } from "./utils";
 const logger = new Logger("Index");
 
 config.currentLogFileName = new Date(Date.now()).toISOString().split("T")[0].replaceAll('-', '_');
+logger.info(`Log file: ${new Date(Date.now()).toISOString().split("T")[0].replaceAll('-', '_')}`);
 
 fs.readdir(path.join(__dirname, '..', '/logs'), (err, files) => {
     const logFiles = files.filter((file) => file.endsWith('.log'));

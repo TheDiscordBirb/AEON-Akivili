@@ -31,7 +31,7 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
     if(!guildWebhooks) {
         return;
     }
-    const webhook = guildWebhooks.find((channelWebhook) => channelWebhook.name.includes("Aeon"));
+    const webhook = guildWebhooks.find((channelWebhook) => channelWebhook.channelId === interaction.message.channelId);
     if (!webhook) {
         return;
     }
@@ -41,7 +41,7 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
         return
     }
     
-    if (config.nonChatWebhooks.includes(webhook.name)) return;
+    if (config.nonChatWebhooksTypes.includes(webhookBroadcast.channelType)) return;
     
     const webhookChannelType = channelWebhook.channelType;
 
