@@ -209,7 +209,7 @@ const emojiButtonFunction = async (interaction: ButtonInteraction<CacheType>): P
         await webhook.editMessage(message, {content: emojiReplacement.content, components: [...newActionRows[newActionRows.indexOf(newActionRows.find((actionRow) => actionRow.guildID === broadcastRecord.guildId) || newActionRows[0])].components] });
     }))
     await interaction.editReply({ components: [...newActionRows[0].components] });
-    deleteEmojis(emojiReplacement);
+    await deleteEmojis(emojiReplacement);
 }
 
 const moderationButtonFunction = async (interaction: ButtonInteraction<CacheType>, guildMember: GuildMember): Promise<void> => {

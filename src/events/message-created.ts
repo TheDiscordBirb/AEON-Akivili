@@ -42,7 +42,7 @@ import { InteractionData } from '../types/message-created';
 import { crowdControl } from "../functions/crowd-control";
 import { modmailHandler } from "../functions/modmail";
 import { cacheManager } from "../structures/memcache";
-import { FilterOutput } from "../structures/message-filter";
+import { FilterOutput } from "../types/message-filter";
 import { messageFilter } from "../functions/message-filter";
 import { notificationManager } from "../functions/notification";
 
@@ -83,7 +83,7 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
             await sendNotification(interaction, interactionMember, sentMessage?.MessagesRecord);
         }
         if (emojiReplacement.emojis.length) {
-            deleteEmojis(emojiReplacement);
+            await deleteEmojis(emojiReplacement);
         }
     } catch (error) {
         throw new Error((error as Error).message);

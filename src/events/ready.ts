@@ -96,9 +96,9 @@ export default new Event("clientReady", async () => {
     }))
 
     
-    await statusUpdate(guilds);
+    await statusUpdate();
     cron.schedule('*/5 * * * *', async () => {
-        await statusUpdate(guilds);
+        await statusUpdate();
     });
 
     cron.schedule('7 1 */2 * *', async () => {

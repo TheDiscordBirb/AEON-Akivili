@@ -1,5 +1,5 @@
 import { Logger } from "../logger";
-import { FilterOutput } from "../structures/message-filter";
+import { FilterOutput } from "../types/message-filter";
 import { FilteredWords } from "../types/database";
 
 const logger = new Logger("MsgFilter");

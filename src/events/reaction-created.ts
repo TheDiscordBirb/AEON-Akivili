@@ -87,5 +87,5 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
         await webhook.editMessage(webhookMessage.id, { content: emojiReplacement?.content, components: [...newActionRows[newActionRows.indexOf(newActionRows.find((actionRow) => actionRow.guildID === broadcastRecord.guildId) || newActionRows[0])].components] });
         return;
     }))
-    deleteEmojis(emojiReplacement);
+    await deleteEmojis(emojiReplacement);
 })

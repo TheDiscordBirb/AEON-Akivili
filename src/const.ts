@@ -1,5 +1,6 @@
 import { Webhook } from "discord.js"
 import { getEnvVar } from "./get-env-var"
+import { UidUserPair } from "./types/blacklist-words"
 
 export const config = {
     activeBanshareFuncionUserIds: [] as string[],
@@ -38,4 +39,5 @@ export const config = {
     replyArrowEmojiId: getEnvVar<string>("REPLY_ARROW_EMOJI_ID"),
     replyPictureEmojiId: getEnvVar<string>("REPLY_PICTURE_EMOJI_ID"),
     tempBanshareServerId: getEnvVar<string>("TEMP_BANSHARE_SERVER_ID"),
+    websiteUids: [] as UidUserPair[]
 }

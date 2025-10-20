@@ -13,7 +13,7 @@ class CacheManager {
             logger.info('Mem mem mem (Mem is clearing the cache, you are running out of memory)');
             this.emptyCache();
         }
-        return await mem.set(''.concat(...[record, key]), value);
+        return await mem.set<Buffer<ArrayBuffer>>(''.concat(...[record, key]), value);
     }
 
     public async retrieveCache(record: 'emoji' | 'sticker', key: string): Promise<Buffer<ArrayBuffer> | undefined> {

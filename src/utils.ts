@@ -9,7 +9,6 @@ import {
     ButtonComponent,
     ButtonStyle,
     Collection,
-    OAuth2Guild,
     Message,
     EmbedBuilder,
     APIEmbedField,
@@ -32,7 +31,6 @@ import { clientInfoData } from './types/client';
 import sharp from 'sharp';
 import { cacheManager } from './structures/memcache';
 import { ParsedEmoji } from './types/utils';
-
 const logger = new Logger("Utils");
 
 export const clientInfo = (): clientInfoData => {
@@ -264,7 +262,7 @@ export const rebuildMessageComponentAfterUserInteraction = async (message: Messa
     return returnValues;
 }
 
-export const statusUpdate = async (guilds: Collection<string, OAuth2Guild>): Promise<void> => {
+export const statusUpdate = async (): Promise<void> => {
     let memberObjects: Collection<string, GuildMember> = new Collection();
     const guildIds : string[] = [];
     const chatBroadcasts = await databaseManager.getChatBroadcasts();
@@ -441,12 +439,13 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
         if(!attachment) {
             const attachmentBuffer = await axios.get(url, { responseType: 'arraybuffer' });
             attachment = Buffer.from(attachmentBuffer.data, 'utf-8');
+            console.log(attachment);
             await cacheManager.saveCache('emoji', emojiUid.slice(4), attachment);
             config.cachedEmojiUids.push(emojiUid.slice(4));
         }
         if(emoji.name.length > 32-emojiUid.length) {
             logger.info(`${emoji.name} has been shortened.`);
-            emoji.name.slice(0, 32-emojiUid.length);
+            emoji.name.slice(0, 32-(emojiUid.length+1));
         }
 
         let emojiName = "";
@@ -458,24 +457,24 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
         await guild.emojis.create({ attachment, name: emojiName }).then((guildEmoji) => {
             guildEmojiCooldowns[guildEmojiCooldowns.length - 1].cooldowns.push(`${Date.now() + Time.HOUR}`);
             emojis.push(guildEmoji);
-        });
+        })
     }));
     
     let messageContent = content;
     emojis.forEach(async (emoji) => {
-        const regex = new RegExp(`<a?:${emoji.name.slice(0, 11)}.*:\\d+>`, "g");
+        const regex = new RegExp(`<a?:${emoji.name.slice(0, emoji.name.length-11)}.*:\\d+>`, "g");
         messageContent = messageContent.replaceAll(regex, `${emoji}`);
     })
     return { content: messageContent, emojis: emojis };
 }
 
-export const deleteEmojis = (emojiReplacement: EmojiReplacementData | undefined): void => {
+export const deleteEmojis = async (emojiReplacement: EmojiReplacementData | undefined): Promise<void> => {
     if(!emojiReplacement) return;
-    emojiReplacement.emojis.forEach(async (emoji) => {
+    await Promise.allSettled(emojiReplacement.emojis.map(async (emoji) => {
         const guildEmoji = client.emojis.cache.get(emoji.id)
         if (!guildEmoji) return;
         await guildEmoji.guild.emojis.delete(emoji);
-    });
+    }));
 }
 
 export const watermarkSize = async (metadata: sharp.Metadata, serverName: string): Promise<number> => {
@@ -569,12 +568,11 @@ export const experimentalPatchWarning = async () => {
         }))
 }
 
-const makeUid = (length: number): string => {
+export const makeUid = (length: number): string => {
     let result = '';
-    let characters = '01234456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-    var charactersLength = characters.length;
-    for ( var i = 0; i < length; i++ ) {
-        result += characters.charAt(Math.floor(Math.random() * charactersLength));
+    const characters = '01234456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+    for ( let i = 0; i < length; i++ ) {
+        result += characters.charAt(Math.floor(Math.random() * characters.length));
     }
     return result;
 }
