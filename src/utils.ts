@@ -439,7 +439,6 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
         if(!attachment) {
             const attachmentBuffer = await axios.get(url, { responseType: 'arraybuffer' });
             attachment = Buffer.from(attachmentBuffer.data, 'utf-8');
-            console.log(attachment);
             await cacheManager.saveCache('emoji', emojiUid.slice(4), attachment);
             config.cachedEmojiUids.push(emojiUid.slice(4));
         }
@@ -462,7 +461,7 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
     
     let messageContent = content;
     emojis.forEach(async (emoji) => {
-        const regex = new RegExp(`<a?:${emoji.name.slice(0, emoji.name.length-11)}.*:\\d+>`, "g");
+        const regex = new RegExp(`<a?:${emoji.name.slice(0, emoji.name.length-11)}[^:]*:\\d+>`, "g");
         messageContent = messageContent.replaceAll(regex, `${emoji}`);
     })
     return { content: messageContent, emojis: emojis };
