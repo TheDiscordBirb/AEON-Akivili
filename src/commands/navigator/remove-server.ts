@@ -69,11 +69,11 @@ export default new Command({
                     const buttonType = componentInteractionCustomIdArgs[1];
                     switch(buttonType) {
                         case ButtonTypes.BACK:
-                            serverSelection = await buildServerSelectionMessage(segmentedServerListEmbedFields[parseInt(componentInteractionCustomIdArgs[2])-1], options.interaction.user.id, segmentedServerListEmbedFields.length, parseInt(componentInteractionCustomIdArgs[2])-1);
+                            serverSelection = await buildServerSelectionMessage(segmentedServerListEmbedFields[parseInt(componentInteractionCustomIdArgs[2])-2], options.interaction.user.id, segmentedServerListEmbedFields.length, parseInt(componentInteractionCustomIdArgs[2])-1);
                             firstReply.edit({embeds: [serverSelection.embed], components: serverSelection.components});
                             break;
                         case ButtonTypes.FORWARD:
-                            serverSelection = await buildServerSelectionMessage(segmentedServerListEmbedFields[parseInt(componentInteractionCustomIdArgs[2])+1], options.interaction.user.id, segmentedServerListEmbedFields.length, parseInt(componentInteractionCustomIdArgs[2])+1);
+                            serverSelection = await buildServerSelectionMessage(segmentedServerListEmbedFields[parseInt(componentInteractionCustomIdArgs[2])], options.interaction.user.id, segmentedServerListEmbedFields.length, parseInt(componentInteractionCustomIdArgs[2])+1);
                             firstReply.edit({embeds: [serverSelection.embed], components: serverSelection.components});
                             break;
                         case ButtonTypes.MENU_BACK:
@@ -138,9 +138,8 @@ export default new Command({
 });
 
 const buildList = async (broadcasts: BroadcastRecord[]): Promise<({name: string, value: string})[][]> => {
-    const serverListEmbedFields: ({name: string, value: string})[] = [];
-    const serverListEmbedFieldsBlock: ({name: string, value: string})[] = [];
     const clientGuilds = await client.guilds.fetch();
+    const serverListEmbedFields: ({name: string, value: string})[] = [];
     const segmentedServerListEmbedFields: ({name: string, value: string})[][] = [];
     clientGuilds.forEach(async (guild) => {
         let broadcastList = "";
@@ -154,16 +153,14 @@ const buildList = async (broadcasts: BroadcastRecord[]): Promise<({name: string,
         }
         serverListEmbedFields.push({name: `${guild.name}`, value: broadcastList});
     });
+    let currentServerListPage = 0;
     serverListEmbedFields.forEach((embedField, idx) => {
         if(idx%config.embedFieldLimit == 0 && idx != 0) {
-            segmentedServerListEmbedFields.push(serverListEmbedFieldsBlock);
-            serverListEmbedFieldsBlock.length = 0;
+            currentServerListPage++;
         }
-        serverListEmbedFieldsBlock.push(embedField);
+        segmentedServerListEmbedFields[currentServerListPage] = ([] as {name: string, value: string}[]).concat(embedField).concat(segmentedServerListEmbedFields[currentServerListPage]).filter((list) => list != undefined);
     })
-    if(serverListEmbedFieldsBlock.length) {
-        segmentedServerListEmbedFields.push(serverListEmbedFieldsBlock);
-    }
+    
     return segmentedServerListEmbedFields;
 }
 

@@ -64,12 +64,13 @@ export default new Command({
             return;
         }
 
-        const webhooks = config.activeWebhooks.filter((webhook) => webhook.guildId === options.interaction.guildId);
-        if(!webhooks) {
+        const webhooks = config.activeWebhooks;
+        const guildWebhooks = webhooks.filter((webhook) => webhook.guildId === options.interaction.guildId);
+        if(!guildWebhooks) {
             await options.interaction.reply({content: 'This server is not connected to any Aeon channels.', flags: MessageFlags.Ephemeral});
             return;
         }
-        const webhook = webhooks.find((channelWebhook) => channelWebhook.name.includes("Aeon"));
+        const webhook = guildWebhooks.find((channelWebhook) => channelWebhook.name.includes("Aeon"));
         if (!webhook) {
             await options.interaction.reply({ content: "Couldnt find Aeon webhook, contact Birb to resolve this issue." });
             return;

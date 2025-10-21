@@ -30,12 +30,12 @@ const logger = new Logger("Buttons");
 
 export default new Event("interactionCreate", async (interaction) => {
     if (!interaction.isButton()) return;
-    
     await interaction.deferUpdate();
+    if(interaction.message.interaction?.commandName === "remove-server") return;
+    
     const buttonComponent = (interaction.component as ButtonComponent);
     if(!buttonComponent) {
         logger.warn("Could not get button component.");
-        await errorButtonFunction(interaction);
         return;
     }
     const buttonCustomId = buttonComponent.customId;
