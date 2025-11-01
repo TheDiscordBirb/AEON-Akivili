@@ -58,20 +58,21 @@ export default new Command({
             return;
         }
 
+        const broadcastRecords = await databaseManager.getBroadcasts();
+        const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
+        if (!channelWebhook) return;
+    
         const webhooks = config.activeWebhooks;
         const guildWebhooks = webhooks.filter((webhook) => webhook.guildId === options.interaction.guildId);
         if(!guildWebhooks) {
-            await options.interaction.reply({content: 'This server is not connected to any Aeon channels.', flags: MessageFlags.Ephemeral});
             return;
         }
-        const webhook = guildWebhooks.find((channelWebhook) => channelWebhook.name.includes("Aeon"));
+        const webhook = guildWebhooks.find((channelWebhook) => channelWebhook.channelId === options.interaction.channelId);
         if (!webhook) {
-            await options.interaction.reply({ content: "Couldnt find Aeon webhook, contact Birb to resolve this issue." });
             return;
         }
         const webhookBroadcast = await databaseManager.getBroadcastByWebhookId(webhook.id);
         if (!webhookBroadcast) {
-            await options.interaction.reply({ content: `Could not remove this channel from the network, for more info contact Birb.`, flags: MessageFlags.Ephemeral });
             logger.warn(`Could not get webhook broadcast`);
             return
         }

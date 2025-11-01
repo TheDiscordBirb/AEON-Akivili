@@ -51,25 +51,23 @@ export default new Command({
             await options.interaction.reply({ content: `No channel webhook.`, ephemeral: true });
             return;
         }
-        if (channelWebhook.channelType !== NetworkJoinOptions.INFO) {
+        const webhookChannelType = channelWebhook.channelType;
+        if (webhookChannelType !== NetworkJoinOptions.INFO) {
             await options.interaction.reply({ content: `No Aeon Info connection in this channel.`, ephemeral: true });
             return;
         }
-        const webhookChannelType = channelWebhook.channelType;
 
-        const webhooks = config.activeWebhooks.filter((webhook) => webhook.guildId === options.interaction.guildId);
-        if(!webhooks) {
-            await options.interaction.reply({content: 'This server is not connected to any Aeon channels.', flags: MessageFlags.Ephemeral});
+        const webhooks = config.activeWebhooks;
+        const guildWebhooks = webhooks.filter((webhook) => webhook.guildId === options.interaction.guildId);
+        if(!guildWebhooks) {
             return;
         }
-        const webhook = webhooks.find((channelWebhook) => channelWebhook.name.includes("Aeon"));
+        const webhook = guildWebhooks.find((channelWebhook) => channelWebhook.channelId === options.interaction.channelId);
         if (!webhook) {
-            await options.interaction.reply({ content: "Couldnt find Aeon webhook, contact Birb to resolve this issue." });
             return;
         }
         const webhookBroadcast = await databaseManager.getBroadcastByWebhookId(webhook.id);
         if (!webhookBroadcast) {
-            await options.interaction.reply({ content: `Could not remove this channel from the network, for more info contact Birb.`, flags: MessageFlags.Ephemeral });
             logger.warn(`Could not get webhook broadcast`);
             return
         }

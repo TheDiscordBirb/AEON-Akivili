@@ -26,12 +26,14 @@ export default new Event("clientReady", async () => {
         if (!guild) continue;
         let webhooks: Collection<string, Webhook<WebhookType.Incoming | WebhookType.ChannelFollower>>;
         try {
-            await Promise.all([
-                await guild.members.fetch(),
-                webhooks = await guild.fetchWebhooks(),
-            ]);
+            await guild.members.fetch()
         } catch(error) {
-            logger.error(`Could not load ${guild.name}`, (error as Error));
+            logger.error(`Could not load ${guild.name} members.`, (error as Error));
+        }
+        try {
+            webhooks = await guild.fetchWebhooks();
+        } catch(error) {
+            logger.error(`Could not load ${guild.name} webhooks.`, (error as Error));
             continue;
         }
         webhooks = webhooks.filter((webhook) => webhook.owner?.id === client.user?.id);
@@ -101,7 +103,7 @@ export default new Event("clientReady", async () => {
         await statusUpdate();
     });
 
-    cron.schedule('7 1 */2 * *', async () => {
-        await experimentalPatchWarning();
-    })
+    //cron.schedule('7 1 */2 * *', async () => {
+    //    await experimentalPatchWarning();
+    //})
 });
