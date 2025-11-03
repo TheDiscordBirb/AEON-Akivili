@@ -7,6 +7,7 @@ import { config } from "../const";
 import { experimentalPatchWarning, statusUpdate } from "../utils";
 import cron from 'node-cron';
 import { messageFilter } from "../functions/message-filter";
+import { NetworkJoinOptions } from "../types/command";
 
 const logger = new Logger('Ready');
 
@@ -63,14 +64,19 @@ export default new Event("clientReady", async () => {
                 }
                 logger.info(`Loaded ${broadcast.channelType} ${webhook.id}`);
                 config.activeWebhooks.push(webhook);
+                if(broadcast.channelType === NetworkJoinOptions.INFO) {
+                    const channel = await guild.channels.fetch(webhook.channelId);
+                    if(!channel) return;
+                    await (channel as GuildTextBasedChannel).messages.fetch();
+                }
                 if(config.nonChatWebhooksTypes.includes(broadcast.channelType)) return;
                 if(!networkServer) {                
                     logger.info(`Loaded guild "${guild.name}" (id: ${guild.id}).`);
                     logger.info(`Fetched ${webhooks.size} webhooks and ${guild.memberCount} members.`);
                 }
-                networkServer = true;
                 const aeonChannel = await guild.channels.fetch(webhook.channelId);
                 if(!aeonChannel) return;
+                networkServer = true;
                 const timeStart = Date.now();
                 const loadedMessages = await (aeonChannel as GuildTextBasedChannel).messages.fetch({ limit: config.numberOfMessagesToLoad });
                 logger.info(`Fetched the last ${loadedMessages.size} messages from ${aeonChannel.name} in ${Date.now() - timeStart}ms`);

@@ -41,6 +41,10 @@ export default new Command({
             await options.interaction.reply({ content: `You do not have permission to use this!`, ephemeral: true });
             return;
         }
+        if (!options.args.get('name') || !options.args.get('link')) {
+            await options.interaction.reply({ content: `You need to provide a name and a link.` });
+            return;
+        }
 
         const channel = options.interaction.channel as BaseGuildTextChannel;
         if (channel.type !== ChannelType.GuildText) return;
@@ -56,14 +60,16 @@ export default new Command({
             await options.interaction.reply({ content: `No Aeon Info connection in this channel.`, ephemeral: true });
             return;
         }
-
+        
         const webhooks = config.activeWebhooks;
         const guildWebhooks = webhooks.filter((webhook) => webhook.guildId === options.interaction.guildId);
         if(!guildWebhooks) {
+            logger.warn("Could not find guild webhooks.");
             return;
         }
         const webhook = guildWebhooks.find((channelWebhook) => channelWebhook.channelId === options.interaction.channelId);
         if (!webhook) {
+            logger.warn("Could not find correct webhook.");
             return;
         }
         const webhookBroadcast = await databaseManager.getBroadcastByWebhookId(webhook.id);
@@ -74,7 +80,7 @@ export default new Command({
 
         const embedMessage = options.interaction.channel?.messages.cache.find((message) => message.webhookId);
         if (!embedMessage) {
-            //TODO: write log
+            logger.warn("Could not find embed message.");
             return;
         }
 
@@ -88,19 +94,14 @@ export default new Command({
                 return;
             }
 
-            const broadcastGuild = options.client.guilds.cache.get(broadcastRecord.guildId);
-            if (!broadcastGuild) {
-                // TODO: write log
+            const broadCastChannel = webhook.channel;
+            if (!broadCastChannel) {
+                logger.warn(`Could not get channel in ${broadcastRecord.guildId}`);
                 return undefined;
             }
-            const guildChannel = broadcastGuild.channels.cache.get(broadcastRecord.channelId);
-            if (!guildChannel) {
-                // TODO: write log
-                return undefined;
-            }
-            const guildMessage = (guildChannel as GuildTextBasedChannel).messages.cache.find((message) => message.webhookId);
+            const guildMessage = (broadCastChannel as GuildTextBasedChannel).messages.cache.find((message) => message.webhookId);
             if (!guildMessage) {
-                // TODO: write log
+                logger.warn(`Could not get message in ${broadcastRecord.guildId}`);
                 return undefined;
             }
 

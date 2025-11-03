@@ -318,6 +318,10 @@ export const rebuildNetworkInfoEmbeds = async (message: Message, name?: string, 
             if (link && name) {
                 networkServerStrings.push(`★・[${name}](${link})`);
             }
+            if(!link || !name) {
+                logger.warn("Could not get name or link for rebuilding info embed.");
+                return;
+            }
         }
         
         const editedEmbed = new EmbedBuilder({ ...embed.data });
