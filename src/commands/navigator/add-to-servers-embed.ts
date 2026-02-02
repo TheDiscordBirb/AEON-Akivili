@@ -99,7 +99,7 @@ export default new Command({
                 logger.warn(`Could not get channel in ${broadcastRecord.guildId}`);
                 return undefined;
             }
-            const guildMessage = (broadCastChannel as GuildTextBasedChannel).messages.cache.find((message) => message.webhookId);
+            const guildMessage = (await (broadCastChannel as GuildTextBasedChannel).messages.fetch()).find((message) => message.webhookId);
             if (!guildMessage) {
                 logger.warn(`Could not get message in ${broadcastRecord.guildId}`);
                 return undefined;

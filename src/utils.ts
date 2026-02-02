@@ -48,26 +48,57 @@ export const clientInfo = (): clientInfoData => {
 }
 
 export const hasModerationRights = (guildUser: GuildMember): boolean => {
+    if(config.suspendedPermissionUserIds.includes(guildUser.id)) {
+        return false;
+    }
     return !!(guildUser.roles.cache.find((role) => role.permissions.has(PermissionFlagsBits.BanMembers)));
 }
 export const hasMessageManageRights = (guildUser: GuildMember): boolean => {
+    if(config.suspendedPermissionUserIds.includes(guildUser.id)) {
+        return false;
+    }
     return !!(guildUser.roles.cache.find((role) => role.permissions.has(PermissionFlagsBits.ManageMessages)));
 }
 
 export const isNavigator = (user: User): boolean => {
     const aeonGuild = (client.channels.cache.get(config.aeonBanshareChannelId) as GuildTextBasedChannel).guild;
     const aeonMember = aeonGuild.members.cache.get(user.id);
+    if(config.suspendedPermissionUserIds.includes(user.id)) {
+        return false;
+    }
     if (!aeonMember) return false;
     return !!aeonMember.roles.cache.get(config.navigatorRoleId);
 }
 export const isConductor = (user: User): boolean => {
     const aeonGuild = (client.channels.cache.get(config.aeonBanshareChannelId) as GuildTextBasedChannel).guild;
     const aeonMember = aeonGuild.members.cache.get(user.id);
+    if(config.suspendedPermissionUserIds.includes(user.id)) {
+        return false;
+    }
     if (!aeonMember) return false;
     return !!aeonMember.roles.cache.get(config.conductorRoleId);
 }
 export const isDev = (user: User): boolean => {
+    if(config.suspendedPermissionUserIds.includes(user.id)) {
+        return false;
+    }
     return !!config.devIds.includes(user.id);
+}
+export const isRep = async (user: User): Promise<boolean> => {
+    const mainServer = client.guilds.cache.get(config.mainServerId);
+    if(!mainServer) {
+        logger.warn("Could not get main server.");
+        return false;
+    }
+    const serverUser = await mainServer.members.fetch({user});
+    if(!serverUser) return false;
+    if(serverUser.roles.cache.get(config.representativeRoleId)) {
+        if(config.suspendedPermissionUserIds.includes(serverUser.id)) {
+            return false;
+        }
+        return true;
+    }
+    return false;
 }
 export const doesUserOwnMessage = (userIdInDb: string | undefined, userId: string): boolean => {
     return userIdInDb === userId;

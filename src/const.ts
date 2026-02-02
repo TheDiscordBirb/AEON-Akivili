@@ -39,5 +39,7 @@ export const config = {
     replyArrowEmojiId: getEnvVar<string>("REPLY_ARROW_EMOJI_ID"),
     replyPictureEmojiId: getEnvVar<string>("REPLY_PICTURE_EMOJI_ID"),
     tempBanshareServerId: getEnvVar<string>("TEMP_BANSHARE_SERVER_ID"),
-    websiteUids: [] as UidUserPair[]
+    websiteUids: [] as UidUserPair[],
+    suspendedPermissionUserIds: [] as string[],
+    representativeRoleId: getEnvVar<string>("REPRESENTATIVE_ROLE_ID")
 }
