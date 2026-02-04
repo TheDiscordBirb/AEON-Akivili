@@ -70,7 +70,7 @@ class JoinHandler {
                         logger.warn("Could not find AEON Info message.");
                         return;
                     }
-                    await webhook.send({embeds: await rebuildNetworkInfoEmbeds(infoMessage)})
+                    await webhook.send({embeds: await rebuildNetworkInfoEmbeds(infoMessage, true)})
                 }
                 try {
                     await databaseManager.saveBroadcast({ guildId: webhook.guildId, channelId: data.channel.id, channelType: data.type, webhookId: webhook.id, importantBanshareRoleId: '', autoBanLevel: 0 });

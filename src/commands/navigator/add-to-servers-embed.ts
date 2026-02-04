@@ -84,7 +84,7 @@ export default new Command({
             return;
         }
 
-        const embeds = await rebuildNetworkInfoEmbeds(embedMessage, options.args.getString('name') ?? undefined, options.args.getString('link') ?? undefined);
+        const embeds = await rebuildNetworkInfoEmbeds(embedMessage, false, options.args.getString('name') ?? undefined, options.args.getString('link') ?? undefined);
 
         const matchingBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === webhookChannelType);
         await Promise.allSettled(matchingBroadcastRecords.map(async (broadcastRecord) => {

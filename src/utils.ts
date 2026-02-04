@@ -319,7 +319,7 @@ export const statusUpdate = async (): Promise<void> => {
     return;
 }
 
-export const rebuildNetworkInfoEmbeds = async (message: Message, name?: string, link?: string, remove = false): Promise<EmbedBuilder[]> => {
+export const rebuildNetworkInfoEmbeds = async (message: Message, join?: boolean, name?: string, link?: string, remove = false): Promise<EmbedBuilder[]> => {
     const embeds: EmbedBuilder[] = [];
 
     if (!message) {
@@ -346,12 +346,14 @@ export const rebuildNetworkInfoEmbeds = async (message: Message, name?: string, 
                 return;
             }
         } else {
-            if (link && name) {
-                networkServerStrings.push(`★・[${name}](${link})`);
-            }
-            if(!link || !name) {
-                logger.warn("Could not get name or link for rebuilding info embed.");
-                return;
+            if(!join) {
+                if (link && name) {
+                    networkServerStrings.push(`★・[${name}](${link})`);
+                }
+                if(!link || !name) {
+                    logger.warn("Could not get name or link for rebuilding info embed.");
+                    return;
+                }
             }
         }
         
