@@ -91,6 +91,7 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
 }
 
 export default new Event("messageCreate", async (interaction) => {
+    if(config.botStarting) return;
     const metricId = metrics.start(TimeSpanMetricLabel.MESSAGE_CREATED);
     try {
         const channelType = interaction.channel.type;

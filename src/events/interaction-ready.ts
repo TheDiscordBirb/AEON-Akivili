@@ -2,8 +2,10 @@ import { CacheType, ChatInputCommandInteraction, CommandInteractionOptionResolve
 import { client } from "../structures/client";
 import { Event } from "../structures/event";
 import { ExtendedInteraction } from "../types/command";
+import { config } from "../const";
 
 export default new Event("interactionCreate", async (interaction) => {
+    if(config.botStarting) return;
     if (interaction.isCommand()) {
         const command = client.commands.get(interaction.commandName);
         if (!command)

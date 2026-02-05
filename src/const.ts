@@ -41,5 +41,6 @@ export const config = {
     tempBanshareServerId: getEnvVar<string>("TEMP_BANSHARE_SERVER_ID"),
     websiteUids: [] as UidUserPair[],
     suspendedPermissionUserIds: [] as string[],
-    representativeRoleId: getEnvVar<string>("REPRESENTATIVE_ROLE_ID")
+    representativeRoleId: getEnvVar<string>("REPRESENTATIVE_ROLE_ID"),
+    botStarting: false
 }

@@ -29,6 +29,7 @@ import { modmailHandler } from "../functions/modmail";
 const logger = new Logger("Buttons");
 
 export default new Event("interactionCreate", async (interaction) => {
+    if(config.botStarting) return;
     if (!interaction.isButton()) return;
     await interaction.deferUpdate();
     if(interaction.message.interaction?.commandName === "remove-server") return;

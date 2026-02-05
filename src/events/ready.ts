@@ -12,6 +12,7 @@ import { NetworkJoinOptions } from "../types/command";
 const logger = new Logger('Ready');
 
 export default new Event("clientReady", async () => {
+    config.botStarting = true;
     await messageFilter.addToFilterArray(await databaseManager.getFilteredWords());
     logger.info(`${client.user?.username} is online`);
     const guilds = await client.guilds.fetch();
@@ -102,6 +103,7 @@ export default new Event("clientReady", async () => {
     await Promise.all(noBroadcastGuilds.map((noBroadcastGuild) => {
         logger.info(`${noBroadcastGuild.name} ${noBroadcastGuild.id}\nMembers: ${noBroadcastGuild.memberCount} Channels: ${noBroadcastGuild.channels.cache.size}`);
     }))
+    config.botStarting = false;
 
     
     await statusUpdate();

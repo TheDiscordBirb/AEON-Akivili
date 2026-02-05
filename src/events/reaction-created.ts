@@ -17,6 +17,7 @@ import { EmojiReplacementData } from "../types/event";
 const logger = new Logger("ReactionCreated");
 
 export default new Event("messageReactionAdd", async (interaction, user) => {
+    if(config.botStarting) return;
     if (user.bot) return;
     
     const channel = interaction.message.channel as BaseGuildTextChannel;

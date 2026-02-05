@@ -9,6 +9,7 @@ import { NetworkJoinOptions } from "../types/command";
 const logger = new Logger(`PinEvent`);
 
 export default new Event("messageUpdate", async (oldMessage, newMessage) => {
+    if(config.botStarting) return;
     if (!newMessage) return;
     if (!newMessage.guild) return;
     if (!newMessage.channel) return;

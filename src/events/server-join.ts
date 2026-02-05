@@ -3,8 +3,10 @@ import { Event } from "../structures/event";
 import { notificationManager } from "../functions/notification";
 import { client } from "../structures/client";
 import { NotificationType } from "../types/event";
+import { config } from "../const";
 
 export default new Event("guildCreate", async (guild) => {
+    if(config.botStarting) return;
     let guildMembers: Collection<Snowflake, GuildMember>;
     let guildChannels: Collection<Snowflake, NonThreadGuildBasedChannel | null>;
     Promise.all([

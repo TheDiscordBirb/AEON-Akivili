@@ -6,10 +6,12 @@ import { Logger } from "../logger";
 import { MessagesRecord } from "../types/database";
 import { notificationManager } from "../functions/notification";
 import { NotificationType } from "../types/event";
+import { config } from "../const";
 
 const logger = new Logger("MessageDeleted");
 
 export default new Event("messageDelete", async (interaction) => {
+    if(config.botStarting) return;
     if (!interaction.webhookId) return;
     if (!interaction.guild) return;
 
