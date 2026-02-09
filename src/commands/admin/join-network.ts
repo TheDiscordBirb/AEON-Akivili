@@ -3,13 +3,14 @@ import {
     ApplicationCommandOptionType,
     BaseGuildTextChannel,
     ChannelType,
+    PermissionFlagsBits,
     TextChannel
 } from 'discord.js'
-import { hasModerationRights } from '../../utils';
 import { joinHandler } from '../../functions/join-handler';
 import { databaseManager } from '../../structures/database';
 import { NetworkJoinOptions } from '../../types/command';
 import { Logger } from '../../logger';
+import { permissionHandler } from '../../functions/permission-handler';
 
 const logger = new Logger('JoinNetworkCmd');
 
@@ -36,9 +37,8 @@ export default new Command({
     }],
 
     run: async (options) => {
-        const guildMember = options.interaction.guild?.members.cache.find((member) => member.id === options.interaction.member.user.id);
-        if (!guildMember) {
-            logger.wtf("Interaction's creator does not exist.");
+        if (!options.interaction.guild) {
+            await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
             return;
         }
 
@@ -48,8 +48,20 @@ export default new Command({
             return;
         }
 
-        if (!hasModerationRights(guildMember)) {
-            await options.interaction.reply({ content: 'You do not have permission to use this!', ephemeral: true });
+        const permissionCheck = await permissionHandler.checkForPermission(
+            options.interaction.user,
+            {local: true, onlyLocal: true},
+            options.interaction.guild,
+            [
+                PermissionFlagsBits.BanMembers,
+                PermissionFlagsBits.ManageGuild,
+                PermissionFlagsBits.ManageWebhooks,
+                PermissionFlagsBits.ManageChannels,
+                PermissionFlagsBits.ModerateMembers
+            ]);
+            
+        if(!permissionCheck.status) {
+            await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
             return;
         }
 

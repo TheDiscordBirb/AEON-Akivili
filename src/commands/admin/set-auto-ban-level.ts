@@ -1,9 +1,9 @@
-import { ApplicationCommandOptionType, BaseGuildTextChannel, ChannelType } from 'discord.js'
+import { ApplicationCommandOptionType, BaseGuildTextChannel, ChannelType, PermissionFlagsBits } from 'discord.js'
 import { Command } from '../../structures/command';
-import { hasModerationRights } from '../../utils';
 import { databaseManager } from '../../structures/database';
 import { AutoBanLevelOptions, NetworkJoinOptions } from '../../types/command';
 import { Logger } from '../../logger';
+import { permissionHandler } from '../../functions/permission-handler';
 
 const logger = new Logger('SetAutoBanLevelCmd');
 
@@ -24,13 +24,25 @@ export default new Command({
     }],
 
     run: async (options) => {
+        if (!options.interaction.guild) {
+            await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
+            return;
+        }
+
         if (!options.interaction.member) {
             await options.interaction.reply({ content: `You cant use this command outside a server.`, ephemeral: true });
             logger.warn(`Didnt get interaction member`);
             return;
         }
-        if (!hasModerationRights(options.interaction.member)) {
-            await options.interaction.reply({ content: `You do not have permission to use this!`, ephemeral: true });
+
+        const permissionCheck = await permissionHandler.checkForPermission(
+            options.interaction.user,
+            {local: true, onlyLocal: true},
+            options.interaction.guild,
+            [PermissionFlagsBits.Administrator]);
+            
+        if(!permissionCheck.status) {
+            await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
             return;
         }
 

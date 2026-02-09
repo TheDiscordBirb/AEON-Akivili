@@ -7,7 +7,8 @@ import {
     Colors, 
     EmbedBuilder,
     ComponentType,
-    MessageActionRowComponentBuilder
+    MessageActionRowComponentBuilder,
+    PermissionFlagsBits
 } from 'discord.js'
 import { Logger } from '../../logger';
 import { databaseManager } from '../../structures/database';
@@ -16,7 +17,8 @@ import { ButtonTypes } from '../../types/command';
 import { config } from '../../const';
 import { StringSelectMenuBuilder } from '@discordjs/builders';
 import { BanshareStatus } from '../../types/event';
-import { hasModerationRights } from '../../utils';
+import { permissionHandler } from '../../functions/permission-handler';
+import { PermissionLevels } from '../../types/permission-handler';
 
 const logger = new Logger('BanshareListCmd');
 
@@ -39,8 +41,15 @@ export default new Command({
             return;
         }
 
-        if(!hasModerationRights(guildMember)) {
-            await options.interaction.reply({ content: 'You do not have permission to use this!', ephemeral: true });
+        const permissionCheck = await permissionHandler.checkForPermission(
+            options.interaction.user,
+            {local: true, onlyLocal: false},
+            options.interaction.guild,
+            [PermissionFlagsBits.BanMembers],
+            PermissionLevels.NAVIGATOR);
+            
+        if(!permissionCheck.status) {
+            await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
             return;
         }
 

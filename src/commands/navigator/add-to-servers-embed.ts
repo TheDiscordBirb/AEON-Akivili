@@ -2,15 +2,16 @@ import {
     ApplicationCommandOptionType,
     BaseGuildTextChannel, 
     ChannelType, 
-    GuildTextBasedChannel, 
-    MessageFlags 
+    GuildTextBasedChannel
 } from 'discord.js'
 import { Command } from '../../structures/command';
-import { isNavigator, rebuildNetworkInfoEmbeds } from '../../utils';
+import { rebuildNetworkInfoEmbeds } from '../../utils';
 import { databaseManager } from '../../structures/database';
 import { NetworkJoinOptions } from '../../types/command';
 import { Logger } from '../../logger';
 import { config } from '../../const';
+import { PermissionLevels } from '../../types/permission-handler';
+import { permissionHandler } from '../../functions/permission-handler';
 
 const logger = new Logger('AddToServersEmbed');
 
@@ -32,15 +33,29 @@ export default new Command({
     }],
 
     run: async (options) => {
+        if (!options.interaction.guild) {
+            await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
+            return;
+        }
+
         if (!options.interaction.member) {
             await options.interaction.reply({ content: `You cant use this command outside a server.`, ephemeral: true });
             logger.warn(`Didnt get interaction member`);
             return;
         }
-        if (!isNavigator(options.interaction.user)) {
-            await options.interaction.reply({ content: `You do not have permission to use this!`, ephemeral: true });
+
+        const permissionCheck = await permissionHandler.checkForPermission(
+            options.interaction.user,
+            {local: false, onlyLocal: false},
+            options.interaction.guild,
+            [],
+            PermissionLevels.NAVIGATOR);
+            
+        if(!permissionCheck.status) {
+            await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
             return;
         }
+
         if (!options.args.get('name') || !options.args.get('link')) {
             await options.interaction.reply({ content: `You need to provide a name and a link.` });
             return;

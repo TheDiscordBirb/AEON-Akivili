@@ -1,9 +1,10 @@
 import { Command } from '../../structures/command';
-import { isNavigator, } from '../../utils';
 import { Logger } from '../../logger';
 import { databaseManager } from '../../structures/database';
 import { modmailHandler } from '../../functions/modmail';
 import { ApplicationCommandOptionType } from 'discord.js';
+import { permissionHandler } from '../../functions/permission-handler';
+import { PermissionLevels } from '../../types/permission-handler';
 
 const logger = new Logger('CrowdControlCmd');
 
@@ -19,15 +20,29 @@ export default new Command({
     }],
 
     run: async (options) => {
+        if (!options.interaction.guild) {
+            await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
+            return;
+        }
+
         if (!options.interaction.member) {
             await options.interaction.reply({ content: `You cant use this command outside a server.`, ephemeral: true });
             logger.warn(`Didnt get interaction member`);
             return;
         }
-        if (!isNavigator(options.interaction.user)) {
-            await options.interaction.reply({ content: `You do not have permission to use this!`, ephemeral: true });
+        
+        const permissionCheck = await permissionHandler.checkForPermission(
+            options.interaction.user,
+            {local: false, onlyLocal: false},
+            options.interaction.guild,
+            [],
+            PermissionLevels.NAVIGATOR);
+            
+        if(!permissionCheck.status) {
+            await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
             return;
         }
+
         try {
             await databaseManager.getModmail(options.interaction.channelId);
             await modmailHandler.forwardModmailMessage(undefined, options);

@@ -1,5 +1,5 @@
 import { Command } from '../../structures/command';
-import { ApplicationCommandOptionType, GuildMember } from 'discord.js'
+import { ApplicationCommandOptionType, GuildMember, PermissionFlagsBits } from 'discord.js'
 import { databaseManager } from '../../structures/database'; 
 import { hasModerationRights } from '../../utils';
 import { banshareManager } from '../../functions/banshare';
@@ -11,6 +11,7 @@ import { NotificationType } from '../../types/event';
 import { metrics } from '../../structures/metrics';
 import { TimeSpanMetricLabel } from '../../types/metrics';
 import { RunOptions } from '../../types/command';
+import { permissionHandler } from '../../functions/permission-handler';
 
 const logger = new Logger('BanCmd');
 
@@ -19,15 +20,15 @@ const banCommand = async (options: RunOptions): Promise<void> => {
         await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
         return;
     }
-    
-    const guildMember = options.interaction.guild.members.cache.find((member) => member.id === options.interaction.member.user.id);
-    if (!guildMember) {
-        logger.wtf("Interaction's creator does not exist.");
-        return;
-    }
-    
-    if (!hasModerationRights(guildMember)) {
-        await options.interaction.reply({ content: 'You do not have permission to use this!', ephemeral: true });
+
+    const permissionCheck = await permissionHandler.checkForPermission(
+        options.interaction.user,
+        {local: true, onlyLocal: true},
+        options.interaction.guild,
+        [PermissionFlagsBits.BanMembers]);
+        
+    if(!permissionCheck.status) {
+        await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
         return;
     }
 

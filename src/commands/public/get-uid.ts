@@ -25,10 +25,6 @@ export default new Command({
             return;
         }
 
-        if (!hasModerationRights(guildMember)) {
-            await options.interaction.reply({ content: 'You do not have permission to use this!', ephemeral: true });
-            return;
-        }
         if (!options.interaction.guild) {
             await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
             return;

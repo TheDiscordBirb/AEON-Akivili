@@ -52,3 +52,13 @@ export interface NotificationData {
     banshareReason?: string,
     deletedByMod?: boolean,
 }
+
+export interface PermissionLocal {
+    local: boolean,
+    onlyLocal: boolean
+}
+
+export interface PermissionResult {
+    status: boolean,
+    message?: string
+}

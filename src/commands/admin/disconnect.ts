@@ -1,10 +1,10 @@
 import { Command } from '../../structures/command';
-import { BaseGuildTextChannel, ChannelType, Guild, MessageFlags } from 'discord.js'
+import { BaseGuildTextChannel, ChannelType, Guild, MessageFlags, PermissionFlagsBits } from 'discord.js'
 import { Logger } from '../../logger';
 import { databaseManager } from '../../structures/database';
-import { hasModerationRights, isNavigator } from '../../utils';
 import { config } from '../../const';
 import { client } from '../../structures/client';
+import { permissionHandler } from '../../functions/permission-handler';
 
 const logger = new Logger('DisconnectCmd');
 
@@ -22,17 +22,15 @@ export default new Command({
         const channel = options.interaction.channel as BaseGuildTextChannel;
         if (channel.type !== ChannelType.GuildText) return;
 
-        const user = options.interaction.guild.members.cache.get(options.interaction.member.user.id);
-        if (!user) {
-            logger.wtf("Interaction's creator does not exist.");
+        const permissionCheck = await permissionHandler.checkForPermission(
+            options.interaction.user,
+            {local: true, onlyLocal: true},
+            options.interaction.guild,
+            [PermissionFlagsBits.Administrator]);
+            
+        if(!permissionCheck.status) {
+            await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
             return;
-        }
-        if (!hasModerationRights(user)) {
-            const navUser = client.users.cache.get(user.id);
-            if (!navUser || !isNavigator(navUser)) { 
-                await options.interaction.reply({ content: 'You do not have permission to use this!', ephemeral: true });
-                return;
-            }
         }
 
         const webhooks = config.activeWebhooks.filter((webhook) => webhook.guildId === options.interaction.guildId);

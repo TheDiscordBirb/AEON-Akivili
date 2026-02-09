@@ -1,10 +1,11 @@
 import { Command } from '../../structures/command';
-import { ApplicationCommandOptionType } from 'discord.js'
+import { ApplicationCommandOptionType, PermissionFlagsBits } from 'discord.js'
 import { databaseManager } from '../../structures/database'; 
-import { hasModerationRights } from '../../utils';
 import { Logger } from '../../logger';
 import { client } from '../../structures/client';
 import { config } from '../../const';
+import { permissionHandler } from '../../functions/permission-handler';
+import { PermissionLevels } from '../../types/permission-handler';
 
 const logger = new Logger('GetUidCmd');
 
@@ -26,17 +27,23 @@ export default new Command({
     }],
 
     run: async (options) => {
-        const guildMember = options.interaction.guild?.members.cache.find(m => m.id === options.interaction.member.user.id);
-
-        if (!guildMember) {
-            logger.wtf("Interaction's creator does not exist.");
+        if (!options.interaction.guild) {
+            await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
             return;
         }
 
-        if (!hasModerationRights(guildMember)) {
-            await options.interaction.reply({ content: 'You do not have permission to use this!', ephemeral: true });
+        const permissionCheck = await permissionHandler.checkForPermission(
+            options.interaction.user,
+            {local: true, onlyLocal: false},
+            options.interaction.guild,
+            [PermissionFlagsBits.MuteMembers],
+            PermissionLevels.REPRESENTATIVE);
+            
+        if(!permissionCheck.status) {
+            await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
             return;
         }
+
         if (!options.interaction.guild) {
             await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
             return;

@@ -20,6 +20,8 @@ import { config } from '../../const';
 import { client } from '../../structures/client';
 import { ButtonTypes, RunOptions } from '../../types/command';
 import { BroadcastRecord } from '../../structures/types';
+import { permissionHandler } from '../../functions/permission-handler';
+import { PermissionLevels } from '../../types/permission-handler';
 
 const logger = new Logger('RemoveServerCmd');
 
@@ -38,13 +40,16 @@ export default new Command({
             logger.warn('Could not get main server.');
             return;
         }
-        const guildUser = mainGuild.members.cache.get(options.interaction.user.id);
-        if(!guildUser) {
-            await options.interaction.reply({ content: `You do not have permission to use this!`, ephemeral: true });
-            return;
-        }
-        if(!guildUser.roles.cache.has(config.navigatorRoleId)) {
-            await options.interaction.reply({ content: `You do not have permission to use this!`, ephemeral: true });
+          
+        const permissionCheck = await permissionHandler.checkForPermission(
+            options.interaction.user,
+            {local: false, onlyLocal: false},
+            options.interaction.guild,
+            [],
+            PermissionLevels.NAVIGATOR);
+            
+        if(!permissionCheck.status) {
+            await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
             return;
         }
 

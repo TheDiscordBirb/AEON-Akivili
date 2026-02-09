@@ -1,10 +1,11 @@
 import { Command } from '../../structures/command';
-import { GuildMember } from 'discord.js'
-import { hasModerationRights, Time } from '../../utils';
+import { GuildMember, PermissionFlagsBits } from 'discord.js'
 import { Logger } from '../../logger';
 import { databaseManager } from '../../structures/database';
 import { client } from '../../structures/client';
 import { banshareManager } from '../../functions/banshare';
+import { permissionHandler } from '../../functions/permission-handler';
+import { PermissionLevels } from '../../types/permission-handler';
 
 const logger = new Logger('RequestBanshareCmd');
 
@@ -20,13 +21,20 @@ export default new Command({
             return;
         }
         const broadcasts = await databaseManager.getBroadcasts();
+        const permissionCheck = await permissionHandler.checkForPermission(
+                options.interaction.user,
+                {local: true, onlyLocal: false},
+                guild,
+                [PermissionFlagsBits.BanMembers],
+                PermissionLevels.REPRESENTATIVE);
+                
         const userInfo = Object.values(broadcasts).reduce<{ guildMember?: GuildMember, userIsModerator: boolean }>((acc, broadcast) => {
             const guild = client.guilds.cache.get(broadcast.guildId);
             if (!guild) return acc;
             if (acc.userIsModerator) return acc;
             const guildMember = guild.members.cache.find((user) => user.id === options.interaction.member.id);
             if (!guildMember) return acc;
-            if (hasModerationRights(guildMember)) {
+            if (permissionCheck) {
                 return {guildMember, userIsModerator: true};
             }
             return { guildMember, userIsModerator: false };

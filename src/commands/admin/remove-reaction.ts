@@ -1,23 +1,18 @@
 import { Command } from '../../structures/command';
-import { ApplicationCommandOptionType, BaseGuildTextChannel, ChannelType } from 'discord.js'
+import { ApplicationCommandOptionType, BaseGuildTextChannel, ChannelType, PermissionFlagsBits } from 'discord.js'
 import { databaseManager } from '../../structures/database'; 
-import { hasModerationRights } from '../../utils';
 import { Logger } from '../../logger';
 import { metrics } from '../../structures/metrics';
 import { TimeSpanMetricLabel } from '../../types/metrics';
 import { RunOptions } from '../../types/command';
+import { permissionHandler } from '../../functions/permission-handler';
+import { PermissionLevels } from '../../types/permission-handler';
 
 const logger = new Logger('RemoveReactionCmd');
 
 const banCommand = async (options: RunOptions): Promise<void> => {
     if (!options.interaction.guild) {
         await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
-        return;
-    }
-    
-    const user = options.interaction.guild.members.cache.find((member) => member.id === options.interaction.member.user.id);
-    if (!user) {
-        logger.wtf("Interaction's creator does not exist.");
         return;
     }
 
@@ -28,8 +23,15 @@ const banCommand = async (options: RunOptions): Promise<void> => {
     const channel = options.interaction.channel as BaseGuildTextChannel;
     if (channel.type !== ChannelType.GuildText) return;
     
-    if (!hasModerationRights(user)) {
-        await options.interaction.reply({ content: 'You do not have permission to use this!', ephemeral: true });
+    const permissionCheck = await permissionHandler.checkForPermission(
+        options.interaction.user,
+        {local: true, onlyLocal: false},
+        options.interaction.guild,
+        [PermissionFlagsBits.ManageMessages],
+        PermissionLevels.REPRESENTATIVE);
+        
+    if(!permissionCheck.status) {
+        await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
         return;
     }
 

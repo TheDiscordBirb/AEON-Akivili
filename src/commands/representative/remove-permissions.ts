@@ -1,14 +1,15 @@
 import { Command } from '../../structures/command';
 import { ApplicationCommandOptionType} from 'discord.js'
-import { isConductor, isDev, isNavigator, isRep } from '../../utils';
 import { Logger } from '../../logger';
 import { config } from '../../const';
+import { permissionHandler } from '../../functions/permission-handler';
+import { PermissionLevels } from '../../types/permission-handler';
 
 const logger = new Logger('RmvPermCmd');
 
 export default new Command({
-    name: 'get-uid',
-    description: "Gets a person's uid using a message id from Aeon Chat",
+    name: 'remove-permisson',
+    description: "Removes all staff permissions from a user.",
     options:
     [{
         name: 'user-id',
@@ -22,17 +23,21 @@ export default new Command({
             await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
             return;
         }
-        
-        if(isDev(options.interaction.user) || isConductor(options.interaction.user) || isNavigator(options.interaction.user) || await isRep(options.interaction.user)) {
-            if(config.suspendedPermissionUserIds.includes(options.interaction.user.id)) {
-                await options.interaction.reply({content: "You can not use this currently.", flags: "Ephemeral"});
-                return;
-            }
-            config.suspendedPermissionUserIds.push(options.args.getString("user-id") ?? "");
-            await options.interaction.reply({content: "User has had their permissions removed.", flags: "Ephemeral"});
+                
+        const permissionCheck = await permissionHandler.checkForPermission(
+            options.interaction.user,
+            {local: false, onlyLocal: false},
+            options.interaction.guild,
+            [],
+            PermissionLevels.REPRESENTATIVE);
+            
+        if(!permissionCheck.status) {
+            await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
             return;
         }
-        await options.interaction.reply({content: "You can not use this command.", flags: "Ephemeral"});
+        
+        config.suspendedPermissionUserIds.push(options.args.getString("user-id") ?? "");
+        await options.interaction.reply({content: "User has had their permissions removed.", flags: "Ephemeral"});
         return;
     }
-});
+}); 
