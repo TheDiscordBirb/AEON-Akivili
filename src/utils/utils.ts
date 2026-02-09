@@ -20,17 +20,17 @@ import {
     Attachment,
     BaseGuildTextChannel
 } from 'discord.js';
-import { MessagesRecord, UserReactionRecord } from './types/database';
-import { databaseManager } from './structures/database';
-import { ActionRowComponentReconstructionData, CustomId, EmojiReplacementData, guildEmojiCooldowns } from './types/event';
-import { Logger } from './logger';
-import { client } from './structures/client';
+import { MessagesRecord, UserReactionRecord } from '../types/database';
+import { databaseManager } from '../structures/database';
+import { ActionRowComponentReconstructionData, CustomId, EmojiReplacementData, guildEmojiCooldowns } from '../types/event';
+import { Logger } from '../logger';
+import { client } from '../structures/client';
 import axios from 'axios';
-import { config } from './const';
-import { clientInfoData } from './types/client';
+import { config } from '../const';
+import { clientInfoData } from '../types/client';
 import sharp from 'sharp';
-import { cacheManager } from './structures/memcache';
-import { ParsedEmoji } from './types/utils';
+import { cacheManager } from '../structures/memcache';
+import { ParsedEmoji } from '../types/utils';
 const logger = new Logger("Utils");
 
 export const clientInfo = (): clientInfoData => {
@@ -45,19 +45,6 @@ export const clientInfo = (): clientInfoData => {
         clientAvatarUrl = undefined;
     }
     return { name: clientName, avatarUrl: clientAvatarUrl }
-}
-
-export const hasModerationRights = (guildUser: GuildMember): boolean => {
-    if(config.suspendedPermissionUserIds.includes(guildUser.id)) {
-        return false;
-    }
-    return !!(guildUser.roles.cache.find((role) => role.permissions.has(PermissionFlagsBits.BanMembers)));
-}
-export const hasMessageManageRights = (guildUser: GuildMember): boolean => {
-    if(config.suspendedPermissionUserIds.includes(guildUser.id)) {
-        return false;
-    }
-    return !!(guildUser.roles.cache.find((role) => role.permissions.has(PermissionFlagsBits.ManageMessages)));
 }
 
 export const isNavigator = (user: User): boolean => {

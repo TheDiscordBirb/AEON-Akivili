@@ -9,7 +9,7 @@ import {
 } from "discord.js";
 import { databaseManager } from "../structures/database";
 import { config } from "../const";
-import { deleteEmojis, rebuildMessageComponentAfterUserInteraction, replaceEmojis } from "../utils";
+import { deleteEmojis, rebuildMessageComponentAfterUserInteraction, replaceEmojis } from "../utils/utils";
 import { MessagesRecord } from "../types/database";
 import { client } from "../structures/client";
 import { EmojiReplacementData } from "../types/event";

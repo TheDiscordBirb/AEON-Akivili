@@ -12,7 +12,7 @@ import { Logger } from "../../logger";
 import { databaseManager } from "../../structures/database";
 import { config } from "../../const";
 import { client } from "../../structures/client";
-import { doesUserOwnMessage } from "../../utils";
+import { doesUserOwnMessage } from "../../utils/utils";
 import { MessagesRecord } from "../../types/database";
 import { notificationManager } from "../../functions/notification";
 import { NotificationType } from "../../types/event";

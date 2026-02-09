@@ -11,11 +11,12 @@ import {
     CacheType,
     MessageActionRowComponent,
     ActionRow,
-    MessageFlags
+    MessageFlags,
+    PermissionFlagsBits
 } from "discord.js";
 import { banshareManager } from "../functions/banshare";
 import { Event } from "../structures/event";
-import { deleteEmojis, hasModerationRights, rebuildMessageComponentAfterUserInteraction, replaceEmojis } from "../utils";
+import { deleteEmojis, rebuildMessageComponentAfterUserInteraction, replaceEmojis } from "../utils/utils";
 import { client } from "../structures/client";
 import { joinHandler } from "../functions/join-handler";
 import { Logger } from "../logger";
@@ -25,6 +26,7 @@ import { databaseManager } from "../structures/database";
 import { ChannelType } from "discord.js";
 import { MessagesRecord } from "../types/database";
 import { modmailHandler } from "../functions/modmail";
+import { permissionHandler } from "../functions/permission-handler";
 
 const logger = new Logger("Buttons");
 
@@ -214,7 +216,13 @@ const emojiButtonFunction = async (interaction: ButtonInteraction<CacheType>): P
 }
 
 const moderationButtonFunction = async (interaction: ButtonInteraction<CacheType>, guildMember: GuildMember): Promise<void> => {
-    if (!hasModerationRights(guildMember)) {
+    const permissionCheck = await permissionHandler.checkForPermission(
+        guildMember.user,
+        {local: true, onlyLocal: true},
+        guildMember.guild,
+        [PermissionFlagsBits.BanMembers]);
+        
+    if(!permissionCheck.status) {
         if (!interaction.user.dmChannel) {
             await interaction.user.createDM(true);
         }

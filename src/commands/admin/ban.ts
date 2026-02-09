@@ -1,7 +1,6 @@
 import { Command } from '../../structures/command';
 import { ApplicationCommandOptionType, GuildMember, PermissionFlagsBits } from 'discord.js'
-import { databaseManager } from '../../structures/database'; 
-import { hasModerationRights } from '../../utils';
+import { databaseManager } from '../../structures/database';
 import { banshareManager } from '../../functions/banshare';
 import { MessagesRecord } from '../../types/database';
 import { BanShareOption } from '../../types/command';
@@ -82,7 +81,7 @@ const banCommand = async (options: RunOptions): Promise<void> => {
         if (acc.userIsModerator) return acc;
         const guildMember = guild.members.cache.find((user) => user.id === userId);
         if (!guildMember) return acc;
-        if (hasModerationRights(guildMember)) {
+        if (guildMember.permissions.has(PermissionFlagsBits.BanMembers)) {
             return {guildMember, userIsModerator: true};
         }
         return { guildMember, userIsModerator: false };
@@ -100,6 +99,7 @@ const banCommand = async (options: RunOptions): Promise<void> => {
             time: Date.now(),
             guild: options.interaction.guild
         })
+        return;
     }
     
     try {
@@ -109,19 +109,6 @@ const banCommand = async (options: RunOptions): Promise<void> => {
         logger.error(`Couldnt ban user.`, (error as Error));
         return;
     }
-    
-    if (userInfo.userIsModerator) {
-        await options.interaction.reply({ content: 'This user is a moderator on a server in the network, as such AEON Navigators have been notified.', ephemeral: true });
-    }
-    notificationManager.sendNotification({
-        executingUser: options.interaction.user,
-        targetUser: userInfo.guildMember?.user,
-        channelType: messageChannelType,
-        message,
-        notificationType: userInfo.userIsModerator ? NotificationType.MODERATOR_BAN : NotificationType.MODERATOR_BAN,
-        time: Date.now(),
-        guild: options.interaction.guild
-    })
 
     if(banshareResponse) {
         await banshareManager.dmBanshareFunction(options.interaction.guild.id, options);

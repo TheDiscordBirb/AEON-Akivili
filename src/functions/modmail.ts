@@ -19,7 +19,7 @@ import { RunOptions } from "../types/command";
 import { databaseManager } from "../structures/database";
 import { client } from "../structures/client";
 import { config } from "../const";
-import { Time } from "../utils";
+import { Time } from "../utils/utils";
 
 const logger = new Logger("ModmailHandler");
 

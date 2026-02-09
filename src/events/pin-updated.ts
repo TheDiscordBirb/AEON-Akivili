@@ -1,11 +1,9 @@
 import { BaseGuildTextChannel, ChannelType, GuildTextBasedChannel } from "discord.js";
 import { Event } from "../structures/event";
-import { hasModerationRights } from "../utils";
 import { Logger } from "../logger";
 import { databaseManager } from "../structures/database";
 import { client } from "../structures/client";
 import { config } from "../const";
-import { NetworkJoinOptions } from "../types/command";
 const logger = new Logger(`PinEvent`);
 
 export default new Event("messageUpdate", async (oldMessage, newMessage) => {

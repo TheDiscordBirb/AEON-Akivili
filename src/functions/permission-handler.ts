@@ -1,7 +1,7 @@
 import { Guild, PermissionResolvable, User } from "discord.js";
 import { PermissionLocal, PermissionResult } from "../structures/types";
 import { PermissionLevels } from "../types/permission-handler";
-import { isConductor, isDev, isNavigator, isRep } from "../utils";
+import { isConductor, isDev, isNavigator, isRep } from "../utils/utils";
 import { config } from "../const";
 
 class PermissionHandler {
@@ -19,10 +19,9 @@ class PermissionHandler {
                     }
                 }))
                 return {status: true};
-            } else {
-                if(local.onlyLocal) {
-                    return {status: false, message: "You do not have permission to use this."};
-                }
+            }
+            if(local.onlyLocal) {
+                return {status: false, message: "You do not have permission to use this."};
             }
         }
 
@@ -49,8 +48,10 @@ class PermissionHandler {
                     return {status: false, message: "You do not have permission to use this."};
                 }
             }
+            default: {
+                return {status: false, message: "You do not have permission to use this."};
+            }
         }
-        return {status: false, message: "You do not have permission to use this."};
     }
 }
 

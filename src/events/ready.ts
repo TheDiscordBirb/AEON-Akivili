@@ -4,7 +4,7 @@ import { Event } from "../structures/event";
 import { Logger } from '../logger';
 import { databaseManager } from "../structures/database";
 import { config } from "../const";
-import { experimentalPatchWarning, statusUpdate } from "../utils";
+import { experimentalPatchWarning, statusUpdate } from "../utils/utils";
 import cron from 'node-cron';
 import { messageFilter } from "../functions/message-filter";
 import { NetworkJoinOptions } from "../types/command";

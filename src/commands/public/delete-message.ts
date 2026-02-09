@@ -5,17 +5,20 @@ import {
     GuildTextBasedChannel,
     Message,
     User,
-    MessageFlags
+    MessageFlags,
+    PermissionFlagsBits
 } from "discord.js";
 import { Command } from "../../structures/command"; 
 import { Logger } from "../../logger";
 import { databaseManager } from "../../structures/database";
 import { config } from "../../const";
 import { client } from "../../structures/client";
-import { doesUserOwnMessage, hasMessageManageRights, hasModerationRights } from "../../utils";
+import { doesUserOwnMessage } from "../../utils/utils";
 import { MessagesRecord } from "../../types/database";
 import { NotificationType } from "../../types/event";
 import { notificationManager } from "../../functions/notification";
+import { permissionHandler } from "../../functions/permission-handler";
+import { PermissionLevels } from "../../types/permission-handler";
 
 const logger = new Logger('DeleteMessageCmd');
 
@@ -103,7 +106,15 @@ export default new Command({
         const matchingBroadcastRecords = (await databaseManager.getBroadcasts()).filter((broadcast) => broadcast.channelType === webhookChannelType);
 
         let deletedByMod = (relatedMessageRecords[0].userId === options.interaction.user.id) ? false : true;
-        if (!hasMessageManageRights(options.interaction.member)) {
+
+        const permissionCheck = await permissionHandler.checkForPermission(
+            options.interaction.user,
+            {local: true, onlyLocal: false},
+            options.interaction.guild,
+            [PermissionFlagsBits.ManageMessages],
+            PermissionLevels.REPRESENTATIVE);
+
+        if (!permissionCheck.status) {
             deletedByMod = false;
             if (!doesUserOwnMessage(relatedMessageRecords.find((relatedMessage) => relatedMessage.channelId === messageChannelId)?.userId, options.interaction.user.id)) {
                 await options.interaction.reply({ content: "You do not have permission to delete this message.", ephemeral: true });

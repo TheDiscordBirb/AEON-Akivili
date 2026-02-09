@@ -10,7 +10,8 @@ import {
     GuildMember,
     EmbedBuilder,
     Colors,
-    DMChannel
+    DMChannel,
+    PermissionFlagsBits
 } from "discord.js";
 import { Event } from "../structures/event";
 import axios from "axios";
@@ -26,7 +27,6 @@ import { TimeSpanMetricLabel } from "../types/metrics";
 import { NetworkJoinOptions } from "../types/command";
 import {
     deleteEmojis,
-    hasModerationRights,
     isConductor,
     isDev,
     isNavigator,
@@ -34,7 +34,7 @@ import {
     replaceEmojis,
     userActivityLevelCheck,
     watermarkSize
-} from "../utils";
+} from "../utils/utils";
 import isApng from "is-apng";
 import * as apng from 'sharp-apng';
 import * as sharp from 'sharp';
@@ -275,7 +275,7 @@ const dmMessageResponse = async (interaction: Message<boolean>): Promise<void> =
         if (acc.userIsModerator) return acc;
         const guildMember = guild.members.cache.find((user) => user.id === interaction.author.id);
         if (!guildMember) return acc;
-        if (hasModerationRights(guildMember)) {
+        if (guildMember.permissions.has(PermissionFlagsBits.BanMembers)) {
             return {guildMember, userIsModerator: true};
         }
         return { guildMember, userIsModerator: false };

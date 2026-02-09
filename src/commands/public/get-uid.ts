@@ -1,7 +1,6 @@
 import { Command } from '../../structures/command';
 import { ApplicationCommandOptionType} from 'discord.js'
-import { databaseManager } from '../../structures/database'; 
-import { hasModerationRights } from '../../utils';
+import { databaseManager } from '../../structures/database';
 import { Logger } from '../../logger';
 
 const logger = new Logger('GetUidCmd');
