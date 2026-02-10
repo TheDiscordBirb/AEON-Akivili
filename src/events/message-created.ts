@@ -25,16 +25,15 @@ import { BroadcastRecord, MessagesRecord } from "../types/database";
 import { metrics } from "../structures/metrics";
 import { TimeSpanMetricLabel } from "../types/metrics";
 import { NetworkJoinOptions } from "../types/command";
+import { networkChannelPingNotificationEmbedBuilder } from "../utils/ping";
+import { watermarkSize } from "../utils/misc";
+import { deleteEmojis, replaceEmojis } from "../utils/emoji";
 import {
-    deleteEmojis,
     isConductor,
     isDev,
     isNavigator,
-    networkChannelPingNotificationEmbedBuilder,
-    replaceEmojis,
     userActivityLevelCheck,
-    watermarkSize
-} from "../utils/utils";
+} from "../utils/permissions"
 import isApng from "is-apng";
 import * as apng from 'sharp-apng';
 import * as sharp from 'sharp';

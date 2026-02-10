@@ -20,7 +20,7 @@ import { BanShareButtonArg, BanshareStatus, DmMessageButtonArg } from "../types/
 import { client } from "../structures/client";
 import { Logger } from "../logger";
 import { AutoBanLevelOptions, RunOptions } from "../types/command";
-import { Time } from "../utils/utils";
+import { Time } from "../utils/time";
 
 const logger = new Logger("Banshare");
 

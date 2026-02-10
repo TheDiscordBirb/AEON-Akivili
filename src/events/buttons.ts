@@ -16,7 +16,8 @@ import {
 } from "discord.js";
 import { banshareManager } from "../functions/banshare";
 import { Event } from "../structures/event";
-import { deleteEmojis, rebuildMessageComponentAfterUserInteraction, replaceEmojis } from "../utils/utils";
+import { deleteEmojis, replaceEmojis } from "../utils/emoji";
+import { rebuildMessageComponentAfterUserInteraction } from "../utils/rebuild-comps"
 import { client } from "../structures/client";
 import { joinHandler } from "../functions/join-handler";
 import { Logger } from "../logger";

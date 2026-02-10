@@ -5,7 +5,6 @@ import {
     GuildTextBasedChannel,
     Message,
     User,
-    MessageFlags,
     PermissionFlagsBits
 } from "discord.js";
 import { Command } from "../../structures/command"; 
@@ -13,7 +12,7 @@ import { Logger } from "../../logger";
 import { databaseManager } from "../../structures/database";
 import { config } from "../../const";
 import { client } from "../../structures/client";
-import { doesUserOwnMessage } from "../../utils/utils";
+import { doesUserOwnMessage } from "../../utils/permissions";
 import { MessagesRecord } from "../../types/database";
 import { NotificationType } from "../../types/event";
 import { notificationManager } from "../../functions/notification";

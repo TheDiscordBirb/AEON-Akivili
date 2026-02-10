@@ -4,7 +4,7 @@ import { Logger } from "./logger";
 import { config } from "./const";
 import * as fs from 'fs';
 import * as path from 'path';
-import { Time } from "./utils/utils";
+import { Time } from "./utils/time";
 
 const logger = new Logger("Index");
 

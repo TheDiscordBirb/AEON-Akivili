@@ -1,5 +1,5 @@
 import { Webhook } from "discord.js"
-import { getEnvVar } from "./get-env-var"
+import { getEnvVar } from "./utils/get-env-var"
 import { UidUserPair } from "./types/blacklist-words"
 
 export const config = {

@@ -1,4 +1,11 @@
-import { MetricValuesStatistics, TimeSpanValues, TimeSpanMetric, ScalarValues, ScalarMetricValues, ScalarMetric, ScalarMetricLabel, TimeSpanMetricLabel } from "../types/metrics";
+import { 
+    MetricValuesStatistics,
+    TimeSpanValues,
+    TimeSpanMetric,
+    ScalarValues,
+    ScalarMetricLabel,
+    TimeSpanMetricLabel
+} from "../types/metrics";
 import { ulid } from 'ulid';
 import { Logger } from "../logger";
 

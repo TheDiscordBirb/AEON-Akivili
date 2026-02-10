@@ -12,7 +12,7 @@ import { RegisterCommandsOptions } from "../types/client";
 import { Event } from "./event";
 import * as path from 'path';
 import { Logger } from '../logger';
-import { getEnvVar } from "../get-env-var";
+import { getEnvVar } from "../utils/get-env-var";
 
 const logger = new Logger('Client');
 

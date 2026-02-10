@@ -13,7 +13,7 @@ import { databaseManager } from "../structures/database";
 import { BanShareButtonArg } from "../types/event";
 import { Logger } from "../logger";
 import { NetworkJoinOptions } from "../types/command";
-import { rebuildNetworkInfoEmbeds } from "../utils/utils";
+import { rebuildNetworkInfoEmbeds } from "../utils/rebuild-comps";
 
 const logger = new Logger('JoinHandler');
 

@@ -5,7 +5,7 @@ import {
     GuildTextBasedChannel
 } from 'discord.js'
 import { Command } from '../../structures/command';
-import { rebuildNetworkInfoEmbeds } from '../../utils/utils';
+import { rebuildNetworkInfoEmbeds } from '../../utils/rebuild-comps';
 import { databaseManager } from '../../structures/database';
 import { NetworkJoinOptions } from '../../types/command';
 import { Logger } from '../../logger';

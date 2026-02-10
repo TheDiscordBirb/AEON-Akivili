@@ -1,7 +1,7 @@
 import { Guild, PermissionResolvable, User } from "discord.js";
 import { PermissionLocal, PermissionResult } from "../structures/types";
 import { PermissionLevels } from "../types/permission-handler";
-import { isConductor, isDev, isNavigator, isRep } from "../utils/utils";
+import { isConductor, isDev, isNavigator, isRep } from "../utils/permissions"
 import { config } from "../const";
 
 class PermissionHandler {
