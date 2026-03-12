@@ -5,7 +5,7 @@
   "main": "./dist/index.js",
   "types": "./src/index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node -r ts-node/register src/unit-tests/index",
     "build": "cross-env ./node-modules/.bin/tsc --sourceMap",
     "clean": "cross-env rm -rf dist",
     "start": "node -r ts-node/register src/index"
