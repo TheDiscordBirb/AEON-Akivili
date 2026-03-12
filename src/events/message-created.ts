@@ -44,6 +44,7 @@ import { cacheManager } from "../structures/memcache";
 import { FilterOutput } from "../types/message-filter";
 import { messageFilter } from "../functions/message-filter";
 import { notificationManager } from "../functions/notification";
+import { aprilFools2026 } from "../utils/april-fools2026";
 
 
 const logger = new Logger('MessageCreated');
@@ -310,6 +311,18 @@ const createWebhookMessages = async (
         }
         await interaction.member?.send({ content: "Sorry, this sticker is not in the AEON Network or the server asked us to not use their stickers, as such it can not be used here." });
         return;
+    }
+
+    const aprilFoolsCheck = new Date().getMonth() == 4 && new Date().getDate() == 1;
+
+    if(aprilFoolsCheck) {
+        return await aprilFools2026(
+            broadcastRecords,
+            webhookChannelType,
+            interaction,
+            interactionMember,
+            files,
+            emojiReplacement);
     }
     
     if (!interaction.guild) return undefined;

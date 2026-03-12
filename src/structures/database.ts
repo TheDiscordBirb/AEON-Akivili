@@ -11,6 +11,9 @@ import {
 } from '../types/database';
 import { Logger } from "../logger";
 import { config } from '../const';
+import * as fs from "fs";
+import path from 'path';
+import { Time } from '../utils/time';
 
 const logger = new Logger('Database');
 
@@ -250,6 +253,37 @@ class DatabaseManager {
             throw new Error('Could not get user message.');
         }
         return uniqueUserMessageRecords;
+    }
+
+    public async totalMessageLogs(): Promise<number> {
+        const db = await this.db();
+        const amount = await db.get<{count: number}>(`SELECT COUNT(*) as 'count' FROM Messages`);
+        if(!amount) {
+            throw new Error("Could not get total amount of messages.");
+        }
+        return amount.count;
+    }
+
+    private async backUpDb(date: number): Promise<void> {
+        const backUpName = `aeon_backup_${date}.db`
+        try {
+            fs.copyFileSync(path.join(".", dbName), path.join(".", backUpName));
+        } catch(e) {
+            throw new Error((e as Error).message);
+        }
+        logger.info(`Db has been backed up into ${backUpName}`);
+    }
+
+    public async cleanDb(date: number): Promise<void> {
+        const db = await this.db();
+        await this.backUpDb(date);
+        try {
+            await db.run(`DELETE FROM Messages WHERE timestamp<=?`, [date-Time.hours(10)]);
+            await db.run(`DELETE FROM UserReaction`);
+        } catch(e) {
+            throw new Error((e as Error).message);
+        }
+        logger.info("Db was cleared");
     }
 
     public async getUserId(channelId: string, channelMessageId: string): Promise<string> {

@@ -10,3 +10,5 @@ embed.json
 /dist
 .vscode
 *.txt
+april-fools*.ts
+aeon_backup_*.db

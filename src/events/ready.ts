@@ -1,4 +1,4 @@
-import { GuildTextBasedChannel, Collection, Webhook, WebhookType, Guild } from "discord.js";
+import { GuildTextBasedChannel, Collection, Webhook, WebhookType, Guild, BaseGuildTextChannel } from "discord.js";
 import { client } from "../structures/client";
 import { Event } from "../structures/event";
 import { Logger } from '../logger';
@@ -13,6 +13,11 @@ const logger = new Logger('Ready');
 
 export default new Event("clientReady", async () => {
     config.botStarting = true;
+    const messagesInDb = await databaseManager.totalMessageLogs();
+    logger.info(`There ${messagesInDb >= 100000 ? "were" : "are"} ${messagesInDb} messages in Db.`);
+    if(messagesInDb >= 100000) {
+        await databaseManager.cleanDb(Date.now());
+    }
     await messageFilter.addToFilterArray(await databaseManager.getFilteredWords());
     logger.info(`${client.user?.username} is online`);
     const guilds = await client.guilds.fetch();
@@ -23,6 +28,7 @@ export default new Event("clientReady", async () => {
     logger.info('Loading guilds...');
     const noBroadcastGuilds : Guild[] = [];
     const infoOrBanshareBroadcastGuilds : Guild[] = [];
+    const textWebhooks : Webhook[] = [];
     for await (const oauthGuild of guilds) {
         const guild = client.guilds.cache.get(oauthGuild[0]);
         if (!guild) continue;
@@ -78,6 +84,7 @@ export default new Event("clientReady", async () => {
                 const aeonChannel = await guild.channels.fetch(webhook.channelId);
                 if(!aeonChannel) return;
                 networkServer = true;
+                textWebhooks.push(webhook);
                 const timeStart = Date.now();
                 const loadedMessages = await (aeonChannel as GuildTextBasedChannel).messages.fetch({ limit: config.numberOfMessagesToLoad });
                 logger.info(`Fetched the last ${loadedMessages.size} messages from ${aeonChannel.name} in ${Date.now() - timeStart}ms`);
@@ -104,6 +111,14 @@ export default new Event("clientReady", async () => {
         logger.info(`${noBroadcastGuild.name} ${noBroadcastGuild.id}\nMembers: ${noBroadcastGuild.memberCount} Channels: ${noBroadcastGuild.channels.cache.size}`);
     }))
     config.botStarting = false;
+    await Promise.all(textWebhooks.map(async (webhook) => {
+        try {
+            await (webhook.channel as BaseGuildTextChannel).send({content: `${client.user?.username} is now online.`});
+        } catch(e) {
+            logger.warn((e as Error).message);
+            return;
+        }
+    }));
 
     
     await statusUpdate();

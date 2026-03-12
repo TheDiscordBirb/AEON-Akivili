@@ -29,7 +29,7 @@ export class ExtendedClient extends Client {
                 IntentsBitField.Flags.DirectMessages,
                 IntentsBitField.Flags.DirectMessageReactions,
                 IntentsBitField.Flags.GuildMessageReactions,
-                IntentsBitField.Flags.GuildEmojisAndStickers,
+                IntentsBitField.Flags.GuildExpressions,
                 IntentsBitField.Flags.GuildMessageTyping,
             ],
             partials: [Partials.Channel, Partials.Message],
