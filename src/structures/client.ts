@@ -13,6 +13,7 @@ import { Event } from "./event";
 import * as path from 'path';
 import { Logger } from '../logger';
 import { getEnvVar } from "../utils/get-env-var";
+import { config } from "../const";
 
 const logger = new Logger('Client');
 
@@ -37,6 +38,7 @@ export class ExtendedClient extends Client {
     }
 
     start() {
+        config.botStarting = true;
         this.registerModules()
         .then(()=> {
             this.login(getEnvVar<string>("DISCORD_TOKEN"))

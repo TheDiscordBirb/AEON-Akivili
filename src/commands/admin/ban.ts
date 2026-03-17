@@ -14,7 +14,7 @@ import { permissionHandler } from '../../functions/permission-handler';
 
 const logger = new Logger('BanCmd');
 
-const banCommand = async (options: RunOptions): Promise<void> => {
+export const banCommand = async (options: RunOptions): Promise<void> => {
     if (!options.interaction.guild) {
         await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
         return;

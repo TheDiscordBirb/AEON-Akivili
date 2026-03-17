@@ -1,14 +1,20 @@
+# Enviroment variables
 .env
-envBeta.txt
-envLive.txt
+# Logs
 *.log
-aeon.db
+# Live, Test and Backup dbs
+*.db
+# I dont want to spend 7 years uploading a single commit
 node_modules
+# These are only required for my instance of Akivili, such as a restart for the raspberry
 /src/commands/birb
-embed.json
-.gitignore
+# I dont complite the ts code into js, but just for safety
 /dist
+# You dont need my vs code settings
 .vscode
+# WIP
 *.txt
+# These will be published after every april 1st
 april-fools*.ts
-aeon_backup_*.db
+# Unit test config
+unit-test-config.ts
