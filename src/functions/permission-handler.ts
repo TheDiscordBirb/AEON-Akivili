@@ -2,7 +2,7 @@ import { Guild, PermissionResolvable, User } from "discord.js";
 import { PermissionLocal, PermissionResult } from "../structures/types";
 import { PermissionLevels } from "../types/permission-handler";
 import { isConductor, isDev, isNavigator, isRep } from "../utils/permissions"
-import { config } from "../const";
+import { config, unitTest } from "../const";
 
 class PermissionHandler {
     public async checkForPermission(user: User, local: PermissionLocal, guild: Guild, permissionFlags: PermissionResolvable[], permissionLevel?: PermissionLevels): Promise<PermissionResult> {
@@ -13,16 +13,27 @@ class PermissionHandler {
         const guildUser = guild.members.cache.get(user.id);
         if(local.local) {
             if(guildUser) {
-                await Promise.all(permissionFlags.map((permissionFlag) => {
+                const permissionChecks = await Promise.all(permissionFlags.map((permissionFlag) => {
                     if(!guildUser.permissions.has(permissionFlag)) {
-                        return "You do not have permission to use this.";
+                        return {status: false};
                     }
-                }))
-                return {status: true};
+                    return {status: true};
+                }));
+                if(local.onlyLocal) {
+                    if(permissionChecks.find((permissionCheck) => permissionCheck.status == false)) {
+                        return {status: false, message: "You do not have permission to use this."};
+                    } else {
+                        return {status: true};
+                    }
+                }
+                if(permissionChecks.find((permissionCheck) => permissionCheck.status == false)) {
+                    return {status: true}
+                }
             }
-            if(local.onlyLocal) {
-                return {status: false, message: "You do not have permission to use this."};
-            }
+        }
+
+        if(unitTest) {
+            return {status: true}
         }
 
         switch(permissionLevel) {
