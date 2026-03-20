@@ -1,12 +1,10 @@
 import { messageFilter } from "../functions/message-filter"
 
-test("Message Filter mock", async () => {
+test("Test on clean message", async () => {
     await messageFilter.addToFilterArray([{word: "test"}]);
-
-    // Test on clean message
     expect(await messageFilter.filterMessage("This is clean")).toStrictEqual({resultClean: true});
-
-    // Test on filtered message
+});
+test("Test on filtered message", async () => {
     expect(await messageFilter.filterMessage("This test is not clean")).toStrictEqual({
         resultClean: false, detectedFilteredContent: ["test"]
     });

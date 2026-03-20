@@ -2,9 +2,7 @@ import { Guild, PermissionResolvable, User } from "discord.js";
 import { PermissionLocal, PermissionResult } from "../structures/types";
 import { PermissionLevels } from "../types/permission-handler";
 import { isStaff } from "../utils/permissions";
-import { config, unitTest } from "../const";
-import { client, ExtendedClient } from "../structures/client";
-import { mockClient } from "../tests/mocks";
+import { config } from "../const";
 
 class PermissionHandler {
     public async checkForPermission(user: User, local: PermissionLocal, guild: Guild, permissionFlags: PermissionResolvable[], permissionLevel?: PermissionLevels): Promise<PermissionResult> {

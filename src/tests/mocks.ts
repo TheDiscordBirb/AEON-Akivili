@@ -107,6 +107,16 @@ export const guildMembers: Partial<GuildMember>[] = [{
     },
     permissions: (modUserPermissionsBitField as PermissionsBitField)
 
+}, {
+    user: (conductorUser as User),
+    toString() {
+        return `<@${this.user?.id}>`
+    },
+    valueOf() {
+        return this.user?.id ?? "5"
+    },
+    permissions: (genUserPermissionsBitField as PermissionsBitField),
+
 }];
 export const guildMembersCache: Partial<Collection<string, GuildMember>> = {
     constructor: undefined,
@@ -138,7 +148,7 @@ export const notOnlyLocal: PermissionLocal = {
     local: true,
     onlyLocal: false
 };
-export const notLocal: PermissionLocal = {
+export const onlyGlobal: PermissionLocal = {
     local: false,
     onlyLocal: false
 }
