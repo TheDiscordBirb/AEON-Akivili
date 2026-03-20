@@ -9,7 +9,7 @@ import { client } from '../structures/client';
 import { config } from '../const';
 import { clientInfoData } from '../types/client';
 import sharp from 'sharp';
-import { sleep } from './time';
+import { sleep, Time } from './time';
 const logger = new Logger("Utils");
 
 export const clientInfo = (): clientInfoData => {
@@ -97,4 +97,18 @@ export const makeUid = (length: number): string => {
         result += characters.charAt(Math.floor(Math.random() * characters.length));
     }
     return result;
+}
+
+export const userActivityLevelCheck = async (userId: string): Promise<number> => {
+    try {
+        const coinTierMessage = (await databaseManager.getUniqueUserMessages(userId, 1, 100))[0];
+        const diamondTierMessage = (await databaseManager.getUniqueUserMessages(userId, 1, 200))[0];
+        const crownTierMessage = (await databaseManager.getUniqueUserMessages(userId, 1, 300))[0];
+        return (Date.now() - coinTierMessage.timestamp <= Time.hours(48) ? (Date.now() - diamondTierMessage.timestamp <= Time.hours(48) ? (Date.now() - crownTierMessage.timestamp <= Time.hours(48) ? 3 : 2) : 1) : 0);
+    } catch(error) {
+        if((error as Error).message !== "User does not have enough messages.") {
+            logger.error("Got error:", error as Error)
+        }
+        return 0;
+    }
 }

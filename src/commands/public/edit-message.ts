@@ -11,7 +11,6 @@ import { Logger } from "../../logger";
 import { databaseManager } from "../../structures/database";
 import { config } from "../../const";
 import { client } from "../../structures/client";
-import { doesUserOwnMessage } from "../../utils/permissions";
 import { MessagesRecord } from "../../types/database";
 import { notificationManager } from "../../functions/notification";
 import { NotificationType } from "../../types/event";
@@ -105,7 +104,7 @@ export default new Command({
         }
         const matchingBroadcastRecords = (await databaseManager.getBroadcasts()).filter((broadcast) => broadcast.channelType === webhookChannelType);
 
-        if (!doesUserOwnMessage(relatedMessageRecords.find((relatedMessage) => relatedMessage.channelId === messageChannelId)?.userId, options.interaction.user.id)) {
+        if (relatedMessageRecords.find((relatedMessage) => relatedMessage.channelId === messageChannelId)?.userId === options.interaction.user.id) {
             await options.interaction.reply({ content: "You do not have permission to edit this message.", ephemeral: true });
             return;
         }

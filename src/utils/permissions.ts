@@ -1,46 +1,49 @@
 import { User, GuildTextBasedChannel } from "discord.js";
-import { client } from "../structures/client";
-import { config } from "../const";
-import { databaseManager } from "../structures/database";
-import { Time } from "./time";
+import { config, unitTest } from "../const";
 import { Logger } from "../logger";
+import { client, ExtendedClient } from "../structures/client";
+import { mockClient } from "../tests/mocks";
 
 const logger = new Logger("permUtils");
 
-export const isNavigator = (user: User): boolean => {
-    const aeonGuild = (client.channels.cache.get(config.aeonBanshareChannelId) as GuildTextBasedChannel).guild;
-    const aeonMember = aeonGuild.members.cache.get(user.id);
-    if (!aeonMember) return false;
-    return !!aeonMember.roles.cache.get(config.navigatorRoleId);
-}
-export const isConductor = (user: User): boolean => {
-    const aeonGuild = (client.channels.cache.get(config.aeonBanshareChannelId) as GuildTextBasedChannel).guild;
-    const aeonMember = aeonGuild.members.cache.get(user.id);
-    if (!aeonMember) return false;
-    return !!aeonMember.roles.cache.get(config.conductorRoleId);
-}
-export const isDev = (user: User): boolean => {
-    return !!config.devIds.includes(user.id);
-}
-export const isRep = (user: User): boolean => {
-    const aeonGuild = (client.channels.cache.get(config.aeonBanshareChannelId) as GuildTextBasedChannel).guild;
-    const aeonMember = aeonGuild.members.cache.get(user.id);
-    if (!aeonMember) return false;
-    return !!aeonMember.roles.cache.get(config.representativeRoleId);
-}
-export const doesUserOwnMessage = (userIdInDb: string | undefined, userId: string): boolean => {
-    return userIdInDb === userId;
-}
-export const userActivityLevelCheck = async (userId: string): Promise<number> => {
-    try {
-        const coinTierMessage = (await databaseManager.getUniqueUserMessages(userId, 1, 100))[0];
-        const diamondTierMessage = (await databaseManager.getUniqueUserMessages(userId, 1, 200))[0];
-        const crownTierMessage = (await databaseManager.getUniqueUserMessages(userId, 1, 300))[0];
-        return (Date.now() - coinTierMessage.timestamp <= Time.hours(48) ? (Date.now() - diamondTierMessage.timestamp <= Time.hours(48) ? (Date.now() - crownTierMessage.timestamp <= Time.hours(48) ? 3 : 2) : 1) : 0);
-    } catch(error) {
-        if((error as Error).message !== "User does not have enough messages.") {
-            logger.error("Got error:", error as Error)
+class IsStaff {
+    protected client;
+    constructor(client: ExtendedClient) {
+        this.client = client;
+    }
+
+    private channel = (): GuildTextBasedChannel => {
+        if(!this.client.channels.cache.get(config.aeonBanshareChannelId)) {
+            throw new Error("Could not find channel.");
         }
-        return 0;
+        if(!(this.client.channels.cache.get(config.aeonBanshareChannelId) as GuildTextBasedChannel).guild) {
+            throw new Error("Could not find guild.");
+
+        }
+        return (this.client.channels.cache.get(config.aeonBanshareChannelId) as GuildTextBasedChannel);
+    }
+
+    public dev = (user: User): boolean => {
+        return !!config.devIds.includes(user.id);
+    }
+    public conductor = (user: User): boolean => {
+        const aeonGuild = this.channel().guild;
+        const aeonMember = aeonGuild.members.cache.get(user.id);
+        if (!aeonMember) return false;
+        return !!aeonMember.roles.cache.get(config.conductorRoleId);
+    }
+    public navigator = (user: User): boolean => {
+        const aeonGuild = this.channel().guild;
+        const aeonMember = aeonGuild.members.cache.get(user.id);
+        if (!aeonMember) return false;
+        return !!aeonMember.roles.cache.get(config.navigatorRoleId);
+    }
+    public rep = (user: User): boolean => {
+        const aeonGuild = this.channel().guild;
+        const aeonMember = aeonGuild.members.cache.get(user.id);
+        if (!aeonMember) return false;
+        return !!aeonMember.roles.cache.get(config.representativeRoleId);
     }
 }
+
+export const isStaff = new IsStaff(unitTest ? (mockClient as ExtendedClient) : client);

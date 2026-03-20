@@ -17,7 +17,7 @@ import { Event } from "../structures/event";
 import axios from "axios";
 import { databaseManager } from '../structures/database';
 import { ulid } from "ulid";
-import { config } from "../const";
+import { config, unitTest } from "../const";
 import { Logger } from "../logger";
 import { client } from "../structures/client";
 import { CustomId, DmMessageButtonArg, EmojiReplacementData, NotificationType } from "../types/event";
@@ -26,13 +26,10 @@ import { metrics } from "../structures/metrics";
 import { TimeSpanMetricLabel } from "../types/metrics";
 import { NetworkJoinOptions } from "../types/command";
 import { networkChannelPingNotificationEmbedBuilder } from "../utils/ping";
-import { watermarkSize } from "../utils/misc";
+import { watermarkSize,userActivityLevelCheck } from "../utils/misc";
 import { deleteEmojis, replaceEmojis } from "../utils/emoji";
 import {
-    isConductor,
-    isDev,
-    isNavigator,
-    userActivityLevelCheck,
+    isStaff,
 } from "../utils/permissions"
 import isApng from "is-apng";
 import * as apng from 'sharp-apng';
@@ -327,13 +324,14 @@ const createWebhookMessages = async (
     
     if (!interaction.guild) return undefined;
     let nameSuffix = ` || ${interaction.guild.name}`;
-    if (isNavigator(interactionMember.user)) {
+
+    if (isStaff.navigator(interactionMember.user)) {
         nameSuffix = ` | Navigator`;
     }
-    if (isConductor(interactionMember.user)) {
+    if (isStaff.conductor(interactionMember.user)) {
         nameSuffix = ` | Conductor`;
     }
-    if (isDev(interactionMember.user)) {
+    if (isStaff.dev(interactionMember.user)) {
         nameSuffix = ` | Akivili Dev`;
     }
 

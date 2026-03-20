@@ -1,8 +1,10 @@
 import { Guild, PermissionResolvable, User } from "discord.js";
 import { PermissionLocal, PermissionResult } from "../structures/types";
 import { PermissionLevels } from "../types/permission-handler";
-import { isConductor, isDev, isNavigator, isRep } from "../utils/permissions"
+import { isStaff } from "../utils/permissions";
 import { config, unitTest } from "../const";
+import { client, ExtendedClient } from "../structures/client";
+import { mockClient } from "../tests/mocks";
 
 class PermissionHandler {
     public async checkForPermission(user: User, local: PermissionLocal, guild: Guild, permissionFlags: PermissionResolvable[], permissionLevel?: PermissionLevels): Promise<PermissionResult> {
@@ -20,7 +22,7 @@ class PermissionHandler {
                     return {status: true};
                 }));
                 if(local.onlyLocal) {
-                    if(permissionChecks.find((permissionCheck) => permissionCheck.status == false)) {
+                    if(permissionChecks.find((permissionCheck) => permissionCheck.status == false) || permissionChecks.length == 0) {
                         return {status: false, message: "You do not have permission to use this."};
                     } else {
                         return {status: true};
@@ -32,28 +34,24 @@ class PermissionHandler {
             }
         }
 
-        if(unitTest) {
-            return {status: true}
-        }
-
         switch(permissionLevel) {
             case PermissionLevels.REPRESENTATIVE: {
-                if(isRep(user)) {
+                if(isStaff.rep(user)) {
                     return {status: true};
                 }
             }
             case PermissionLevels.NAVIGATOR: {
-                if(isNavigator(user)) {
+                if(isStaff.navigator(user)) {
                     return {status: true};
                 }
             }
             case PermissionLevels.CONDUCTOR: {
-                if(isConductor(user)) {
+                if(isStaff.conductor(user)) {
                     return {status: true};
                 }
             }
             case PermissionLevels.DEV: {
-                if(isDev(user)) {
+                if(isStaff.dev(user)) {
                     return {status: true};
                 } else {
                     return {status: false, message: "You do not have permission to use this."};

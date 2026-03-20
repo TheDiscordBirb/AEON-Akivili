@@ -12,7 +12,6 @@ import { Logger } from "../../logger";
 import { databaseManager } from "../../structures/database";
 import { config } from "../../const";
 import { client } from "../../structures/client";
-import { doesUserOwnMessage } from "../../utils/permissions";
 import { MessagesRecord } from "../../types/database";
 import { NotificationType } from "../../types/event";
 import { notificationManager } from "../../functions/notification";
@@ -115,7 +114,7 @@ export default new Command({
 
         if (!permissionCheck.status) {
             deletedByMod = false;
-            if (!doesUserOwnMessage(relatedMessageRecords.find((relatedMessage) => relatedMessage.channelId === messageChannelId)?.userId, options.interaction.user.id)) {
+            if (relatedMessageRecords.find((relatedMessage) => relatedMessage.channelId === messageChannelId)?.userId === options.interaction.user.id) {
                 await options.interaction.reply({ content: "You do not have permission to delete this message.", ephemeral: true });
                 return;
             }
