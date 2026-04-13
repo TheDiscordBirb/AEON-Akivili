@@ -326,13 +326,13 @@ const createWebhookMessages = async (
     let nameSuffix = ` || ${interaction.guild.name}`;
 
     if (isStaff.navigator(interactionMember.user)) {
-        nameSuffix = ` | Navigator`;
+        nameSuffix = ` 「 Navigator 」` + nameSuffix;
     }
     if (isStaff.conductor(interactionMember.user)) {
-        nameSuffix = ` | Conductor`;
+        nameSuffix = ` 「 Conductor 」` + nameSuffix;
     }
     if (isStaff.dev(interactionMember.user)) {
-        nameSuffix = ` | Akivili Dev`;
+        nameSuffix = ` 「 Akivili Dev 」` + nameSuffix;
     }
 
     let activityIcon = "";

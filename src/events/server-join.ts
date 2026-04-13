@@ -1,16 +1,17 @@
 import { ClientUser, Collection, Guild, GuildMember, NonThreadGuildBasedChannel, Snowflake } from "discord.js";
 import { Event } from "../structures/event";
 import { notificationManager } from "../functions/notification";
-import { client } from "../structures/client";
+import { client, ExtendedClient } from "../structures/client";
 import { NotificationType } from "../types/event";
 import { config } from "../const";
+import { testDate } from "../tests/server-join.test";
 
 export default new Event("guildCreate", async (guild) => {
-    const notification = await serverJoinMakeNotification(guild);
+    const notification = await serverJoinMakeNotification(client, guild);
     await notificationManager.sendNotification(notification);
 });
 
-export const serverJoinMakeNotification = async (guild: Guild): Promise<{
+export const serverJoinMakeNotification = async (client: ExtendedClient, guild: Guild): Promise<{
     executingUser: ClientUser,
     notificationType: NotificationType,
     guild: Guild,
@@ -34,6 +35,6 @@ export const serverJoinMakeNotification = async (guild: Guild): Promise<{
         guild,
         guildData: {guildChannels, guildMembers},
         privateNotification: true,
-        time: Date.now()
+        time: testDate.time = Date.now()
     }
 }

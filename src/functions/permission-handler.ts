@@ -1,10 +1,14 @@
 import { Guild, PermissionResolvable, User } from "discord.js";
 import { PermissionLocal, PermissionResult } from "../structures/types";
 import { PermissionLevels } from "../types/permission-handler";
-import { isStaff } from "../utils/permissions";
+import { IsStaff } from "../utils/permissions";
 import { config } from "../const";
+import { client } from "../structures/client";
 
-class PermissionHandler {
+export class PermissionHandler {
+    constructor(protected isStaff: IsStaff) {
+        this.isStaff = isStaff;
+    }
     public async checkForPermission(user: User, local: PermissionLocal, guild: Guild, permissionFlags: PermissionResolvable[], permissionLevel?: PermissionLevels): Promise<PermissionResult> {
         if(config.suspendedPermissionUserIds.includes(user.id)) {
             return {status: false, message: "Your permissions are currently suspended."};
@@ -34,22 +38,22 @@ class PermissionHandler {
 
         switch(permissionLevel) {
             case PermissionLevels.REPRESENTATIVE: {
-                if(isStaff.rep(user)) {
+                if(this.isStaff.rep(user)) {
                     return {status: true};
                 }
             }
             case PermissionLevels.NAVIGATOR: {
-                if(isStaff.navigator(user)) {
+                if(this.isStaff.navigator(user)) {
                     return {status: true};
                 }
             }
             case PermissionLevels.CONDUCTOR: {
-                if(isStaff.conductor(user)) {
+                if(this.isStaff.conductor(user)) {
                     return {status: true};
                 }
             }
             case PermissionLevels.DEV: {
-                if(isStaff.dev(user)) {
+                if(this.isStaff.dev(user)) {
                     return {status: true};
                 } else {
                     return {status: false, message: "You do not have permission to use this."};
@@ -62,4 +66,4 @@ class PermissionHandler {
     }
 }
 
-export const permissionHandler = new PermissionHandler();
+export const permissionHandler = new PermissionHandler(new IsStaff(client));
