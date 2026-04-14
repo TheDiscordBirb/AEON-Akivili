@@ -3,7 +3,7 @@ import { getEnvVar } from "./utils/get-env-var"
 import { mockConfig } from "./unit-test-config";
 import { configType } from "./types/config";
 
-export const unitTest = true;
+export const unitTest = false;
 export let config: configType;
 if(!unitTest) {
     config = {

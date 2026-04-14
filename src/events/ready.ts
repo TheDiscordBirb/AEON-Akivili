@@ -31,7 +31,6 @@ export default new Event("clientReady", async () => {
     for await (const oauthGuild of guilds) {
         const guild = client.guilds.cache.get(oauthGuild[0]);
         if (!guild) continue;
-        console.log(client);
         let webhooks: Collection<string, Webhook<WebhookType.Incoming | WebhookType.ChannelFollower>>;
         try {
             await guild.members.fetch()

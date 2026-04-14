@@ -4,7 +4,6 @@ import { notificationManager } from "../functions/notification";
 import { client, ExtendedClient } from "../structures/client";
 import { NotificationType } from "../types/event";
 import { config } from "../const";
-import { testDate } from "../tests/server-join.test";
 
 export default new Event("guildCreate", async (guild) => {
     const notification = await serverJoinMakeNotification(client, guild);
@@ -16,7 +15,7 @@ export const serverJoinMakeNotification = async (client: ExtendedClient, guild: 
     notificationType: NotificationType,
     guild: Guild,
     guildData: {guildChannels: Collection<string, NonThreadGuildBasedChannel | null>, 
-        guildMembers: Collection<string, GuildMember>},
+    guildMembers: Collection<string, GuildMember>},
     privateNotification: boolean,
     time: number
 }> => {
@@ -35,6 +34,6 @@ export const serverJoinMakeNotification = async (client: ExtendedClient, guild: 
         guild,
         guildData: {guildChannels, guildMembers},
         privateNotification: true,
-        time: testDate.time = Date.now()
+        time: Date.now()
     }
 }

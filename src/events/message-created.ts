@@ -11,7 +11,8 @@ import {
     EmbedBuilder,
     Colors,
     DMChannel,
-    PermissionFlagsBits
+    PermissionFlagsBits,
+    Sticker
 } from "discord.js";
 import { Event } from "../structures/event";
 import axios from "axios";
@@ -34,14 +35,13 @@ import {
 import isApng from "is-apng";
 import * as apng from 'sharp-apng';
 import * as sharp from 'sharp';
-import { InteractionData } from '../types/message-created';
+import { Files, InteractionData } from '../types/message-created';
 import { crowdControl } from "../functions/crowd-control";
 import { modmailHandler } from "../functions/modmail";
 import { cacheManager } from "../structures/memcache";
 import { FilterOutput } from "../types/message-filter";
 import { messageFilter } from "../functions/message-filter";
 import { notificationManager } from "../functions/notification";
-import { aprilFools2026 } from "../utils/april-fools2026";
 
 
 const logger = new Logger('MessageCreated');
@@ -59,7 +59,7 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
         if(!filterData.resultClean) return;
         const { interactionMember, channelWebhookBroadcast, broadcastRecords } = interactionData;
         const webhookChannelType = channelWebhookBroadcast.channelType;
-        const files = await convertStickersAndImagesToFiles(interaction);
+        const {accepted: files, rejected: rejectedFiles} = await convertStickersAndImagesToFiles(interaction);
         const emojiReplacement = await replaceEmojis(interaction.content, client);
 
         await interaction.delete();
@@ -69,7 +69,7 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
             cc = await crowdControl.crowdControl(webhookChannelType, interaction, interactionMember, emojiReplacement);
         }
         if(!cc) {
-            sentMessage = await createWebhookMessages(broadcastRecords, webhookChannelType, interaction, interactionMember, files, emojiReplacement);
+            sentMessage = await createWebhookMessages(broadcastRecords, webhookChannelType, interaction, interactionMember, files, rejectedFiles, emojiReplacement);
         } else {
             return;
         }
@@ -95,9 +95,8 @@ export default new Event("messageCreate", async (interaction) => {
         switch(channelType) {
             case ChannelType.DM:
                 if(interaction.author == client.user || config.activeBanshareFuncionUserIds.includes(interaction.author.id)) return;
-                let modmail;
                 try {
-                    modmail = await databaseManager.getModmailByUserId(interaction.author.id);
+                    await databaseManager.getModmailByUserId(interaction.author.id);
                     await modmailHandler.forwardModmailMessage(interaction);
                     return;
                 } catch (error) {
@@ -127,7 +126,7 @@ const getInteractionData = async (interaction: Message<boolean> ): Promise<Inter
     if(!webhook) return;
     const interactionMember = interaction.member;
     if (!interactionMember) throw new Error('No interaction member defined.');
-    if (interactionMember.user.id === client.user?.id) throw new Error('Could not determine user id.') ;
+    if (interactionMember.user.id === client.user?.id) return;
     if (await databaseManager.hasUserBeenMutedOnNetworkChat(interactionMember.user.id)) {
         throw new Error('User is muted.');
     };
@@ -162,8 +161,9 @@ const getInteractionData = async (interaction: Message<boolean> ): Promise<Inter
         webhook
     }
 }
-const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): Promise<AttachmentBuilder[]> => {
+const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): Promise<Files> => {
     const files: AttachmentBuilder[] = [];
+    const rejectedFiles: string[] = [];
     const broadcasts = await databaseManager.getBroadcasts();
     const broadcastGuildIds: string[] = [];
     broadcasts.forEach((broadcast) => {
@@ -172,7 +172,14 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
     
     const downloadedStickers = (await Promise.allSettled(interaction.stickers.map(async (interactionSticker) => {
         let stickerBuffer;
-        const sticker = await interactionSticker.fetch();
+        let sticker: Sticker;
+        try {
+            sticker = await interactionSticker.fetch();
+        } catch(e) {
+            logger.error((e as Error).message, (e as Error));
+            rejectedFiles.push(interactionSticker.name);
+            return undefined;
+        }
         const cachedSticker = await cacheManager.retrieveCache('sticker', sticker.id);
         if(cachedSticker) {
             return new AttachmentBuilder(cachedSticker, { name: `${sticker.name}${isApng(cachedSticker) ? ".gif" : ".png"}` });
@@ -182,16 +189,24 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
             if (config.enableStickers) {
                 stickerBuffer = await axios.get(sticker.url, { responseType: 'arraybuffer' })
             } else {
+                rejectedFiles.push(interactionSticker.name);
                 return undefined;
             }
         } else {
+                rejectedFiles.push(interactionSticker.name);
             return undefined;
         }
 
         let watermarkText = sticker.guild?.name;
         if(!watermarkText){
+            rejectedFiles.push(interactionSticker.name);
             return undefined;
         }
+        watermarkText = watermarkText
+            .replaceAll("&", "&amp;")
+            .replaceAll(/</g, "&lt;")
+            .replaceAll(/>/g, "&gt;")
+            .replaceAll(/"/g, "&quot;");
         const isGif = isApng(Buffer.from(stickerBuffer.data, 'utf-8'));
         let sharpAttachment;
         if (isGif) {
@@ -224,7 +239,14 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
             `;
         const watermarkBuffer = Buffer.from(watermark);
         const watermarked = sharpAttachment.composite([{input: watermarkBuffer, gravity: 'northeast', 'tile': true}]);
-        const watermarkedStickerBuffer = await (watermarked as sharp.Sharp).toBuffer();
+        let watermarkedStickerBuffer: Buffer<ArrayBufferLike>;
+        try {
+            watermarkedStickerBuffer = await (watermarked as sharp.Sharp).toBuffer();
+        } catch(error) {
+            logger.error((error as Error).message, error as Error);
+            rejectedFiles.push(interactionSticker.name);
+            return undefined;
+        }
         await cacheManager.saveCache('sticker', sticker.id, watermarkedStickerBuffer as Buffer<ArrayBuffer>)
 
         const attachBuffer = new AttachmentBuilder(watermarkedStickerBuffer, { name: `${sticker.name}${isGif ? ".gif" : ".png"}` });
@@ -254,7 +276,7 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
     }, []);
 
     files.push(...downloadedAttachments, ...downloadedStickers);
-    return files;
+    return {accepted: files, rejected: rejectedFiles};
 }
 
 const dmMessageResponse = async (interaction: Message<boolean>): Promise<void> => {
@@ -300,39 +322,32 @@ const createWebhookMessages = async (
     interaction: Message<boolean>,
     interactionMember: GuildMember,
     files: AttachmentBuilder[],
+    rejectedFiles: string[],
     emojiReplacement: EmojiReplacementData): Promise<{ MessagesRecord: MessagesRecord, notify: boolean } | undefined> => {
     // This checks if a message had stickers that didn't get converted and notifies the user
-    if (interaction.stickers.size && !files.length) {
+    if (rejectedFiles.length) {
         if (!interaction.member) {
-            await interaction.reply({ content: "Sorry, this sticker is not in the AEON Network or the server asked us to not use their stickers, as such it can not be used here." });
+            await interaction.reply({ content: `Sorry, "${rejectedFiles[0]}" sticker does not exist in the AEON Network or the server asked us to not use their stickers, as such it can not be used here.` });
         }
-        await interaction.member?.send({ content: "Sorry, this sticker is not in the AEON Network or the server asked us to not use their stickers, as such it can not be used here." });
+        await interaction.member?.send({ content: `Sorry, "${rejectedFiles[0]}" sticker does not  exist in the AEON Network or the server asked us to not use their stickers, as such it can not be used here.` });
         return;
-    }
-
-    const aprilFoolsCheck = new Date().getMonth() == 4 && new Date().getDate() == 1;
-
-    if(aprilFoolsCheck) {
-        return await aprilFools2026(
-            broadcastRecords,
-            webhookChannelType,
-            interaction,
-            interactionMember,
-            files,
-            emojiReplacement);
     }
     
     if (!interaction.guild) return undefined;
     let nameSuffix = ` || ${interaction.guild.name}`;
+    let genRole = false;
 
-    if (isStaff.navigator(interactionMember.user)) {
-        nameSuffix = ` 「 Navigator 」` + nameSuffix;
-    }
-    if (isStaff.conductor(interactionMember.user)) {
-        nameSuffix = ` 「 Conductor 」` + nameSuffix;
-    }
-    if (isStaff.dev(interactionMember.user)) {
+    if (isStaff.dev(interactionMember.user) && !genRole) {
         nameSuffix = ` 「 Akivili Dev 」` + nameSuffix;
+        genRole = true;
+    }
+    if (isStaff.conductor(interactionMember.user) && !genRole) {
+        nameSuffix = ` 「 Conductor 」` + nameSuffix;
+        genRole = true;
+    }
+    if (isStaff.navigator(interactionMember.user) && !genRole) {
+        nameSuffix = ` 「 Navigator 」` + nameSuffix;
+        genRole = true;
     }
 
     let activityIcon = "";
@@ -478,7 +493,14 @@ const createWebhookMessages = async (
         }
         let avatarURL = (interactionMember.avatarURL() ? interactionMember.avatarURL() : interactionMember.displayAvatarURL()) ?? undefined;
         let username = `${interactionMember.nickname ? interactionMember.nickname : interactionMember.displayName}`;
-        username = username.replaceAll("💵", "").replaceAll("💎", "").replaceAll("👑", "") + nameSuffix;
+        username = username
+            .replaceAll("💵", "")
+            .replaceAll("💎", "")
+            .replaceAll("👑", "")
+            .replaceAll("「 Conductor 」", "")
+            .replaceAll("「 Akivili Dev 」", "")
+            .replaceAll("「 Navigator 」", "")
+            + nameSuffix;
         const customProfile = await databaseManager.getCustomProfile(interactionMember.id);
         if (customProfile) {
             avatarURL = customProfile.avatarUrl;
