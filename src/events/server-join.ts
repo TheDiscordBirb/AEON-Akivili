@@ -7,7 +7,7 @@ import { config } from "../const";
 
 export default new Event("guildCreate", async (guild) => {
     const notification = await serverJoinMakeNotification(client, guild);
-    await notificationManager.sendNotification(notification);
+    await notificationManager.sendNotification({...notification, time: Date.now()});
 });
 
 export const serverJoinMakeNotification = async (client: ExtendedClient, guild: Guild): Promise<{
@@ -16,8 +16,7 @@ export const serverJoinMakeNotification = async (client: ExtendedClient, guild: 
     guild: Guild,
     guildData: {guildChannels: Collection<string, NonThreadGuildBasedChannel | null>, 
     guildMembers: Collection<string, GuildMember>},
-    privateNotification: boolean,
-    time: number
+    privateNotification: boolean
 }> => {
     if(config.botStarting) throw new Error("Bot is starting");
     let guildMembers: Collection<Snowflake, GuildMember>;
@@ -33,7 +32,6 @@ export const serverJoinMakeNotification = async (client: ExtendedClient, guild: 
         notificationType: NotificationType.SERVER_JOIN,
         guild,
         guildData: {guildChannels, guildMembers},
-        privateNotification: true,
-        time: Date.now()
+        privateNotification: true
     }
 }

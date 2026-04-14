@@ -334,11 +334,11 @@ const createWebhookMessages = async (
     }
     
     if (!interaction.guild) return undefined;
-    let nameSuffix = ` || ${interaction.guild.name}`;
+    let nameSuffix = `|| ${interaction.guild.name}`;
     let genRole = false;
 
     if (isStaff.dev(interactionMember.user) && !genRole) {
-        nameSuffix = ` 「 Akivili Dev 」` + nameSuffix;
+        nameSuffix = `「 Akivili Dev 」` + nameSuffix;
         genRole = true;
     }
     if (isStaff.conductor(interactionMember.user) && !genRole) {
@@ -500,6 +500,7 @@ const createWebhookMessages = async (
             .replaceAll("「 Conductor 」", "")
             .replaceAll("「 Akivili Dev 」", "")
             .replaceAll("「 Navigator 」", "")
+            + (genRole ? "" : " ")
             + nameSuffix;
         const customProfile = await databaseManager.getCustomProfile(interactionMember.id);
         if (customProfile) {

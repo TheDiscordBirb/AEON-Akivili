@@ -5,7 +5,6 @@ import { Guild } from "discord.js"
 import { config } from "../const"
 import { NotificationType } from "../types/event"
 
-export let dateNow = 0;
 const networkGuild1 = networkGuilds[0];
 test("Server joins during startup", async () => {
     config.botStarting = true;
@@ -36,8 +35,7 @@ test("Server join successful", async () => {
                 guildChannels: await networkGuild1.guild.channels?.fetch(),
                 guildMembers: await networkGuild1.guild.members?.fetch()
             },
-            privateNotification: true,
-            time: testDate.time
+            privateNotification: true
         });
 })
 
