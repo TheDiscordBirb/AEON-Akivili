@@ -2,7 +2,6 @@ import { Command } from '../../structures/command';
 import { GuildMember, PermissionFlagsBits } from 'discord.js'
 import { Logger } from '../../logger';
 import { databaseManager } from '../../structures/database';
-import { client } from '../../structures/client';
 import { banshareManager } from '../../functions/banshare';
 import { permissionHandler } from '../../functions/permission-handler';
 import { PermissionLevels } from '../../types/permission-handler';
@@ -20,6 +19,8 @@ export default new Command({
             await options.interaction.reply({ content: "To have a complete paper trail of every banshare, this command can only be used in servers", ephemeral: true });
             return;
         }
+        const client = options.client;
+
         const broadcasts = await databaseManager.getBroadcasts();
         const permissionCheck = await permissionHandler.checkForPermission(
                 options.interaction.user,

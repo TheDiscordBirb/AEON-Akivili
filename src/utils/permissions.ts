@@ -1,7 +1,7 @@
 import { User, Guild } from "discord.js";
-import { config, unitTest } from "../const";
+import { config } from "../const";
 import { Logger } from "../logger";
-import { client, ExtendedClient } from "../structures/client";
+import { clients, ExtendedClient } from "../structures/client";
 
 const logger = new Logger("permUtils");
 
@@ -42,4 +42,4 @@ export class IsStaff {
     }
 }
 
-export const isStaff = new IsStaff(client);
+export const isStaff = new IsStaff(clients[0]);

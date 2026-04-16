@@ -1,16 +1,19 @@
-import { Colors, EmbedBuilder, GuildTextBasedChannel } from "discord.js";
+import { Client, Colors, EmbedBuilder, GuildTextBasedChannel } from "discord.js";
 import { NotificationData } from "../types/notification";
 import { NotificationType } from "../types/event";
-import { client } from "../structures/client";
 import { config } from "../const";
 import { Logger } from "../logger";
+import { clients } from "../structures/client";
 
 const logger = new Logger("Notification");
 
 
 class NotificationManager {
+    constructor(protected client: Client) {
+        this.client = client;
+    }
     public async sendNotification(data: NotificationData) {
-        const notificationChannel = client.channels.cache.find((clientChannel) => clientChannel.id === (data.privateNotification ? config.privateNotificationChannelId : config.publicNotificationChannelId ));
+        const notificationChannel = this.client.channels.cache.find((clientChannel) => clientChannel.id === (data.privateNotification ? config.privateNotificationChannelId : config.publicNotificationChannelId ));
         if (!notificationChannel) {
             logger.warn(`No notification channel found`);
             return;
@@ -141,4 +144,4 @@ class NotificationManager {
     }
 }
 
-export const notificationManager = new NotificationManager();
+export const notificationManager = new NotificationManager(clients[0]);

@@ -1,13 +1,14 @@
-import { Guild, PermissionResolvable, User } from "discord.js";
+import { Client, Guild, PermissionResolvable, User } from "discord.js";
 import { PermissionLocal, PermissionResult } from "../structures/types";
 import { PermissionLevels } from "../types/permission-handler";
 import { IsStaff } from "../utils/permissions";
 import { config } from "../const";
-import { client } from "../structures/client";
+import { clients } from "../structures/client";
 
 export class PermissionHandler {
-    constructor(protected isStaff: IsStaff) {
+    constructor(protected isStaff: IsStaff, protected client: Client) {
         this.isStaff = isStaff;
+        this.client = client;
     }
     public async checkForPermission(user: User, local: PermissionLocal, guild: Guild, permissionFlags: PermissionResolvable[], permissionLevel?: PermissionLevels): Promise<PermissionResult> {
         if(config.suspendedPermissionUserIds.includes(user.id)) {
@@ -66,4 +67,4 @@ export class PermissionHandler {
     }
 }
 
-export const permissionHandler = new PermissionHandler(new IsStaff(client));
+export const permissionHandler = new PermissionHandler(new IsStaff(clients[0]), clients[0]);

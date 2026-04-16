@@ -1,5 +1,5 @@
 import { TextChannel, Message, User } from "discord.js";
-import { client } from "../structures/client";
+import { clients } from "../structures/client";
 import { databaseManager } from "../structures/database";
 import { Event } from "../structures/event";
 import { Logger } from "../logger";
@@ -14,6 +14,13 @@ export default new Event("messageDelete", async (interaction) => {
     if(config.botStarting) return;
     if (!interaction.webhookId) return;
     if (!interaction.guild) return;
+    const guildId = interaction.guildId;
+    if(!guildId) return;
+    const client = clients.find((client) => client.guilds.cache.has(guildId));
+    if(!client) {
+        logger.warn(`Could not get bot client for ${interaction.guildId}`);
+        return;
+    }
 
     let referencedMessages: MessagesRecord[];
     try {

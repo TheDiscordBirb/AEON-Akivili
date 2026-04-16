@@ -7,6 +7,7 @@ export const unitTest = false;
 export let config: configType;
 if(!unitTest) {
     config = {
+        tokens: getEnvVar<string>("DISCORD_TOKENS").split(" "),
         activeBanshareFuncionUserIds: [] as string[],
         activeWebhooks: [] as Webhook[],
         aeonBanshareChannelId: getEnvVar<string>("AEON_BANSHARE_CHANNEL_ID"),

@@ -2,7 +2,6 @@ import { Command } from '../../structures/command';
 import { EmbedBuilder, Guild, PermissionFlagsBits} from 'discord.js'
 import { databaseManager } from '../../structures/database'; 
 import { Logger } from '../../logger';
-import { client } from '../../structures/client';
 import { permissionHandler } from '../../functions/permission-handler';
 import { PermissionLevels } from '../../types/permission-handler';
 
@@ -19,6 +18,8 @@ export default new Command({
             await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
             return;
         }
+        
+        const client = options.client;
         
         const permissionCheck = await permissionHandler.checkForPermission(
             options.interaction.user,

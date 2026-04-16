@@ -9,12 +9,14 @@ import {
 import { MessagesRecord } from '../types/database';
 import { databaseManager } from '../structures/database';
 import { Logger } from '../logger';
-import { client } from '../structures/client';
 import { Time } from './time';
+import { clients } from '../structures/client';
 
 const logger = new Logger("pingUtils");
 
 export const networkChannelPingNotificationEmbedBuilder = async (pingedUserId: string, message: Message, networkMessage: MessagesRecord | undefined, networkUser: User, replyMessage?: MessagesRecord): Promise<{ EmbedBuilder: EmbedBuilder, Attachments: Attachment[] } | undefined> => {
+    const client = clients.find((client) => client.guilds.cache.has(message.inGuild() ? message.guildId : ""));
+    if(!client) return;
     const pingedUser = client.users.cache.get(pingedUserId);
     if (!pingedUser) {
         logger.warn(`Could not find user with id ${pingedUserId}`);

@@ -4,21 +4,24 @@ import {
     ButtonBuilder,
     ButtonStyle,
     TextChannel,
-    GuildTextBasedChannel
+    GuildTextBasedChannel,
+    Client
 } from "discord.js";
 import { JoinData } from "../types/database";
-import { client } from "../structures/client";
 import { config } from "../const";
 import { databaseManager } from "../structures/database";
 import { BanShareButtonArg } from "../types/event";
 import { Logger } from "../logger";
 import { NetworkJoinOptions } from "../types/command";
 import { rebuildNetworkInfoEmbeds } from "../utils/rebuild-comps";
+import { clients } from "../structures/client";
 
 const logger = new Logger('JoinHandler');
 
 class JoinHandler {
     public async requestNetworkAccess(data: JoinData) {
+        const client = clients.find((client) => client.guilds.cache.has(data.guild.id));
+        if(!client) return;
         const requestEmbed = new EmbedBuilder()
             .setTitle(`New join request`)
             .setDescription(`**Network:** Aeon ${data.type}\n**Guild:** ${data.guild.name} | ${data.guild.id}\n**Channel:** ${data.channel.name} | ${data.channel.id}\n**User:** ${data.user} | ${data.user.id}`)
@@ -48,6 +51,8 @@ class JoinHandler {
     }
 
     public async acceptNetworkAccessRequest(data: JoinData) {
+        const client = clients.find((client) => client.guilds.cache.has(data.guild.id));
+        if(!client) return;
         data.channel.createWebhook({
             name: `Aeon ${data.type}`,
             avatar: client.user?.displayAvatarURL()

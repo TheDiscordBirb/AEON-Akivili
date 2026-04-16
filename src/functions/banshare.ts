@@ -17,16 +17,20 @@ import { BanshareData } from "../types/database";
 import { config } from "../const";
 import { databaseManager } from "../structures/database";
 import { BanShareButtonArg, BanshareStatus, DmMessageButtonArg } from "../types/event";
-import { client } from "../structures/client";
 import { Logger } from "../logger";
 import { AutoBanLevelOptions, RunOptions } from "../types/command";
 import { Time } from "../utils/time";
+import { clients } from "../structures/client";
 
 const logger = new Logger("Banshare");
 
 class BanshareManager {
-    public async requestBanshare(data: BanshareData, client: Client, submitter: User, guildOfOrigin: Guild) {
-        const mainChannel = client.channels.cache.get(config.aeonBanshareChannelId);
+    constructor(protected client: Client) {
+        this.client = client;
+    }
+
+    public async requestBanshare(data: BanshareData, submitter: User, guildOfOrigin: Guild) {
+        const mainChannel = this.client.channels.cache.get(config.aeonBanshareChannelId);
         if (!mainChannel) {
             logger.warn(`Could not get main channel`);
             return;
@@ -131,7 +135,7 @@ class BanshareManager {
             
             
             if (importantBansharePing) {
-                const broadcastGuild = client.guilds.cache.find((guild) => guild.id === broadcast.guildId);
+                const broadcastGuild = this.client.guilds.cache.find((guild) => guild.id === broadcast.guildId);
                 if (!broadcastGuild) {
                     logger.warn(`Could not get broadcast guild`);
                     return undefined;
@@ -181,7 +185,7 @@ class BanshareManager {
                         const broadcasts = await databaseManager.getBroadcasts();
                         const correctBroadcast = broadcasts.find((broadcast) => broadcast.webhookId === awaitedWebhookMessage.webhook.id);
                         if (!correctBroadcast) return;
-                        const guild = client.guilds.cache.get(correctBroadcast.guildId);
+                        const guild = this.client.guilds.cache.get(correctBroadcast.guildId);
                         if (!guild) return;
                         await guild.bans.create(dataUserId);
                         await databaseManager.updateBanshareStatus(awaitedWebhookMessage.serverId, awaitedWebhookMessage.userId, BanshareStatus.ENFORCED);
@@ -194,7 +198,7 @@ class BanshareManager {
         let interactionMember: GuildMember;
         try {
             let proof = true;
-            const guild = client.guilds.cache.get(guildId);
+            const guild = this.client.guilds.cache.get(guildId);
             if (!guild) throw new Error("Could not get valid server id.");
 
             if (options) {
@@ -219,7 +223,7 @@ class BanshareManager {
             
             await (interactionMember.user as User).createDM();
             const dmBanshareEmbed = new EmbedBuilder()
-                .setAuthor({ name: client.user?.username ?? "Akivili", iconURL: client.user?.avatarURL() ?? undefined })
+                .setAuthor({ name: this.client.user?.username ?? "Akivili", iconURL: this.client.user?.avatarURL() ?? undefined })
                 .setColor(Colors.DarkGold)
                 .setTitle("Banshare request process started.")
                 .setDescription("Please input the id of a single user id:")
@@ -235,7 +239,7 @@ class BanshareManager {
                     }
                     return;
                 }
-                const targetUser = client.users.cache.get(firstUserIdMessage.content);
+                const targetUser = this.client.users.cache.get(firstUserIdMessage.content);
                 data.user = targetUser ?? firstUserIdMessage.content;
                 
                 dmBanshareEmbed.setTitle("Banshare request process in progress.");
@@ -317,7 +321,7 @@ class BanshareManager {
                     }
                     return;
                 }
-                await banshareManager.requestBanshare(data, client, interactionMember.user, guild);
+                await banshareManager.requestBanshare(data, interactionMember.user, guild);
             } catch (error) {
                 logger.error('Could not send banshare', error as Error);
                 dmBanshareEmbed.setTitle("There was an error with the banshare");
@@ -344,4 +348,4 @@ class BanshareManager {
     }
 }
 
-export const banshareManager = new BanshareManager();
+export const banshareManager = new BanshareManager(clients[0]);

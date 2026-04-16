@@ -1,5 +1,5 @@
 require("dotenv").config();
-import { client } from "./structures/client";
+import { clients } from "./structures/client";
 import { Logger } from "./logger";
 import { config } from "./const";
 import * as fs from 'fs';
@@ -40,4 +40,6 @@ process.on('uncaughtException', (err) => {
     console.log(`Uncaught exception: ${err}`);
 })
 
-client.start();
+for(const client of clients) {
+    client.start();
+}

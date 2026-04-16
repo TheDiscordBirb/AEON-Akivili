@@ -3,7 +3,6 @@ import { BaseGuildTextChannel, ChannelType, Guild, MessageFlags, PermissionFlags
 import { Logger } from '../../logger';
 import { databaseManager } from '../../structures/database';
 import { config } from '../../const';
-import { client } from '../../structures/client';
 import { permissionHandler } from '../../functions/permission-handler';
 
 const logger = new Logger('DisconnectCmd');
@@ -18,6 +17,8 @@ export default new Command({
             await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
             return;
         }
+
+        const client = options.client;
 
         const channel = options.interaction.channel as BaseGuildTextChannel;
         if (channel.type !== ChannelType.GuildText) return;

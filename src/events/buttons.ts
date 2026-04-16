@@ -1,6 +1,7 @@
 import {
     ActionRowBuilder,
     ButtonBuilder,
+    Client,
     ButtonStyle,
     GuildMember,
     TextChannel,
@@ -18,7 +19,6 @@ import { banshareManager } from "../functions/banshare";
 import { Event } from "../structures/event";
 import { deleteEmojis, replaceEmojis } from "../utils/emoji";
 import { rebuildMessageComponentAfterUserInteraction } from "../utils/rebuild-comps"
-import { client } from "../structures/client";
 import { joinHandler } from "../functions/join-handler";
 import { Logger } from "../logger";
 import { BanShareButtonArg, BanshareStatus, DmMessageButtonArg } from "../types/event";
@@ -28,10 +28,18 @@ import { ChannelType } from "discord.js";
 import { MessagesRecord } from "../types/database";
 import { modmailHandler } from "../functions/modmail";
 import { permissionHandler } from "../functions/permission-handler";
+import { clients } from "../structures/client";
 
 const logger = new Logger("Buttons");
 
 export default new Event("interactionCreate", async (interaction) => {
+    const guildId = interaction.guildId;
+    if(!guildId) return;
+    const client = clients.find((client) => client.guilds.cache.has(guildId));
+    if(!client) {
+        logger.warn(`Could not get bot client for ${interaction.guildId}`);
+        return;
+    }
     if(config.botStarting) return;
     if (!interaction.isButton()) return;
     await interaction.deferUpdate();
@@ -70,11 +78,11 @@ export default new Event("interactionCreate", async (interaction) => {
     const standardEmojiRegex = new RegExp(/%[A-Z0-9][A-Z0-9]/gm);
 
     if (!!buttonCustomId.match(customEmojiRegex) || !!buttonCustomId.match(standardEmojiRegex)) {
-        await emojiButtonFunction(interaction);
+        await emojiButtonFunction(client, interaction);
         return;
     }
 
-    await moderationButtonFunction(interaction, guildMember);
+    await moderationButtonFunction(client, interaction, guildMember);
 })
 
 const errorButtonFunction = async (interaction: ButtonInteraction<CacheType>): Promise<void> => {
@@ -129,7 +137,7 @@ const checkForGuildMember = async (interaction: ButtonInteraction<CacheType>): P
     throw new Error("Could not get guild member from button press.");
 }
 
-const emojiButtonFunction = async (interaction: ButtonInteraction<CacheType>): Promise<void> => {
+const emojiButtonFunction = async (client: Client, interaction: ButtonInteraction<CacheType>): Promise<void> => {
     let userMessageId: string;
     try {
         userMessageId = await databaseManager.getMessageUid(interaction.channelId, interaction.message.id);
@@ -216,7 +224,7 @@ const emojiButtonFunction = async (interaction: ButtonInteraction<CacheType>): P
     await deleteEmojis(emojiReplacement);
 }
 
-const moderationButtonFunction = async (interaction: ButtonInteraction<CacheType>, guildMember: GuildMember): Promise<void> => {
+const moderationButtonFunction = async (client: Client, interaction: ButtonInteraction<CacheType>, guildMember: GuildMember): Promise<void> => {
     const permissionCheck = await permissionHandler.checkForPermission(
         guildMember.user,
         {local: true, onlyLocal: true},

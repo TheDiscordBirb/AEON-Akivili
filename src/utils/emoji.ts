@@ -1,13 +1,13 @@
 import { Client, GuildEmoji, } from 'discord.js';
 import { EmojiReplacementData, guildEmojiCooldowns } from '../types/event';
 import { Logger } from '../logger';
-import { client } from '../structures/client';
 import axios from 'axios';
 import { config } from '../const';
 import { cacheManager } from '../structures/memcache';
 import { ParsedEmoji } from '../types/utils';
 import { Time } from './time';
 import { makeUid } from './misc';
+import { clients } from '../structures/client';
 
 const logger = new Logger("emojiUtils");
 
@@ -120,6 +120,8 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
 }
 
 export const deleteEmojis = async (emojiReplacement: EmojiReplacementData | undefined): Promise<void> => {
+    const client = clients.find((client) => client.guilds.cache.has(config.emojiServerIds[0]));
+    if(!client) return;
     if(!emojiReplacement) return;
     await Promise.allSettled(emojiReplacement.emojis.map(async (emoji) => {
         const guildEmoji = client.emojis.cache.get(emoji.id)

@@ -1,6 +1,7 @@
 import {
     AttachmentBuilder,
     BaseGuildTextChannel,
+    Client,
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
@@ -18,9 +19,9 @@ import { Event } from "../structures/event";
 import axios from "axios";
 import { databaseManager } from '../structures/database';
 import { ulid } from "ulid";
-import { config, unitTest } from "../const";
+import { config } from "../const";
 import { Logger } from "../logger";
-import { client } from "../structures/client";
+import { clients } from "../structures/client";
 import { CustomId, DmMessageButtonArg, EmojiReplacementData, NotificationType } from "../types/event";
 import { BroadcastRecord, MessagesRecord } from "../types/database";
 import { metrics } from "../structures/metrics";
@@ -46,14 +47,15 @@ import { notificationManager } from "../functions/notification";
 
 const logger = new Logger('MessageCreated');
 
-const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void> => {
+const messageCreatedEvent = async (client: Client, interaction: Message<boolean>): Promise<void> => {
     try {
         try {
             await databaseManager.getModmail(interaction.channelId);
             return;
         } catch(error) {
         }
-        const interactionData = await getInteractionData(interaction);
+        
+        const interactionData = await getInteractionData(client, interaction);
         if(!interactionData) return;
         const filterData = await filterHandling(interaction);
         if(!filterData.resultClean) return;
@@ -69,7 +71,7 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
             cc = await crowdControl.crowdControl(webhookChannelType, interaction, interactionMember, emojiReplacement);
         }
         if(!cc) {
-            sentMessage = await createWebhookMessages(broadcastRecords, webhookChannelType, interaction, interactionMember, files, rejectedFiles, emojiReplacement);
+            sentMessage = await createWebhookMessages(client, broadcastRecords, webhookChannelType, interaction, interactionMember, files, rejectedFiles, emojiReplacement);
         } else {
             return;
         }
@@ -77,7 +79,7 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
             logger.warn("Could not send message.");
         }
         if (sentMessage?.notify) {
-            await sendNotification(interaction, interactionMember, sentMessage?.MessagesRecord);
+            await sendNotification(client, interaction, interactionMember, sentMessage?.MessagesRecord);
         }
         if (emojiReplacement.emojis.length) {
             await deleteEmojis(emojiReplacement);
@@ -90,6 +92,13 @@ const messageCreatedEvent = async (interaction: Message<boolean>): Promise<void>
 export default new Event("messageCreate", async (interaction) => {
     if(config.botStarting) return;
     const metricId = metrics.start(TimeSpanMetricLabel.MESSAGE_CREATED);
+    const guildId = interaction.guildId;
+    if(!guildId) return;
+    const client = clients.find((client) => client.guilds.cache.has(guildId));
+    if(!client) {
+        logger.warn(`Could not get bot client for ${interaction.guildId}`);
+        return;
+    }
     try {
         const channelType = interaction.channel.type;
         switch(channelType) {
@@ -101,10 +110,10 @@ export default new Event("messageCreate", async (interaction) => {
                     return;
                 } catch (error) {
                 }
-                await dmMessageResponse(interaction);
+                await dmMessageResponse(client,interaction);
                 break;
             default:
-                await messageCreatedEvent(interaction);
+                await messageCreatedEvent(client, interaction);
                 break;
         }
     } catch (error) {
@@ -120,7 +129,7 @@ export default new Event("messageCreate", async (interaction) => {
     metrics.stop(metricId);
 });
 
-const getInteractionData = async (interaction: Message<boolean> ): Promise<InteractionData | undefined> => {
+const getInteractionData = async (client: Client, interaction: Message<boolean> ): Promise<InteractionData | undefined> => {
     if (interaction.webhookId) return;
     const webhook = config.activeWebhooks.find((webhook) => webhook.channelId === interaction.channelId);
     if(!webhook) return;
@@ -279,7 +288,7 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
     return {accepted: files, rejected: rejectedFiles};
 }
 
-const dmMessageResponse = async (interaction: Message<boolean>): Promise<void> => {
+const dmMessageResponse = async (client: Client, interaction: Message<boolean>): Promise<void> => {
     const dmResponseEmbed = new EmbedBuilder()
         .setTitle("Dm message received")
         .setDescription("Please select one of the following:")
@@ -317,6 +326,7 @@ const dmMessageResponse = async (interaction: Message<boolean>): Promise<void> =
 }
 
 const createWebhookMessages = async (
+    client: Client,
     broadcastRecords: BroadcastRecord[],
     webhookChannelType: string,
     interaction: Message<boolean>,
@@ -583,7 +593,7 @@ const createWebhookMessages = async (
     return sentMessage;
 }
 
-const sendNotification = async (interaction: Message<boolean>, interactionMember: GuildMember, sentMessage?: MessagesRecord): Promise<void> => {
+const sendNotification = async (client: Client, interaction: Message<boolean>, interactionMember: GuildMember, sentMessage?: MessagesRecord): Promise<void> => {
     let uniqueInteractionMentions = [...new Set(interaction.mentions.users)];
     if (interaction.reference) {
         if (!interaction.reference.messageId) {

@@ -1,5 +1,4 @@
-import { GuildTextBasedChannel, Collection, Webhook, WebhookType, Guild, BaseGuildTextChannel } from "discord.js";
-import { client } from "../structures/client";
+import { GuildTextBasedChannel, Collection, Webhook, WebhookType, Guild, BaseGuildTextChannel, Client } from "discord.js";
 import { Event } from "../structures/event";
 import { Logger } from '../logger';
 import { databaseManager } from "../structures/database";
@@ -8,17 +7,17 @@ import { statusUpdate } from "../utils/misc";
 import cron from 'node-cron';
 import { messageFilter } from "../functions/message-filter";
 import { NetworkJoinOptions } from "../types/command";
+import { clients } from "../structures/client";
 
 const logger = new Logger('Ready');
 
-export default new Event("clientReady", async () => {
+export default new Event("clientReady", async (client: Client) => {
     const messagesInDb = await databaseManager.totalMessageLogs();
     logger.info(`There ${messagesInDb >= 100000 ? "were" : "are"} ${messagesInDb} messages in Db.`);
     if(messagesInDb >= 100000) {
         await databaseManager.cleanDb(Date.now());
     }
     await messageFilter.addToFilterArray(await databaseManager.getFilteredWords());
-    logger.info(`${client.user?.username} is online`);
     const guilds = await client.guilds.fetch();
     const broadcasts = await databaseManager.getBroadcasts();
     const chatBroadcasts = broadcasts.filter((broadcast) => !config.nonChatWebhooksTypes.includes(broadcast.channelType));
@@ -109,6 +108,7 @@ export default new Event("clientReady", async () => {
     await Promise.all(noBroadcastGuilds.map((noBroadcastGuild) => {
         logger.info(`${noBroadcastGuild.name} ${noBroadcastGuild.id}\nMembers: ${noBroadcastGuild.memberCount} Channels: ${noBroadcastGuild.channels.cache.size}`);
     }))
+    await botsReady();
     config.botStarting = false;
     await Promise.all(textWebhooks.map(async (webhook) => {
         try {
@@ -129,3 +129,9 @@ export default new Event("clientReady", async () => {
     //    await experimentalPatchWarning();
     //})
 });
+
+const botsReady = async () => {
+    for(const client of clients) {
+        logger.info(`${client.user?.username} is online`);
+    }
+}

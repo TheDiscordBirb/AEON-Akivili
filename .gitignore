@@ -8,7 +8,7 @@
 node_modules
 # These are only required for my instance of Akivili, such as a restart for the raspberry
 /src/commands/birb
-# I dont complite the ts code into js, but just for safety
+# I dont compile the ts code into js, but just for safety
 /dist
 # You dont need my vs code settings
 .vscode

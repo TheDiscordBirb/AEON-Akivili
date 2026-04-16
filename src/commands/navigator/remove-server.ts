@@ -6,6 +6,7 @@ import {
     ButtonInteraction,
     ButtonStyle,
     CacheType,
+    Client,
     ComponentType,
     EmbedBuilder,
     Interaction,
@@ -17,11 +18,11 @@ import {
 import { Logger } from '../../logger';
 import { databaseManager } from '../../structures/database';
 import { config } from '../../const';
-import { client } from '../../structures/client';
 import { ButtonTypes, RunOptions } from '../../types/command';
 import { BroadcastRecord } from '../../structures/types';
 import { permissionHandler } from '../../functions/permission-handler';
 import { PermissionLevels } from '../../types/permission-handler';
+import { ExtendedClient } from '../../structures/client';
 
 const logger = new Logger('RemoveServerCmd');
 
@@ -35,6 +36,8 @@ export default new Command({
             await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
             return;
         }
+        const client = options.client;
+
         const mainGuild = client.guilds.cache.get(config.mainServerId);
         if(!mainGuild) {
             logger.warn('Could not get main server.');
@@ -55,8 +58,8 @@ export default new Command({
 
         let selectedServerId = "";
         let broadcasts = await databaseManager.getBroadcasts();
-        let segmentedServerListEmbedFields = await buildList(broadcasts);
-        let serverSelection = await buildServerSelectionMessage(segmentedServerListEmbedFields[0], options.interaction.user.id, segmentedServerListEmbedFields.length, 1);
+        let segmentedServerListEmbedFields = await buildList(client, broadcasts);
+        let serverSelection = await buildServerSelectionMessage(client, segmentedServerListEmbedFields[0], options.interaction.user.id, segmentedServerListEmbedFields.length, 1);
         
         const firstReply = await options.interaction.reply({embeds: [serverSelection.embed], components: serverSelection.components, flags: MessageFlags.Ephemeral})
         const filter = (i : Interaction) => {
@@ -74,17 +77,17 @@ export default new Command({
                     const buttonType = componentInteractionCustomIdArgs[1];
                     switch(buttonType) {
                         case ButtonTypes.BACK:
-                            serverSelection = await buildServerSelectionMessage(segmentedServerListEmbedFields[parseInt(componentInteractionCustomIdArgs[2])-2], options.interaction.user.id, segmentedServerListEmbedFields.length, parseInt(componentInteractionCustomIdArgs[2])-1);
+                            serverSelection = await buildServerSelectionMessage(client, segmentedServerListEmbedFields[parseInt(componentInteractionCustomIdArgs[2])-2], options.interaction.user.id, segmentedServerListEmbedFields.length, parseInt(componentInteractionCustomIdArgs[2])-1);
                             firstReply.edit({embeds: [serverSelection.embed], components: serverSelection.components});
                             break;
                         case ButtonTypes.FORWARD:
-                            serverSelection = await buildServerSelectionMessage(segmentedServerListEmbedFields[parseInt(componentInteractionCustomIdArgs[2])], options.interaction.user.id, segmentedServerListEmbedFields.length, parseInt(componentInteractionCustomIdArgs[2])+1);
+                            serverSelection = await buildServerSelectionMessage(client, segmentedServerListEmbedFields[parseInt(componentInteractionCustomIdArgs[2])], options.interaction.user.id, segmentedServerListEmbedFields.length, parseInt(componentInteractionCustomIdArgs[2])+1);
                             firstReply.edit({embeds: [serverSelection.embed], components: serverSelection.components});
                             break;
                         case ButtonTypes.MENU_BACK:
                             broadcasts = await databaseManager.getBroadcasts();
-                            segmentedServerListEmbedFields = await buildList(broadcasts);
-                            serverSelection = await buildServerSelectionMessage(segmentedServerListEmbedFields[0], options.interaction.user.id, segmentedServerListEmbedFields.length, 1);
+                            segmentedServerListEmbedFields = await buildList(client, broadcasts);
+                            serverSelection = await buildServerSelectionMessage(client, segmentedServerListEmbedFields[0], options.interaction.user.id, segmentedServerListEmbedFields.length, 1);
                             firstReply.edit({embeds: [serverSelection.embed], components: serverSelection.components});
                             break;
                         case ButtonTypes.REMOVE_SERVER:
@@ -108,13 +111,13 @@ export default new Command({
                                 logger.error("Couldnt leave server", (error as Error));
                             }
                             broadcasts = await databaseManager.getBroadcasts();
-                            segmentedServerListEmbedFields = await buildList(broadcasts);
-                            serverSelection = await buildServerSelectionMessage(segmentedServerListEmbedFields[0], options.interaction.user.id, segmentedServerListEmbedFields.length, 1);
+                            segmentedServerListEmbedFields = await buildList(client, broadcasts);
+                            serverSelection = await buildServerSelectionMessage(client, segmentedServerListEmbedFields[0], options.interaction.user.id, segmentedServerListEmbedFields.length, 1);
                             firstReply.edit({embeds: [serverSelection.embed], components: serverSelection.components});
                             break;
                         case ButtonTypes.WEBHOOK:
                             broadcasts = await databaseManager.getBroadcasts();
-                            segmentedServerListEmbedFields = await buildList(broadcasts);
+                            segmentedServerListEmbedFields = await buildList(client, broadcasts);
                             try {
                                 const actionRows = await deleteWebhookButtonHandler(selectedServerId, componentInteractionCustomIdArgs[0], componentInteraction);
                                 firstReply.edit({components: actionRows});
@@ -142,7 +145,7 @@ export default new Command({
 
 });
 
-const buildList = async (broadcasts: BroadcastRecord[]): Promise<({name: string, value: string})[][]> => {
+const buildList = async (client: Client, broadcasts: BroadcastRecord[]): Promise<({name: string, value: string})[][]> => {
     const clientGuilds = await client.guilds.fetch();
     const serverListEmbedFields: ({name: string, value: string})[] = [];
     const segmentedServerListEmbedFields: ({name: string, value: string})[][] = [];
@@ -169,7 +172,7 @@ const buildList = async (broadcasts: BroadcastRecord[]): Promise<({name: string,
     return segmentedServerListEmbedFields;
 }
 
-const buildServerSelectionMessage = async (list: ({name: string, value: string})[], interactionUserId: string, pages: number, currentPage: number): Promise<({embed: EmbedBuilder, components: ActionRowBuilder<MessageActionRowComponentBuilder>[]})> => {
+const buildServerSelectionMessage = async (client: Client, list: ({name: string, value: string})[], interactionUserId: string, pages: number, currentPage: number): Promise<({embed: EmbedBuilder, components: ActionRowBuilder<MessageActionRowComponentBuilder>[]})> => {
     const serverSelectorActionRow = new ActionRowBuilder<MessageActionRowComponentBuilder>();
     const directionButtonActionRow = new ActionRowBuilder<MessageActionRowComponentBuilder>();
     let actionRows: ActionRowBuilder<MessageActionRowComponentBuilder>[] = [];
@@ -218,6 +221,7 @@ const buildServerSelectionMessage = async (list: ({name: string, value: string})
 }
 
 const buildServerRemovalUi = async (options: RunOptions, selectedServerId: string): Promise<({embed: EmbedBuilder, components: ActionRowBuilder<MessageActionRowComponentBuilder>[]})> => {
+    const client = options.client;
     const selectedServer = client.guilds.cache.get(selectedServerId);
     if(!selectedServer) {
         await options.interaction.followUp({ content: 'Could not find the server, please verify that the bot is on it, if it is dm Birb.', ephemeral: true });

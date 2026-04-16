@@ -3,6 +3,7 @@ import {
     ButtonBuilder,
     ButtonInteraction,
     ButtonStyle,
+    Client,
     Colors,
     ComponentType,
     EmbedBuilder,
@@ -11,13 +12,16 @@ import {
     Message
 } from "discord.js"
 import { CrowdControlArg, EmojiReplacementData } from "../types/event";
-import { client } from "../structures/client";
 import { config } from "../const";
 import { Logger } from "../logger";
+import { clients } from "../structures/client";
 
 const logger = new Logger("CrowdControlHandler")
 
 class CrowdControlHander {
+    constructor(protected client: Client) {
+        this.client = client;
+    }
     public async crowdControl(webhookChannelType: string,
         interaction: Message<boolean>,
         interactionMember: GuildMember,
@@ -55,7 +59,7 @@ class CrowdControlHander {
 
             crowdControlActionRow.addComponents(crowdControlAllowButton, crowdControlRejectButton);
 
-            const channel = client.channels.cache.get(config.crowdControlChannelId) as GuildTextBasedChannel;
+            const channel = this.client.channels.cache.get(config.crowdControlChannelId) as GuildTextBasedChannel;
             if(!channel) {
                 // TODO: write log
                 return false;
@@ -108,4 +112,4 @@ class CrowdControlHander {
     }
 }
 
-export const crowdControl = new CrowdControlHander();
+export const crowdControl = new CrowdControlHander(clients[0]);

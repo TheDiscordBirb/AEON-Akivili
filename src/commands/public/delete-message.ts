@@ -11,7 +11,6 @@ import { Command } from "../../structures/command";
 import { Logger } from "../../logger";
 import { databaseManager } from "../../structures/database";
 import { config } from "../../const";
-import { client } from "../../structures/client";
 import { MessagesRecord } from "../../types/database";
 import { NotificationType } from "../../types/event";
 import { notificationManager } from "../../functions/notification";
@@ -36,6 +35,7 @@ export default new Command({
             await options.interaction.reply(`You cant use this here`);
             return;
         }
+        const client = options.client;
         const channel = options.interaction.channel as BaseGuildTextChannel;
         if (!channel) {
             await options.interaction.reply({ content: `Could not find channel`, ephemeral: true });

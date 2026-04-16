@@ -13,7 +13,8 @@ import {
     Role,
     RoleManager,
     User,
-    Channel
+    Channel,
+    AddGuildMemberOptions
 } from "discord.js"
 import { PermissionLocal } from "../structures/types";
 import { ExtendedClient } from "../structures/client";
@@ -228,6 +229,20 @@ export class GuildGenerator {
         }),
         cache: (this.membersCache as Collection<string, GuildMember>),
         valueOf: () => (this.membersCache as Collection<string, GuildMember>),
+        add: jest.fn().mockImplementation(async (user: User, options: AddGuildMemberOptions) => {
+            const guildMember: Partial<GuildMember> = {
+                user: user,
+                toString() {
+                    return `<@\$${user.id}>`;
+                },
+                valueOf: () => `<@\$${user.id}>`,
+                guild: this.guild as Guild
+            }
+            if(!!(this.members) && !!(this.members.set)) {
+                this.members.set((guildMember as GuildMember).id, guildMember as GuildMember);
+            }
+            return guildMember;
+        })
     };
 
     private roleManager: Partial<RoleManager> = {
@@ -276,6 +291,10 @@ export const networkGuilds: GuildGenerator[] = [];
 export const notNetworkGuilds: GuildGenerator[] = [];
 const networkGuildNum = 1;
 const notNetworkGuildNum = 1100;
+
+export const aeonGuild = new GuildGenerator(aeonChannels, aeonRoles, new Collection<string, GuildMember>, config.mainServerId);
+networkGuilds.push(aeonGuild);
+
 for(let i = 0; i < networkGuildNum; i++) {
     const networkGuild = new GuildGenerator(new Collection<string, GuildBasedChannel>, [], new Collection<string, GuildMember>, String(i+1));
     networkGuilds.push(networkGuild);
@@ -285,12 +304,17 @@ for(let i = 1100; i < notNetworkGuildNum; i++) {
     notNetworkGuilds.push(networkGuild);
 };
 
-async (): Promise<void> => {
+export const fillUp = async (): Promise<void> => {
     await networkGuilds[0].addMember(genUser.user, []);
+    await networkGuilds[0].addMember(conductorUser.user, []);
+    await networkGuilds[0].addMember(navigatorUser.user, []);
+    await networkGuilds[0].addMember(repUser.user, []);
+    await networkGuilds[0].addMember(devUser.user, []);
+
+    console.log(networkGuilds[0].guild.members?.cache.get("6"));
 };
 
-export const aeonGuild = new GuildGenerator(aeonChannels, aeonRoles, new Collection<string, GuildMember>, config.mainServerId);
-networkGuilds.push(aeonGuild);
+networkGuilds
 
 
 // Permission presets

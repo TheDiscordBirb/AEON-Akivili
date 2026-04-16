@@ -1,16 +1,26 @@
-import { ClientUser, Collection, Guild, GuildMember, NonThreadGuildBasedChannel, Snowflake } from "discord.js";
+import { Client, ClientUser, Collection, Guild, GuildMember, NonThreadGuildBasedChannel, Snowflake } from "discord.js";
 import { Event } from "../structures/event";
 import { notificationManager } from "../functions/notification";
-import { client, ExtendedClient } from "../structures/client";
 import { NotificationType } from "../types/event";
 import { config } from "../const";
+import { clients } from "../structures/client";
+import { Logger } from "../logger";
+
+const logger = new Logger("ServerJoin");
 
 export default new Event("guildCreate", async (guild) => {
+    const guildId = guild.id;
+    if(!guildId) return;
+    const client = clients.find((client) => client.guilds.cache.has(guildId));
+    if(!client) {
+        logger.warn(`Could not get bot client for ${guildId}`);
+        return;
+    }
     const notification = await serverJoinMakeNotification(client, guild);
     await notificationManager.sendNotification({...notification, time: Date.now()});
 });
 
-export const serverJoinMakeNotification = async (client: ExtendedClient, guild: Guild): Promise<{
+export const serverJoinMakeNotification = async (client: Client, guild: Guild): Promise<{
     executingUser: ClientUser,
     notificationType: NotificationType,
     guild: Guild,

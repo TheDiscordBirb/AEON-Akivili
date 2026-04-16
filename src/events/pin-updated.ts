@@ -2,8 +2,8 @@ import { BaseGuildTextChannel, ChannelType, GuildTextBasedChannel } from "discor
 import { Event } from "../structures/event";
 import { Logger } from "../logger";
 import { databaseManager } from "../structures/database";
-import { client } from "../structures/client";
 import { config } from "../const";
+import { clients } from "../structures/client";
 const logger = new Logger(`PinEvent`);
 
 export default new Event("messageUpdate", async (oldMessage, newMessage) => {
@@ -16,6 +16,13 @@ export default new Event("messageUpdate", async (oldMessage, newMessage) => {
     if (!newMessage.id) return;
     const message = channel.messages.cache.get(newMessage.id);
     if (!message) return;
+    const guildId = newMessage.guildId;
+    if(!guildId) return;
+    const client = clients.find((client) => client.guilds.cache.has(guildId));
+    if(!client) {
+        logger.warn(`Could not get bot client for ${newMessage.guildId}`);
+        return;
+    }
 
     const broadcastRecords = await databaseManager.getBroadcasts();
     if (!broadcastRecords.find((broadcastRecord) => broadcastRecord.channelId === newMessage.channel.id)) return;

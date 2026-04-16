@@ -5,26 +5,11 @@ import {
 } from 'discord.js';
 import { databaseManager } from '../structures/database';
 import { Logger } from '../logger';
-import { client } from '../structures/client';
 import { config } from '../const';
-import { clientInfoData } from '../types/client';
 import sharp from 'sharp';
 import { sleep, Time } from './time';
+import { clients } from '../structures/client';
 const logger = new Logger("Utils");
-
-export const clientInfo = (): clientInfoData => {
-    let clientName = client.user?.username;
-    let clientAvatarUrl = client.user?.avatarURL();
-    if (!clientName) {
-        logger.warn("Could not get client username, has been set to 'Akivili'");
-        clientName = "Akivili";
-    }
-    if (!clientAvatarUrl) {
-        logger.warn("Could not get client avatar, has been set to undefined");
-        clientAvatarUrl = undefined;
-    }
-    return { name: clientName, avatarUrl: clientAvatarUrl }
-}
 
 export const asyncRetry = async <T>(f: () => Promise<T>, retryCount = 5): Promise<T> => {
     try {
@@ -43,25 +28,26 @@ export const statusUpdate = async (): Promise<void> => {
     let memberObjects: Collection<string, GuildMember> = new Collection();
     const guildIds : string[] = [];
     const chatBroadcasts = await databaseManager.getChatBroadcasts();
-    await Promise.allSettled(chatBroadcasts.map(async (broadcast) => {
-        const guild = client.guilds.cache.get(broadcast.guildId);
-        if(!guild) return;
-        if(!guildIds.includes(broadcast.guildId)) guildIds.push(broadcast.guildId);
-        memberObjects = memberObjects.concat(guild.members.cache);
-    }))
+    for(const client of clients) {
+        await Promise.allSettled(chatBroadcasts.map(async (broadcast) => {
+            const guild = client.guilds.cache.get(broadcast.guildId);
+            if(!guild) return;
+            if(!guildIds.includes(broadcast.guildId)) guildIds.push(broadcast.guildId);
+            memberObjects = memberObjects.concat(guild.members.cache);
+        }));
+        if (!client.user) {
+            logger.wtf(`No client user.`);
+            return;
+        }
 
-    if (!client.user) {
-        logger.wtf(`No client user.`);
-        return;
+        client.user.setPresence({
+            activities: [{
+                name: `over ${memberObjects.size} trailblazers in ${guildIds.length} train cars`,
+                type: ActivityType.Watching
+            }],
+            status: 'online'
+        });
     }
-
-    client.user.setPresence({
-        activities: [{
-            name: `over ${memberObjects.size} trailblazers in ${guildIds.length} train cars`,
-            type: ActivityType.Watching
-        }],
-        status: 'online'
-    });
     return;
 }
 

@@ -18,9 +18,10 @@ import { config } from "../const";
 const logger = new Logger('Client');
 
 export class ExtendedClient extends Client {
+    protected discordToken;
     commands: Collection<string, CommandType> = new Collection();
 
-    constructor() {
+    constructor(token: string) {
         super({
             intents: [
                 IntentsBitField.Flags.Guilds,
@@ -35,13 +36,14 @@ export class ExtendedClient extends Client {
             ],
             partials: [Partials.Channel, Partials.Message],
         });
+        this.discordToken = token
     }
 
     start() {
         config.botStarting = true;
         this.registerModules()
         .then(()=> {
-            this.login(getEnvVar<string>("DISCORD_TOKEN"))
+            this.login(this.discordToken)
             .then(() => {
                 logger.info('Logged into Discord.');
             })
@@ -116,4 +118,12 @@ export class ExtendedClient extends Client {
     }
 }
 
-export const client = new ExtendedClient();
+const generateClients = (): ExtendedClient[] => {
+    const clients: ExtendedClient[] = [];
+    for(const token of getEnvVar<string>("DISCORD_TOKENS").split(" ")) {
+        clients.push(new ExtendedClient(token));
+    }
+    return clients;
+}
+
+export const clients: ExtendedClient[] = generateClients();

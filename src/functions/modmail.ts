@@ -7,6 +7,7 @@ import {
     CacheType,
     CategoryChannel,
     ChannelType,
+    Client,
     Colors,
     EmbedBuilder,
     GuildTextBasedChannel,
@@ -17,13 +18,16 @@ import { DmMessageButtonArg } from "../types/event";
 import * as dhtml from "discord-html-transcripts";
 import { RunOptions } from "../types/command";
 import { databaseManager } from "../structures/database";
-import { client } from "../structures/client";
 import { config } from "../const";
 import { Time } from "../utils/time";
+import { clients } from "../structures/client";
 
 const logger = new Logger("ModmailHandler");
 
 class ModmailHandler {
+    constructor(protected client: Client) {
+        this.client = client;
+    }
     public async startModmail(interaction: ButtonInteraction<CacheType>): Promise<void> {
         const modmailEmbed = new EmbedBuilder()
             .setTitle("Modmail opened")
@@ -39,7 +43,7 @@ class ModmailHandler {
         try {
             await interaction.message.edit({embeds: [modmailEmbed], components: [modmailActionRow]});
             
-            const modmailCatergory = client.channels.cache.get(config.modmailCategoryChannelId);
+            const modmailCatergory = this.client.channels.cache.get(config.modmailCategoryChannelId);
             if(!modmailCatergory) {
                 logger.warn("Could not find modmail category.");
                 return;
@@ -72,7 +76,7 @@ class ModmailHandler {
             messageEmbed.setFooter({text: `${interaction.author.id} | ${new Date(Date.now()).toLocaleString('en-US',{ hourCycle: "h12" })}`});
             try {
                 const modmail = await databaseManager.getModmailByUserId(interaction.author.id);
-                const modmailChannel = client.channels.cache.get(modmail.channelId);
+                const modmailChannel = this.client.channels.cache.get(modmail.channelId);
                 if(!modmailChannel) {
                     await interaction.reply("Could not locate modmail channel, please contact Birb directly.");
                     return;
@@ -89,7 +93,7 @@ class ModmailHandler {
             messageEmbed.setFooter({ text: `${options.interaction.user.id} | ${new Date(Date.now()).toLocaleString('en-US',{ hourCycle: "h12" })}` });
             try {
                 const modmail = await databaseManager.getModmail(options.interaction.channelId);
-                const modmailUser = client.users.cache.get(modmail.userId);
+                const modmailUser = this.client.users.cache.get(modmail.userId);
                 if(!modmailUser) {
                     await options.interaction.reply("Could not send message to this user.");
                     return;
@@ -107,7 +111,7 @@ class ModmailHandler {
     }
 
     public async closeModmail(channelId: string): Promise<void> {
-        const channel = client.channels.cache.get(channelId);
+        const channel = this.client.channels.cache.get(channelId);
         if(!channel) {
             logger.warn("Could not close modmail, no modmail channel.");
             return;
@@ -117,13 +121,13 @@ class ModmailHandler {
             // TODO: write log
             return;
         }
-        const logChannel = client.channels.cache.get(config.modmailLogChannelId);
+        const logChannel = this.client.channels.cache.get(config.modmailLogChannelId);
         if(!logChannel) {
             // TODO: write log
             return;
         }
         const modmail = await databaseManager.getModmail(channelId);
-        const modmailUser = client.users.cache.get(modmail.userId);
+        const modmailUser = this.client.users.cache.get(modmail.userId);
         if(!modmailUser) {
             // TODO: write log
             return;
@@ -169,4 +173,4 @@ class ModmailHandler {
     }
 }
 
-export const modmailHandler = new ModmailHandler();
+export const modmailHandler = new ModmailHandler(clients[0]);

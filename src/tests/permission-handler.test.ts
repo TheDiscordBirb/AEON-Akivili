@@ -1,4 +1,4 @@
-import { Guild, User } from "discord.js"
+import { Client, Guild, User } from "discord.js"
 import { PermissionHandler } from "../functions/permission-handler"
 import { config } from "../const";
 import { 
@@ -9,7 +9,8 @@ import {
     navigatorUser,
     onlyGlobal,
     notOnlyLocal,
-    onlyLocal
+    onlyLocal,
+    fillUp
 } from "./mocks";
 import { PermissionLevels } from "../types/permission-handler";
 import { IsStaff } from "../utils/permissions";
@@ -20,6 +21,7 @@ const isStaff = new IsStaff(mockClient as ExtendedClient);
 const permissionHandler = new PermissionHandler(isStaff)
 
 test("Local moderator check, has permission", async () => {
+await fillUp();
     expect(
         await permissionHandler.checkForPermission((modUser.user as User), onlyLocal, (networkGuilds[0].guild as Guild), ["KickMembers"])
     ).toStrictEqual({status: true});
