@@ -7,6 +7,9 @@ export const unitTest = false;
 export let config: configType;
 if(!unitTest) {
     config = {
+        clientName: "Akivili",
+        maxServerPerClient: 50,
+        loadedClients: 0,
         tokens: getEnvVar<string>("DISCORD_TOKENS").split(" "),
         activeBanshareFuncionUserIds: [] as string[],
         activeWebhooks: [] as Webhook[],

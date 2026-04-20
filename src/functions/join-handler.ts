@@ -4,8 +4,7 @@ import {
     ButtonBuilder,
     ButtonStyle,
     TextChannel,
-    GuildTextBasedChannel,
-    Client
+    GuildTextBasedChannel
 } from "discord.js";
 import { JoinData } from "../types/database";
 import { config } from "../const";
@@ -20,7 +19,7 @@ const logger = new Logger('JoinHandler');
 
 class JoinHandler {
     public async requestNetworkAccess(data: JoinData) {
-        const client = clients.find((client) => client.guilds.cache.has(data.guild.id));
+        const client = clients.find((client) => client.guilds.cache.has(config.mainServerId));
         if(!client) return;
         const requestEmbed = new EmbedBuilder()
             .setTitle(`New join request`)
@@ -40,7 +39,7 @@ class JoinHandler {
         
         requestActionRow.addComponents(acceptButton, rejectButton);
         
-        const networkJoinChannel = client.channels.cache.find((channel) => channel.id === config.networkJoinChannelId);
+        const networkJoinChannel = await client.channels.fetch(config.networkJoinChannelId);
 
         if (!networkJoinChannel) {
             logger.warn(`Could not get network join channel`);   
@@ -52,12 +51,15 @@ class JoinHandler {
 
     public async acceptNetworkAccessRequest(data: JoinData) {
         const client = clients.find((client) => client.guilds.cache.has(data.guild.id));
-        if(!client) return;
+        if(!client) throw new Error("No client.");
+        if(!client.user) throw new Error("No client user.");
         data.channel.createWebhook({
             name: `Aeon ${data.type}`,
-            avatar: client.user?.displayAvatarURL()
+            avatar: client.user.displayAvatarURL()
         })
             .then(async (webhook) => {
+                if(!client.user) throw new Error("No client user.");
+                if(!client.user.id) throw new Error("No client user id.");
                 if (data.type !== NetworkJoinOptions.INFO) {
                     await webhook.send(`This channel is now connected to ${webhook.name}.`);
                     config.activeWebhooks.push(webhook);
@@ -78,7 +80,16 @@ class JoinHandler {
                     await webhook.send({embeds: await rebuildNetworkInfoEmbeds(infoMessage, true)})
                 }
                 try {
-                    await databaseManager.saveBroadcast({ guildId: webhook.guildId, channelId: data.channel.id, channelType: data.type, webhookId: webhook.id, importantBanshareRoleId: '', autoBanLevel: 0 });
+                    await databaseManager.saveBroadcast(
+                        {
+                            guildId: webhook.guildId, 
+                            channelId: data.channel.id, 
+                            channelType: data.type, 
+                            webhookId: webhook.id,
+                            importantBanshareRoleId: '', 
+                            autoBanLevel: 0, 
+                            serviceClientId: client.user.id
+                            });
                     await data.guild.members.fetch();
                     if (config.nonChatWebhooks.includes(webhook.name)) return;
                     const broadcastRecords = await databaseManager.getBroadcasts();

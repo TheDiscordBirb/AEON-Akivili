@@ -14,6 +14,7 @@ import { config } from '../const';
 import * as fs from "fs";
 import path from 'path';
 import { Time } from '../utils/time';
+import { messageFilter } from '../functions/message-filter';
 
 const logger = new Logger('Database');
 
@@ -26,7 +27,11 @@ class DatabaseManager {
     constructor() {
         this.open()
         .catch((error) => {
-            console.log('Could not initialize the database.');
+            logger.warn('Could not initialize the database.', error as Error);
+        })
+        this.setUpDb()
+        .catch((error) => {
+            logger.warn("Could not set up db correctly.", error as Error)
         })
     }
 
@@ -58,6 +63,7 @@ class DatabaseManager {
                 guildId TEXT,
                 importantBanshareRoleId TEXT,
                 autoBanLevel INT,
+                serviceClientId INT,
                 PRIMARY KEY (webhookId)
             )`
         )
@@ -132,11 +138,28 @@ class DatabaseManager {
         return this._db;
     }
     
+    private async setUpDb(): Promise<void> {
+        const messagesInDb = await this.totalMessageLogs();
+        logger.info(`There ${messagesInDb >= 100000 ? "were" : "are"} ${messagesInDb} messages in Db.`);
+        if(messagesInDb >= 100000) {
+            await this.cleanDb(Date.now());
+        }
+        await messageFilter.addToFilterArray(await this.getFilteredWords());
+    }
+    
     public async saveBroadcast(broadcastRecord: BroadcastRecord): Promise<void> {
         const db = await this.db();
         db.run(
-            `INSERT OR REPLACE INTO Broadcast (channelId, channelType, webhookId, guildId, importantBanshareRoleId, autoBanLevel) VALUES (?, ?, ?, ?, ?, ?)`,
-            [broadcastRecord.channelId, broadcastRecord.channelType, broadcastRecord.webhookId, broadcastRecord.guildId, broadcastRecord.importantBanshareRoleId, broadcastRecord.autoBanLevel],
+            `INSERT OR REPLACE INTO Broadcast (channelId, channelType, webhookId, guildId, importantBanshareRoleId, autoBanLevel, serviceClientId) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+                broadcastRecord.channelId,
+                broadcastRecord.channelType,
+                broadcastRecord.webhookId,
+                broadcastRecord.guildId,
+                broadcastRecord.importantBanshareRoleId,
+                broadcastRecord.autoBanLevel,
+                broadcastRecord.serviceClientId
+            ],
             (error: Error) => {
                 throw new Error(`Could not save into the Broadcast table. Error: ${error.message}`);
             }

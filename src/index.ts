@@ -24,10 +24,10 @@ fs.readdir(path.join(__dirname, '..', '/logs'), (err, files) => {
             const day = parseInt(fileNameSegments[2]);
             const deletionDeadLine = Time.years(year - 1970) + Time.months(month - 1) + Time.days(day + config.numberOfDaysLogsAreDeletedAfter);
             if(deletionDeadLine < Date.now()) {
-                fs.unlinkSync(path.join(__dirname, '..', file));
+                fs.unlinkSync(path.join(__dirname, "..", "logs", file));
             }
-        } catch {
-            logger.warn(`${file} is not formated yy/mm/dd`);
+        } catch(error) {
+            logger.warn(`${file} is not formated yy_mm_dd`);
         }
     })
 })

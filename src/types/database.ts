@@ -6,7 +6,8 @@ export interface BroadcastRecord {
     guildId: string,
     webhookId: string,
     importantBanshareRoleId: string | null,
-    autoBanLevel: number
+    autoBanLevel: number,
+    serviceClientId: string
 }
 
 export interface MessagesRecord {

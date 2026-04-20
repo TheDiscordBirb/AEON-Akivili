@@ -1,6 +1,9 @@
 import { Webhook } from "discord.js"
 
 export interface configType {
+    clientName: string,
+    maxServerPerClient: number,
+    loadedClients: number,
     tokens: string[],
     activeBanshareFuncionUserIds: string[],
     activeWebhooks: Webhook[],

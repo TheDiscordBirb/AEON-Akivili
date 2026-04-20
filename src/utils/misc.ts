@@ -35,11 +35,12 @@ export const statusUpdate = async (): Promise<void> => {
             if(!guildIds.includes(broadcast.guildId)) guildIds.push(broadcast.guildId);
             memberObjects = memberObjects.concat(guild.members.cache);
         }));
+    }
+    for(const client of clients) {
         if (!client.user) {
             logger.wtf(`No client user.`);
             return;
         }
-
         client.user.setPresence({
             activities: [{
                 name: `over ${memberObjects.size} trailblazers in ${guildIds.length} train cars`,

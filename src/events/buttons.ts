@@ -28,7 +28,7 @@ import { ChannelType } from "discord.js";
 import { MessagesRecord } from "../types/database";
 import { modmailHandler } from "../functions/modmail";
 import { permissionHandler } from "../functions/permission-handler";
-import { clients } from "../structures/client";
+import { clients, ExtendedClient } from "../structures/client";
 
 const logger = new Logger("Buttons");
 
@@ -224,7 +224,8 @@ const emojiButtonFunction = async (client: Client, interaction: ButtonInteractio
     await deleteEmojis(emojiReplacement);
 }
 
-const moderationButtonFunction = async (client: Client, interaction: ButtonInteraction<CacheType>, guildMember: GuildMember): Promise<void> => {
+const moderationButtonFunction = async (client: Client | undefined, interaction: ButtonInteraction<CacheType>, guildMember: GuildMember): Promise<void> => {
+    if(!client) return;
     const permissionCheck = await permissionHandler.checkForPermission(
         guildMember.user,
         {local: true, onlyLocal: true},
@@ -497,9 +498,15 @@ const moderationButtonFunction = async (client: Client, interaction: ButtonInter
                 logger.warn(`Got wrong amount of arguments for ${BanShareButtonArg.ACCEPT_REQUEST}`);
                 return;
             }
+
             const guildId = customIdArgs[0];
             const channelId = customIdArgs[1];
             const type = customIdArgs[2];
+            client = clients.find((client) => client.guilds.cache.has(guildId));
+            if(!client) {
+                logger.warn("Could not get client.");
+                return;
+            }
             const guild = client.guilds.cache.find((guild) => guild.id === guildId);
             if (!guild) {
                 logger.warn('No guild found while trying to accept a request.')

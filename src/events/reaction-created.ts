@@ -13,18 +13,20 @@ import { deleteEmojis, replaceEmojis } from "../utils/emoji";
 import { rebuildMessageComponentAfterUserInteraction } from "../utils/rebuild-comps"
 import { MessagesRecord } from "../types/database";
 import { EmojiReplacementData } from "../types/event";
-import { clients } from "../structures/client";
+import { clients, ExtendedClient } from "../structures/client";
+import { whoIs } from "../utils/client-checks";
 
 const logger = new Logger("ReactionCreated");
 
 export default new Event("messageReactionAdd", async (interaction, user) => {
     if(config.botStarting) return;
     if (user.bot) return;
-    const guildId = interaction.message.guildId;
-    if(!guildId) return;
-    const client = clients.find((client) => client.guilds.cache.has(guildId));
-    if(!client) {
-        logger.warn(`Could not get bot client for ${interaction.message.guildId}`);
+
+    let client: ExtendedClient;
+    try {
+        client = await whoIs(interaction.message.guild);
+    } catch(e) {
+        logger.error((e as Error).message, e as Error);
         return;
     }
     

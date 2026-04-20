@@ -3,7 +3,8 @@ import { Event } from "../structures/event";
 import { Logger } from "../logger";
 import { databaseManager } from "../structures/database";
 import { config } from "../const";
-import { clients } from "../structures/client";
+import { clients, ExtendedClient } from "../structures/client";
+import { whoIs } from "../utils/client-checks";
 const logger = new Logger(`PinEvent`);
 
 export default new Event("messageUpdate", async (oldMessage, newMessage) => {
@@ -16,11 +17,12 @@ export default new Event("messageUpdate", async (oldMessage, newMessage) => {
     if (!newMessage.id) return;
     const message = channel.messages.cache.get(newMessage.id);
     if (!message) return;
-    const guildId = newMessage.guildId;
-    if(!guildId) return;
-    const client = clients.find((client) => client.guilds.cache.has(guildId));
-    if(!client) {
-        logger.warn(`Could not get bot client for ${newMessage.guildId}`);
+    
+    let client: ExtendedClient;
+    try {
+        client = await whoIs(newMessage.guild);
+    } catch(e) {
+        logger.error((e as Error).message, e as Error);
         return;
     }
 

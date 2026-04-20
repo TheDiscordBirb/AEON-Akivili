@@ -5,19 +5,12 @@ import { databaseManager } from "../structures/database";
 import { config } from "../const";
 import { statusUpdate } from "../utils/misc";
 import cron from 'node-cron';
-import { messageFilter } from "../functions/message-filter";
 import { NetworkJoinOptions } from "../types/command";
 import { clients } from "../structures/client";
 
 const logger = new Logger('Ready');
 
 export default new Event("clientReady", async (client: Client) => {
-    const messagesInDb = await databaseManager.totalMessageLogs();
-    logger.info(`There ${messagesInDb >= 100000 ? "were" : "are"} ${messagesInDb} messages in Db.`);
-    if(messagesInDb >= 100000) {
-        await databaseManager.cleanDb(Date.now());
-    }
-    await messageFilter.addToFilterArray(await databaseManager.getFilteredWords());
     const guilds = await client.guilds.fetch();
     const broadcasts = await databaseManager.getBroadcasts();
     const chatBroadcasts = broadcasts.filter((broadcast) => !config.nonChatWebhooksTypes.includes(broadcast.channelType));
@@ -27,6 +20,7 @@ export default new Event("clientReady", async (client: Client) => {
     const noBroadcastGuilds : Guild[] = [];
     const infoOrBanshareBroadcastGuilds : Guild[] = [];
     const textWebhooks : Webhook[] = [];
+    await client.user?.setUsername(config.clientName);
     for await (const oauthGuild of guilds) {
         const guild = client.guilds.cache.get(oauthGuild[0]);
         if (!guild) continue;
@@ -91,15 +85,13 @@ export default new Event("clientReady", async (client: Client) => {
                 logger.error(`There was an error fetching messages: `, error as Error);
             }
         })
-        if(config.cleanDbMode) {
-            if(guildChatBroadcasts.length) {
-                guildChatBroadcasts.forEach(async (broadcast) => {
-                    if(!webhooks.find((webhook) => webhook.id === broadcast.webhookId)) {
-                        logger.warn(`Deleted Aeon ${broadcast.channelType} (id: ${broadcast.webhookId}) from guild with id ${broadcast.guildId}, because it had no reference.`)
-                        await databaseManager.deleteBroadcastByWebhookId(broadcast.webhookId);
-                    }
-                })
-            }
+        if(config.cleanDbMode && guildChatBroadcasts.length) {
+            guildChatBroadcasts.forEach(async (broadcast) => {
+                if(!webhooks.find((webhook) => webhook.id === broadcast.webhookId)) {
+                    logger.warn(`Deleted Aeon ${broadcast.channelType} (id: ${broadcast.webhookId}) from guild with id ${broadcast.guildId}, because it had no reference.`)
+                    await databaseManager.deleteBroadcastByWebhookId(broadcast.webhookId);
+                }
+            })
         }
     }
 
@@ -107,9 +99,8 @@ export default new Event("clientReady", async (client: Client) => {
     logger.info(`Got ${noBroadcastGuilds.length} servers with no broadcasts.`);
     await Promise.all(noBroadcastGuilds.map((noBroadcastGuild) => {
         logger.info(`${noBroadcastGuild.name} ${noBroadcastGuild.id}\nMembers: ${noBroadcastGuild.memberCount} Channels: ${noBroadcastGuild.channels.cache.size}`);
-    }))
+    }));
     await botsReady();
-    config.botStarting = false;
     await Promise.all(textWebhooks.map(async (webhook) => {
         try {
             await (webhook.channel as BaseGuildTextChannel).send({content: `${client.user?.username} is now online.`});
@@ -131,7 +122,11 @@ export default new Event("clientReady", async (client: Client) => {
 });
 
 const botsReady = async () => {
-    for(const client of clients) {
-        logger.info(`${client.user?.username} is online`);
+    config.loadedClients++;
+    if(config.loadedClients === clients.length) {
+        for(const client of clients) {
+            logger.info(`${client.user?.username} (${client.user?.id}) is online`);
+        }
+        config.botStarting = false;
     }
 }
