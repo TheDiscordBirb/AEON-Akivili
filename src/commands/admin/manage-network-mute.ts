@@ -5,6 +5,7 @@ import { Logger } from '../../logger';
 import { config } from '../../const';
 import { permissionHandler } from '../../functions/permission-handler';
 import { PermissionLevels } from '../../types/permission-handler';
+import { clients } from '../../structures/client';
 
 const logger = new Logger('GetUidCmd');
 
@@ -30,8 +31,6 @@ export default new Command({
             await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
             return;
         }
-
-        const client = options.client;
 
         const permissionCheck = await permissionHandler.checkForPermission(
             options.interaction.user,
@@ -65,6 +64,16 @@ export default new Command({
         try {
             userId = await databaseManager.getUserId(options.interaction.channel.id, messageId);
         } catch (error) {
+            const clientId = (await databaseManager.getBroadcasts()).filter((b) => b.guildId === options.interaction.guildId)[0].serviceClientId;
+            if(!clientId) {
+                logger.warn("Could not find client id.");
+                return;
+            }
+            const client = clients.find((client) => client.user?.id === clientId);
+            if(!client) {
+                logger.warn("Could not find client.");
+                return;
+            }
             const user = client.users.cache.get(messageId);
             if (user) {
                 userId = user.id;

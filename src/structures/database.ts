@@ -63,7 +63,7 @@ class DatabaseManager {
                 guildId TEXT,
                 importantBanshareRoleId TEXT,
                 autoBanLevel INT,
-                serviceClientId INT,
+                serviceClientId TEXT,
                 PRIMARY KEY (webhookId)
             )`
         )

@@ -30,9 +30,7 @@ import { NetworkJoinOptions } from "../types/command";
 import { networkChannelPingNotificationEmbedBuilder } from "../utils/ping";
 import { watermarkSize,userActivityLevelCheck } from "../utils/misc";
 import { deleteEmojis, replaceEmojis } from "../utils/emoji";
-import {
-    isStaff,
-} from "../utils/permissions"
+import { isStaff } from "../utils/permissions"
 import isApng from "is-apng";
 import * as apng from 'sharp-apng';
 import * as sharp from 'sharp';
@@ -666,5 +664,3 @@ const filterHandling = async (message: Message<boolean>): Promise<FilterOutput> 
     await message.delete();
     return result;
 }
-
-

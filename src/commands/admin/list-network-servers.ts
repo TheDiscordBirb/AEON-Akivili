@@ -4,6 +4,7 @@ import { databaseManager } from '../../structures/database';
 import { Logger } from '../../logger';
 import { permissionHandler } from '../../functions/permission-handler';
 import { PermissionLevels } from '../../types/permission-handler';
+import { clients } from '../../structures/client';
 
 const logger = new Logger('ListNetworkServersCmd');
 
@@ -18,8 +19,6 @@ export default new Command({
             await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
             return;
         }
-        
-        const client = options.client;
         
         const permissionCheck = await permissionHandler.checkForPermission(
             options.interaction.user,
@@ -45,14 +44,12 @@ export default new Command({
 
         const broadcasts = await databaseManager.getBroadcasts();
         const guilds = broadcasts.reduce<Guild[]>((acc, broadcast) => {
+            const client = clients.find((client) => client.user?.id === broadcast.serviceClientId);
+            if(!client) return acc;
             const guild = client.guilds.cache.get(broadcast.guildId);
-            if (!guild) {
-                return acc;
-            }
+            if (!guild) return acc;
             const guildInAcc = acc.find((accGuild) => accGuild === guild);
-            if (!guildInAcc) {
-                acc.push(guild);
-            }
+            if (!guildInAcc) acc.push(guild);
             return acc;
         }, []);
 
