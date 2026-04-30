@@ -1,4 +1,10 @@
-import { DataType, Data, ValidatedEventData, ValidatedCommandData, CommandTypes, EventTypes } from "../types/central-logic-unit";
+import { 
+    DataType,
+    Data,
+    ValidatedEventData,
+    ValidatedCommandData,
+    CommandData,EventData
+} from "../types/central-logic-unit";
 
 class MainProcessingUnit {
     async processData(data: Data) {
@@ -16,29 +22,31 @@ class MainProcessingUnit {
 
 
     async handleCommand(data: Data) {
-        let validatedData: ValidatedCommandData;
-        try {
-            validatedData = await this.validateCommandData(data);
-        } catch(e) {
-
-        }
+        const validatedCommandData = await this.validateCommandData(data);
     }
 
     async validateCommandData(data: Data): Promise<ValidatedCommandData> {
-        return {type: CommandTypes.DISCONNECT};
+        let resultData: CommandData;
+        try {
+            resultData = data.data as CommandData;
+        } catch (e) {
+            throw new Error((e as Error).message);
+        }
+        return {data: resultData};
     }
 
     async handleEvent(data: Data) {
-        let validatedData: ValidatedEventData;
-        try {
-            validatedData = await this.validateEventData(data);
-        } catch(e) {
-
-        }
+        const validatedEventData = await this.validateEventData(data);
     }
 
     async validateEventData(data: Data): Promise<ValidatedEventData> {
-        return {type: EventTypes.READY};
+        let resultData: EventData;
+        try {
+            resultData = data.data as EventData;
+        } catch(e) {
+            throw new Error((e as Error).message)
+        }
+        return {data: resultData};
     }
 }
 

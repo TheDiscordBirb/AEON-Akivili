@@ -3,6 +3,7 @@ import { Database, open } from 'sqlite';
 import { 
     BanshareListData,
     BroadcastRecord,
+    CatCakeData,
     FilteredWords,
     MessagesRecord,
     ModmailRecord,
@@ -15,6 +16,7 @@ import * as fs from "fs";
 import path from 'path';
 import { Time } from '../utils/time';
 import { messageFilter } from '../functions/message-filter';
+import { CatCakes, Regions } from '../types/command';
 
 const logger = new Logger('Database');
 
@@ -119,6 +121,15 @@ class DatabaseManager {
             `CREATE TABLE IF NOT EXISTS FilteredWords (
                 word TEXT,
                 PRIMARY KEY (word)
+            )`
+        )
+
+        await this._db.run(
+            `CREATE TABLE IF NOT EXISTS CatCakes (
+                uid TEXT,
+                region TEXT,
+                catType TEXT,
+                PRIMARY KEY (uid, catType)
             )`
         )
 
@@ -451,6 +462,50 @@ class DatabaseManager {
         if(!currentWords.includes({word})) {
             await db.run(`INSERT INTO FilteredWords (word) VALUES (?)`, [word]);
         }
+    }
+
+    public async insertIntoCatCakes(uid: string, region: Regions, catType: CatCakes) {
+        const db = await this.db();
+        await db.run(`INSERT OR REPLACE INTO CatCakes (uid, region, catType) VALUES (?, ?, ?)`, [uid, region, catType],
+            (error: Error) => {
+                throw new Error(`Could not insert cat cake into CatCakes Error: ${error.message}`);
+            }
+        );
+    }
+
+    public async checkForCat(region: Regions, catType: CatCakes) {
+        const db = await this.db();
+        const result = await db.all<CatCakeData[]>(`SELECT * FROM CatCakes WHERE region=? AND catType=?`, [region, catType],
+            (error: Error) => {
+                throw new Error("Got an error checking for cats");
+            }
+        )
+        if(!result.length) {
+            return [];
+        }
+        return result;
+    }
+
+    public async allCatsInRegion(region: Regions) {
+        const db = await this.db();
+        const result = await db.all<CatCakeData[]>(`SELECT * FROM CatCakes WHERE region=?`, [region],
+            (error: Error) => {
+                throw new Error("Got an error during getting all cats from region");
+            }
+        )
+        if(!result.length) {
+            return [];
+        }
+        return result;
+    }
+
+    public async deleteCatCakeData() {
+        const db = await this.db();
+        await db.run(`DELETE FROM CatCakes`,
+            (error: Error) => {
+                throw new Error(`Could not delete cat cakes.`);
+            }
+        );
     }
 }
 

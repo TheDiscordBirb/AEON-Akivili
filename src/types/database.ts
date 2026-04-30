@@ -1,4 +1,5 @@
 import { Guild, TextChannel, User } from "discord.js"
+import { CatCakes, Regions } from "./command"
 
 export interface BroadcastRecord {
     channelId: string,
@@ -63,4 +64,10 @@ export interface BanshareListData {
 
 export interface FilteredWords {
     word: string
+}
+
+export interface CatCakeData {
+    uid: string,
+    region: Regions,
+    catType: CatCakes
 }

@@ -44,6 +44,7 @@ export default new Event("interactionCreate", async (interaction) => {
     if (!interaction.isButton()) return;
     await interaction.deferUpdate();
     if(interaction.message.interaction?.commandName === "remove-server") return;
+    if(interaction.message.interaction?.commandName === "catcake-trading") return;
     
     const buttonComponent = (interaction.component as ButtonComponent);
     if(!buttonComponent) {
