@@ -1,23 +1,23 @@
 import { Command } from '../../structures/command';
-import { ApplicationCommandOptionType, GuildMember, PermissionFlagsBits } from 'discord.js'
+import { ApplicationCommandOptionType, Guild, GuildMember, Message, PermissionFlagsBits } from 'discord.js'
 import { databaseManager } from '../../structures/database';
-import { banshareManager } from '../../functions/banshare';
-import { MessagesRecord } from '../../types/database';
-import { BanShareOption } from '../../types/command';
 import { Logger } from '../../logger';
-import { notificationManager } from '../../functions/notification';
-import { NotificationType } from '../../types/event';
 import { metrics } from '../../structures/metrics';
 import { TimeSpanMetricLabel } from '../../types/metrics';
-import { RunOptions } from '../../types/command';
+import { BanShareOption, RunOptions } from '../../types/command';
 import { permissionHandler } from '../../functions/permission-handler';
+import { notificationManager } from '../../functions/notification';
+import { NotificationType } from '../../types/event';
+import { banshareManager } from '../../functions/banshare';
+import { errorHandler } from '../../structures/error-handler';
+import { ErrorNames, InteractionTypes } from '../../types/error-handler';
 
 const logger = new Logger('BanCmd');
 
-export const banCommand = async (options: RunOptions): Promise<void> => {
+// TODO: test
+export const banChecks = async (options: RunOptions) => {
     if (!options.interaction.guild) {
-        await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
-        return;
+        throw new Error(ErrorNames.NO_GUILD)
     }
 
     const permissionCheck = await permissionHandler.checkForPermission(
@@ -28,52 +28,36 @@ export const banCommand = async (options: RunOptions): Promise<void> => {
         
     if(!permissionCheck.status) {
         await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
-        return;
+        throw new Error(ErrorNames.NO_PERMISSIONS);
     }
 
     const banshareResponse = options.args.getString('banshare');
     
     if (!options.interaction.channel) {
         logger.wtf(`${options.interaction.member.user.username} has used a command without a channel.`);
-        return;
+        throw new Error(ErrorNames.NO_INTERACTION_CHANNEL);
     }
         
     const messageId = options.args.getString('message-id');
     if (!messageId) {
         logger.warn(`${options.interaction.member.user.username} has used a command without the required field 'message-id'.`);
-        await options.interaction.reply({ content: 'No message id provided.', ephemeral: true });
-        return;
+        throw new Error(ErrorNames.NO_MESSAGE_ID);
     }
     const message = await options.interaction.channel.messages.fetch(messageId);
     if (!message) {
-        await options.interaction.reply({ content: 'This message does not exist.', ephemeral: true });
-        return;
+        throw new Error(ErrorNames.MESSAGE_DOES_NOT_EXIST);
     }
     
-    let userId: string;
-    try {
-        userId = await databaseManager.getUserId(options.interaction.channel.id, messageId);
-    } catch (error) {
-        logger.error(`There was an error fetching this user: ${messageId}`, error as Error);
-        return;
-    }
+    const userId = await databaseManager.getUserId(options.interaction.channel.id, messageId);
+
     const broadcasts = await databaseManager.getBroadcasts();
 
-    let messageRecords: MessagesRecord[];
-    try {
-        messageRecords = await databaseManager.getMessages(message.channel.id, message.id);
-    } catch (error) {
-        logger.error(`There was an error getting the message record. Error: `, error as Error);
-        return;
-    }
+    const messageRecords = await databaseManager.getMessages(message.channel.id, message.id);
 
-    let messageChannelType = '';
-    broadcasts.forEach((broadcast) => {
-        if (broadcast.channelId === messageRecords[0].channelId) {
-            messageChannelType = broadcast.channelType;
-            return;
-        }
-    })
+    const messageChannelType = broadcasts.find((broadcast) => broadcast.channelId === messageRecords[0].channelId)?.channelType;
+    if(!messageChannelType) {
+        throw new Error(ErrorNames.NO_CHANNEL_TYPE);
+    }
     
     const userInfo = Object.values(broadcasts).reduce<{ guildMember?: GuildMember, userIsModerator: boolean }>((acc, broadcast) => {
         const guild = options.client.guilds.cache.get(broadcast.guildId);
@@ -86,33 +70,16 @@ export const banCommand = async (options: RunOptions): Promise<void> => {
         }
         return { guildMember, userIsModerator: false };
     }, {guildMember: undefined, userIsModerator: false});
-    
-    
-    if (userInfo.userIsModerator) {
-        await options.interaction.reply({ content: 'This user is a moderator on a server in the network, as such AEON Navigators have been notified.', ephemeral: true });
-        notificationManager.sendNotification({
-            executingUser: options.interaction.user,
-            targetUser: userInfo.guildMember?.user,
-            channelType: messageChannelType,
-            message,
-            notificationType: NotificationType.MODERATOR_BAN,
-            time: Date.now(),
-            guild: options.interaction.guild
-        })
-        return;
-    }
-    
-    try {
-        await options.interaction.guild.bans.create(userId);
-        await options.interaction.reply({ content: `${userInfo.guildMember ? userInfo.guildMember : userId} has been banned.`, ephemeral: true });
-    } catch (error) {
-        logger.error(`Couldnt ban user.`, (error as Error));
-        return;
-    }
 
-    if(banshareResponse) {
-        await banshareManager.dmBanshareFunction(options.interaction.guild.id, options);
-    }
+    await banCommand(
+        userInfo,
+        messageChannelType,
+        message,
+        options.interaction.guild,
+        banshareResponse,
+        userId,
+        options
+    );
 }
 
 
@@ -141,10 +108,46 @@ export default new Command({
     run: async (options) => {
         const metricId = metrics.start(TimeSpanMetricLabel.CMD_BAN);
         try {
-            await banCommand(options);
-        } catch (error) {
-            logger.warn('Could not execute ban command', error as Error);
+            await banChecks(options);
+        } catch(e) {
+            await errorHandler.showError({
+                error: e as Error,
+                user: options.interaction.user,
+                interactionType: InteractionTypes.BAN
+            });
+            logger.error(`Got error during ${options.interaction.commandName} command.`, e as Error);
         }
         metrics.stop(metricId);
     }
 });
+
+export const banCommand = async (
+    userInfo: {guildMember?: GuildMember, userIsModerator: boolean},
+    messageChannelType: string,
+    message: Message<boolean>,
+    guild: Guild,
+    banshareResponse: string | null,
+    userId: string,
+    options: RunOptions
+) => {
+    if (userInfo.userIsModerator) {
+        await options.interaction.reply({ content: 'This user is a moderator on a server in the network, as such AEON Navigators have been notified.', flags: 'Ephemeral' });
+        await notificationManager.sendNotification({
+            executingUser: options.interaction.user,
+            targetUser: userInfo.guildMember?.user,
+            channelType: messageChannelType,
+            message: message,
+            notificationType: NotificationType.MODERATOR_BAN,
+            time: Date.now(),
+            guild
+        })
+        return;
+    }
+    
+    await guild.bans.create(userId);
+    await options.interaction.reply({ content: `${userInfo.guildMember ? userInfo.guildMember : userId} has been banned.`, flags: 'Ephemeral' });
+
+    if(banshareResponse == BanShareOption.YES) {
+        await banshareManager.dmBanshareFunction(guild.id, options);
+    }
+}

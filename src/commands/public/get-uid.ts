@@ -5,6 +5,7 @@ import { Logger } from '../../logger';
 
 const logger = new Logger('GetUidCmd');
 
+// TODO: rework, test
 export default new Command({
     name: 'get-uid',
     description: "Gets a person's uid using a message id from Aeon Chat",
@@ -25,7 +26,7 @@ export default new Command({
         }
 
         if (!options.interaction.guild) {
-            await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
+            await options.interaction.reply({ content: 'You cant use this here', flags: 'Ephemeral' });
             return;
         }
 
@@ -37,17 +38,17 @@ export default new Command({
         const messageId = options.args.getString('message-id');
         if (!messageId) {
             logger.warn(`${options.interaction.member.user.username} has used a command without the required field 'message-id'.`);
-            await options.interaction.reply({ content: 'No message id provided.', ephemeral: true });
+            await options.interaction.reply({ content: 'No message id provided.', flags: 'Ephemeral' });
             return;
         }
         let userId: string;
         try {
             userId = await databaseManager.getUserId(options.interaction.channel.id, messageId);
         } catch (error) {
-            await options.interaction.reply({ content: 'There was an error fetching this user.', ephemeral: true });
+            await options.interaction.reply({ content: 'There was an error fetching this user.', flags: 'Ephemeral' });
             logger.error(`There was an error fetching this user: ${messageId}`, error as Error);
             return;
         }
-        await options.interaction.reply({ content: userId, ephemeral: true });
+        await options.interaction.reply({ content: userId, flags: 'Ephemeral' });
     }
 });

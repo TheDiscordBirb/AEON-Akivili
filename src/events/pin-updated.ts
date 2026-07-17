@@ -7,6 +7,7 @@ import { clients, ExtendedClient } from "../structures/client";
 import { whoIs } from "../utils/client-checks";
 const logger = new Logger(`PinEvent`);
 
+// TODO: rework, test
 export default new Event("messageUpdate", async (oldMessage, newMessage) => {
     if(config.botStarting) return;
     if (!newMessage) return;
@@ -20,7 +21,7 @@ export default new Event("messageUpdate", async (oldMessage, newMessage) => {
     
     let client: ExtendedClient;
     try {
-        client = await whoIs(newMessage.guild);
+        client = await whoIs(newMessage.guildId);
     } catch(e) {
         logger.error((e as Error).message, e as Error);
         return;

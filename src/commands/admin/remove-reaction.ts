@@ -7,17 +7,19 @@ import { TimeSpanMetricLabel } from '../../types/metrics';
 import { RunOptions } from '../../types/command';
 import { permissionHandler } from '../../functions/permission-handler';
 import { PermissionLevels } from '../../types/permission-handler';
+import { ErrorNames } from '../../types/error-handler';
 
 const logger = new Logger('RemoveReactionCmd');
 
+// TODO: rework, test
 const banCommand = async (options: RunOptions): Promise<void> => {
     if (!options.interaction.guild) {
-        await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
+        await options.interaction.reply({ content: 'You cant use this here', flags: 'Ephemeral' });
         return;
     }
 
     if (!options.interaction.channel) {
-        await options.interaction.reply({ content: `Could not get interaction channel.`, ephemeral: true });
+        await options.interaction.reply({ content: `Could not get interaction channel.`, flags: 'Ephemeral' });
         return;
     }
     const channel = options.interaction.channel as BaseGuildTextChannel;
@@ -32,30 +34,33 @@ const banCommand = async (options: RunOptions): Promise<void> => {
         
     if(!permissionCheck.status) {
         await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
-        return;
+        throw new Error(ErrorNames.NO_PERMISSIONS)
     }
 
     const messageId = options.args.getString('message-id');
     if (!messageId) {
-        // TODO: write log
-        return;
+        throw new Error(ErrorNames.NO_REQUIRED_FIELD);
     }
 
     const message = channel.messages.cache.get(messageId);
     if (!message) {
-        await options.interaction.reply({ content: `Couldnt find that message.`, ephemeral: true });
-        // TODO: write log
-        return;
+        throw new Error(ErrorNames.NO_INTERACTION_CHANNEL);
     }
 
     const messageRecord = (await databaseManager.getMessages(message.channel.id, message.id)).find((record) => record.channelMessageId === message.id);
     if (!messageRecord) {
-        await options.interaction.reply({ content: `Could not find message in database.`, ephemeral: true });
+        await options.interaction.reply({ content: `Could not find message in database.`, flags: 'Ephemeral' });
         // TODO: write log
         return;
     }
 
-    const interactionReply = await options.interaction.reply({ content: message.content, components: message.components, ephemeral: true, fetchReply: true })
+    const interactionReply = await (await options.interaction.reply(
+        { 
+            content: message.content,
+            components: message.components,
+            flags: 'Ephemeral'
+        }
+    )).fetch();
             
     await databaseManager.logMessage({ ...messageRecord, channelMessageId: interactionReply.id });
 }

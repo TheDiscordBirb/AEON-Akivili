@@ -18,13 +18,14 @@ import { whoIs } from "../utils/client-checks";
 
 const logger = new Logger("ReactionCreated");
 
+// TODO: rework, test
 export default new Event("messageReactionAdd", async (interaction, user) => {
     if(config.botStarting) return;
     if (user.bot) return;
 
     let client: ExtendedClient;
     try {
-        client = await whoIs(interaction.message.guild);
+        client = await whoIs(interaction.message.guildId);
     } catch(e) {
         logger.error((e as Error).message, e as Error);
         return;

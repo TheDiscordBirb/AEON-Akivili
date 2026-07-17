@@ -1,14 +1,16 @@
 import { ActionRowBuilder, ButtonBuilder, GuildEmoji } from "discord.js";
 import { ServerCooldowns } from "./utils";
 
+export enum JoinRequestButtonArg {
+    ACCEPT_REQUEST = 'acceptRequest',
+    REJECT_REQUEST = 'rejectRequest'
+}
 export enum BanShareButtonArg {
     BANSHARE = 'banshare',
     IMPORTANT_BANSHARE = 'importantBanshare',
     REJECT_MAIN = 'rejectMain',
     BAN_FROM_SERVER = 'banFromServer',
     REJECT_SUB = 'rejectSub',
-    ACCEPT_REQUEST = 'acceptRequest',
-    REJECT_REQUEST = 'rejectRequest'
 }
 
 export enum DmMessageButtonArg {

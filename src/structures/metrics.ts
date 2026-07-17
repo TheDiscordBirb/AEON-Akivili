@@ -11,6 +11,7 @@ import { Logger } from "../logger";
 
 const logger = new Logger('Metrics');
 
+// TODO: implement
 class Metrics {
     protected activeTimeSpanMetrics: Record<string, TimeSpanMetric> = {};
     protected scalarValues: ScalarValues = {};

@@ -17,10 +17,11 @@ import { whoIs } from "../utils/client-checks";
 
 const logger = new Logger("ServerJoin");
 
+// TODO: rework, test
 export default new Event("guildCreate", async (guild) => {
     let client: ExtendedClient;
     try {
-        client = await whoIs(guild);
+        client = await whoIs(guild.id);
     } catch(e) {
         logger.error((e as Error).message, e as Error);
         return;

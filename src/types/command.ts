@@ -58,10 +58,10 @@ export enum Regions {
 }
 
 export enum CatCakes {
-    AKIVILI_CAKE = "Akivili Cake",
+    AKIVILI_CAKE = "Akivimeow",
     ASTRA_LATTE = "AstraLatte",
     BLUEBERRY_JAR = "Blueberry Jar",
-    BUTTERFLY_PEACH_PUDDING = "Butterfly Peach Pudding",
+    BUTTERFLY_PEA_Mousse = "Butterfly Pea Mousse",
     CHARMONY_KITTY = "Charmony Kitty",
     COCONUT_SNOW_CAP = "Coconut Snow Cap",
     DIVINER_MOCHI = "Diviner Mochi",

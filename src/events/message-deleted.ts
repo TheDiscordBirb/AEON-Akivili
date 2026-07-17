@@ -10,6 +10,7 @@ import { config } from "../const";
 
 const logger = new Logger("MessageDeleted");
 
+// TODO: rework, test
 export default new Event("messageDelete", async (interaction) => {
     if(config.botStarting) return;
     if (!interaction.webhookId) return;

@@ -1,4 +1,10 @@
-import { CacheType, ChatInputCommandInteraction, CommandInteractionOptionResolver, MessageContextMenuCommandInteraction, UserContextMenuCommandInteraction } from "discord.js";
+import {
+    CacheType,
+    ChatInputCommandInteraction,
+    CommandInteractionOptionResolver,
+    MessageContextMenuCommandInteraction,
+    UserContextMenuCommandInteraction
+} from "discord.js";
 import { clients } from "../structures/client";
 import { Event } from "../structures/event";
 import { ExtendedInteraction } from "../types/command";
@@ -9,11 +15,9 @@ const logger = new Logger("InteractionReady");
 
 export default new Event("interactionCreate", async (interaction) => {
     if(config.botStarting) return;
-    const guildId = interaction.guildId;
-    if(!guildId) return;
-    const client = clients.find((client) => client.guilds.cache.has(guildId));
+    const client = clients.find((client) => interaction.client.user.id === client.user?.id);
     if(!client) {
-        logger.warn(`Could not get bot client for ${interaction.guildId}`);
+        logger.warn(`Could not get bot client ${interaction.client.user.id}`);
         return;
     }
     if (interaction.isCommand()) {

@@ -9,7 +9,7 @@ import {
     EmbedBuilder,
     GuildMember,
     GuildTextBasedChannel,
-    Message
+    Message,
 } from "discord.js"
 import { CrowdControlArg, EmojiReplacementData } from "../types/event";
 import { config } from "../const";
@@ -18,6 +18,7 @@ import { clients } from "../structures/client";
 
 const logger = new Logger("CrowdControlHandler")
 
+// TODO: rework, test
 class CrowdControlHander {
     constructor(protected client: Client) {
         this.client = client;

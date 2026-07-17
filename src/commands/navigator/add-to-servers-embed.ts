@@ -15,6 +15,7 @@ import { permissionHandler } from '../../functions/permission-handler';
 
 const logger = new Logger('AddToServersEmbed');
 
+// TODO: rework, test
 export default new Command({
     name: 'add-to-servers-embed',
     description: 'Adds a server to the aeon info embed.',
@@ -34,12 +35,12 @@ export default new Command({
 
     run: async (options) => {
         if (!options.interaction.guild) {
-            await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
+            await options.interaction.reply({ content: 'You cant use this here', flags: 'Ephemeral' });
             return;
         }
 
         if (!options.interaction.member) {
-            await options.interaction.reply({ content: `You cant use this command outside a server.`, ephemeral: true });
+            await options.interaction.reply({ content: `You cant use this command outside a server.`, flags: 'Ephemeral' });
             logger.warn(`Didnt get interaction member`);
             return;
         }
@@ -67,12 +68,12 @@ export default new Command({
         const broadcastRecords = await databaseManager.getBroadcasts();
         const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
         if (!channelWebhook) {
-            await options.interaction.reply({ content: `No channel webhook.`, ephemeral: true });
+            await options.interaction.reply({ content: `No channel webhook.`, flags: 'Ephemeral' });
             return;
         }
         const webhookChannelType = channelWebhook.channelType;
         if (webhookChannelType !== NetworkJoinOptions.INFO) {
-            await options.interaction.reply({ content: `No Aeon Info connection in this channel.`, ephemeral: true });
+            await options.interaction.reply({ content: `No Aeon Info connection in this channel.`, flags: 'Ephemeral' });
             return;
         }
         
@@ -122,6 +123,6 @@ export default new Command({
 
             await webhook.editMessage(guildMessage, { embeds: embeds });
         }));
-        await options.interaction.reply({ content: `Network info embed has been successfully edited.`, ephemeral: true });
+        await options.interaction.reply({ content: `Network info embed has been successfully edited.`, flags: 'Ephemeral' });
     }
 });

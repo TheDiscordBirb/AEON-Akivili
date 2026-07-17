@@ -22,10 +22,10 @@ import { ButtonTypes, RunOptions } from '../../types/command';
 import { BroadcastRecord } from '../../structures/types';
 import { permissionHandler } from '../../functions/permission-handler';
 import { PermissionLevels } from '../../types/permission-handler';
-import { ExtendedClient } from '../../structures/client';
 
 const logger = new Logger('RemoveServerCmd');
 
+// TODO: rework, test
 export default new Command({
     name: 'remove-server',
     description: "Used for removing servers/webhooks from the network.",
@@ -33,7 +33,7 @@ export default new Command({
 
     run: async (options) => {
         if (!options.interaction.guild) {
-            await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
+            await options.interaction.reply({ content: 'You cant use this here', flags: 'Ephemeral' });
             return;
         }
         const client = options.client;
@@ -224,7 +224,7 @@ const buildServerRemovalUi = async (options: RunOptions, selectedServerId: strin
     const client = options.client;
     const selectedServer = client.guilds.cache.get(selectedServerId);
     if(!selectedServer) {
-        await options.interaction.followUp({ content: 'Could not find the server, please verify that the bot is on it, if it is dm Birb.', ephemeral: true });
+        await options.interaction.followUp({ content: 'Could not find the server, please verify that the bot is on it, if it is dm Birb.', flags: 'Ephemeral' });
         throw new Error('Could not find selected server.');
     }
     

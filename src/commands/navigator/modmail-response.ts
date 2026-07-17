@@ -8,6 +8,7 @@ import { PermissionLevels } from '../../types/permission-handler';
 
 const logger = new Logger('CrowdControlCmd');
 
+// TODO: rework, test
 export default new Command({
     name: 'modmail-response',
     description: 'Used to respond to modmails.',
@@ -21,12 +22,12 @@ export default new Command({
 
     run: async (options) => {
         if (!options.interaction.guild) {
-            await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
+            await options.interaction.reply({ content: 'You cant use this here', flags: 'Ephemeral' });
             return;
         }
 
         if (!options.interaction.member) {
-            await options.interaction.reply({ content: `You cant use this command outside a server.`, ephemeral: true });
+            await options.interaction.reply({ content: `You cant use this command outside a server.`, flags: 'Ephemeral' });
             logger.warn(`Didnt get interaction member`);
             return;
         }
@@ -48,7 +49,7 @@ export default new Command({
             await modmailHandler.forwardModmailMessage(undefined, options);
         } catch (error) {
             if((error as Error).message === "Could not find modmail.") {
-                await options.interaction.reply({content: "Could not find a modmail associated with this channel.", ephemeral: true});
+                await options.interaction.reply({content: "Could not find a modmail associated with this channel.", flags: 'Ephemeral'});
             }
         }
     }

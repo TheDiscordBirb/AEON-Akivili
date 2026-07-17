@@ -1,19 +1,20 @@
 import {
+    ActionRowBuilder,
     AttachmentBuilder,
     BaseGuildTextChannel,
-    Client,
-    ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
     ChannelType,
-    Message,
-    MessageType,
-    GuildMember,
-    EmbedBuilder,
+    Client,
     Colors,
     DMChannel,
+    EmbedBuilder,
+    GuildMember,
+    Message,
+    MessageType,
+    OmitPartialGroupDMChannel,
     PermissionFlagsBits,
-    Sticker
+    Sticker,
 } from "discord.js";
 import { Event } from "../structures/event";
 import axios from "axios";
@@ -34,140 +35,149 @@ import { isStaff } from "../utils/permissions"
 import isApng from "is-apng";
 import * as apng from 'sharp-apng';
 import * as sharp from 'sharp';
-import { Files, InteractionData } from '../types/message-created';
+import { Files } from '../types/message-created';
 import { crowdControl } from "../functions/crowd-control";
 import { modmailHandler } from "../functions/modmail";
 import { cacheManager } from "../structures/memcache";
 import { FilterOutput } from "../types/message-filter";
 import { messageFilter } from "../functions/message-filter";
 import { notificationManager } from "../functions/notification";
+import { errorHandler } from "../structures/error-handler";
+import { ErrorNames, InteractionTypes } from "../types/error-handler";
 
 
 const logger = new Logger('MessageCreated');
 
-const messageCreatedEvent = async (client: Client, interaction: Message<boolean>): Promise<void> => {
-    try {
-        try {
-            await databaseManager.getModmail(interaction.channelId);
-            return;
-        } catch(error) {
-        }
-        
-        const interactionData = await getInteractionData(client, interaction);
-        if(!interactionData) return;
-        const filterData = await filterHandling(interaction);
-        if(!filterData.resultClean) return;
-        const { interactionMember, channelWebhookBroadcast, broadcastRecords } = interactionData;
-        const webhookChannelType = channelWebhookBroadcast.channelType;
-        const {accepted: files, rejected: rejectedFiles} = await convertStickersAndImagesToFiles(interaction);
-        const emojiReplacement = await replaceEmojis(interaction.content, client);
+// TODO: rework, test
+const messageCreatedEvent = async (
+    client: Client,
+    interaction: Message<boolean>,
+    interactionMember: GuildMember,
+    channelWebhookBroadcast: BroadcastRecord,
+    broadcastRecords: BroadcastRecord[],
+): Promise<void> => {
+    const webhookChannelType = channelWebhookBroadcast.channelType;
+    const {accepted: files, rejected: rejectedFiles} = await convertStickersAndImagesToFiles(interaction);
+    const emojiReplacement = await replaceEmojis(interaction.content, client);
 
-        await interaction.delete();
-        let sentMessage;
-        let cc = false;
-        if(webhookChannelType === NetworkJoinOptions.GENERAL) {
-            cc = await crowdControl.crowdControl(webhookChannelType, interaction, interactionMember, emojiReplacement);
-        }
-        if(!cc) {
-            sentMessage = await createWebhookMessages(client, broadcastRecords, webhookChannelType, interaction, interactionMember, files, rejectedFiles, emojiReplacement);
-        } else {
-            return;
-        }
-        if (!sentMessage) {
-            logger.warn("Could not send message.");
-        }
-        if (sentMessage?.notify) {
-            await sendNotification(client, interaction, interactionMember, sentMessage?.MessagesRecord);
-        }
-        if (emojiReplacement.emojis.length) {
-            await deleteEmojis(emojiReplacement);
-        }
-    } catch (error) {
-        throw new Error((error as Error).message);
+    await interaction.delete();
+    let sentMessage;
+    let cc = false;
+    if(webhookChannelType === NetworkJoinOptions.GENERAL) {
+        cc = await crowdControl.crowdControl(webhookChannelType, interaction, interactionMember, emojiReplacement);
+    }
+    if(!cc) {
+        sentMessage = await createWebhookMessages(client, broadcastRecords, webhookChannelType, interaction, interactionMember, files, rejectedFiles, emojiReplacement);
+    } else {
+        return;
+    }
+    if (!sentMessage) {
+        throw new Error(ErrorNames.DID_NOT_SEND_MESSAGE);
+    }
+    if (sentMessage.notify) {
+        await sendNotification(client, interaction, interactionMember, sentMessage?.MessagesRecord);
+    }
+    if (emojiReplacement.emojis.length) {
+        await deleteEmojis(emojiReplacement);
     }
 }
 
-export default new Event("messageCreate", async (interaction) => {
-    if(config.botStarting) return;
-    const metricId = metrics.start(TimeSpanMetricLabel.MESSAGE_CREATED);
-    const guildId = interaction.guildId;
-    if(!guildId) return;
-    const client = clients.find((client) => client.guilds.cache.has(guildId));
-    if(!client) {
-        logger.warn(`Could not get bot client for ${interaction.guildId}`);
-        return;
-    }
-    try {
-        const channelType = interaction.channel.type;
-        switch(channelType) {
-            case ChannelType.DM:
-                if(interaction.author == client.user || config.activeBanshareFuncionUserIds.includes(interaction.author.id)) return;
-                try {
-                    await databaseManager.getModmailByUserId(interaction.author.id);
-                    await modmailHandler.forwardModmailMessage(interaction);
-                    return;
-                } catch (error) {
-                }
-                await dmMessageResponse(client,interaction);
-                break;
-            default:
-                await messageCreatedEvent(client, interaction);
-                break;
-        }
-    } catch (error) {
-        logger.warn('Could not execute create message event', error as Error);
-        try {
-            if (config.debugMode) {
-                await interaction.member?.send(`There was an error delivering your message with ${error as Error}`);
-            }
-        } catch (noIntMember) {
-            logger.warn(`Could not message user.`);
-        }
-    }
-    metrics.stop(metricId);
-});
+export const dmMessageChecks = async (interaction: OmitPartialGroupDMChannel<Message<boolean>>) => {
+    if(
+        interaction.author == interaction.client.user 
+        || config.activeBanshareFuncionUserIds.includes(interaction.author.id)
+    ) return;
 
-const getInteractionData = async (client: Client, interaction: Message<boolean> ): Promise<InteractionData | undefined> => {
+    await dmMessageEvent(interaction);
+}
+
+export const guildMessageChecks = async (interaction: OmitPartialGroupDMChannel<Message<boolean>>) => {
+    const guildId = interaction.guildId;
+    if(!guildId) throw new Error(ErrorNames.NO_GUILD);
+    const client = clients.find((client) => client.guilds.cache.has(guildId));
+    if(!client) throw new Error(ErrorNames.NO_CLIENT_IN_SERVER);
     if (interaction.webhookId) return;
     const webhook = config.activeWebhooks.find((webhook) => webhook.channelId === interaction.channelId);
     if(!webhook) return;
     const interactionMember = interaction.member;
-    if (!interactionMember) throw new Error('No interaction member defined.');
+    if (!interactionMember) throw new Error(ErrorNames.NO_USER);
     if (interactionMember.user.id === client.user?.id) return;
-    if (await databaseManager.hasUserBeenMutedOnNetworkChat(interactionMember.user.id)) {
-        throw new Error('User is muted.');
-    };
+    if (await databaseManager.hasUserBeenMutedOnNetworkChat(interactionMember.user.id)) throw new Error(ErrorNames.USER_IS_MUTED);
     
     const channel = interaction.channel as BaseGuildTextChannel;
-    if (channel.type !== ChannelType.GuildText) throw new Error('Channel type is not guild text.');
+    if (channel.type !== ChannelType.GuildText) throw new Error(ErrorNames.WRONG_CHANNEL_TYPE);
     
     const broadcastRecords = await databaseManager.getBroadcasts();
     const channelWebhookBroadcast = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
-    if (!channelWebhookBroadcast) throw new Error('No channel could be found in broadcasts for webhook.');
+    if (!channelWebhookBroadcast) throw new Error(ErrorNames.DID_NOT_FIND_WEBHOOK);
     const interactionType = interaction.type;
-    if (interactionType === MessageType.ChannelPinnedMessage) throw new Error('Got pinned message message.');
+    if (interactionType === MessageType.ChannelPinnedMessage) return;
 
     const webhookBroadcast = await databaseManager.getBroadcastByWebhookId(webhook.id);
-    if (!webhookBroadcast) {
-        await interaction.reply({ content: `Could not remove this channel from the network, for more info contact Birb.` });
-        logger.warn(`Could not get webhook broadcast`);
-        return
-    }
+    if (!webhookBroadcast) throw new Error(ErrorNames.NO_BROADCAST_IN_DB);
     
     if (config.nonChatWebhooksTypes.includes(webhookBroadcast.channelType)) {
         if (webhookBroadcast.channelType === NetworkJoinOptions.INFO) {
             await interaction.delete();
         }
-        throw new Error('Typing in non chat channel.');
+        throw new Error(ErrorNames.WRONG_CHANNEL_TYPE);
     }
 
-    return {
+    const filterOutput = await filterHandling(interaction);
+    if(!filterOutput.resultClean) return;
+
+    await messageCreatedEvent(
+        client,
+        interaction,
         interactionMember,
-        broadcastRecords,
         channelWebhookBroadcast,
-        webhook
+        broadcastRecords
+    );
+}
+
+export default new Event("messageCreate", async (interaction) => {
+    if(config.botStarting) return;
+    const metricId = metrics.start(TimeSpanMetricLabel.MESSAGE_CREATED);
+    try {
+        const channelType = interaction.channel.type;
+        switch(channelType) {
+            case ChannelType.DM:
+                await dmMessageChecks(interaction);
+                break;
+            default:
+                await guildMessageChecks(interaction);
+                break;
+        }
+    } catch (error) {
+        await errorHandler.showError({
+            error: error as Error,
+            user: interaction.author, 
+            interactionType: InteractionTypes.MESSAGE_CREATED
+        });
+        logger.error(`Got error during operations with a message.`, error as Error);
+        return;
+    }
+    metrics.stop(metricId);
+});
+
+export const dmMessageEvent = async (interaction: OmitPartialGroupDMChannel<Message<boolean>>) => {
+    try {
+        await databaseManager.getModmailByUserId(interaction.author.id);
+        await modmailHandler.forwardModmailMessage(interaction);
+    } catch (error) {
+        if((error as Error).message === "Could not find modmail.") {
+            await dmMessageResponse(interaction.client,interaction);
+            return;
+        }
+        await errorHandler.showError({
+            error: error as Error,
+            user: interaction.author, 
+            interactionType: InteractionTypes.MESSAGE_CREATED
+        });
+        logger.error(`Got error during modmail operations.`, error as Error);
     }
 }
+
 const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): Promise<Files> => {
     const files: AttachmentBuilder[] = [];
     const rejectedFiles: string[] = [];
@@ -331,7 +341,8 @@ const createWebhookMessages = async (
     interactionMember: GuildMember,
     files: AttachmentBuilder[],
     rejectedFiles: string[],
-    emojiReplacement: EmojiReplacementData): Promise<{ MessagesRecord: MessagesRecord, notify: boolean } | undefined> => {
+    emojiReplacement: EmojiReplacementData
+): Promise<{ MessagesRecord: MessagesRecord, notify: boolean } | undefined> => {
     // This checks if a message had stickers that didn't get converted and notifies the user
     if (rejectedFiles.length) {
         if (!interaction.member) {
@@ -530,7 +541,7 @@ const createWebhookMessages = async (
             userId: interactionMember.user.id,
         }
     }));
-
+0
 
     let sentMessage: { MessagesRecord: MessagesRecord, notify: boolean } | undefined = undefined;
     const uid = ulid();
@@ -550,7 +561,15 @@ const createWebhookMessages = async (
             messageOrigin = 1;
         }
         try {
-            const message = await webhookMessage.webhook.send(webhookMessage.messageData);
+            let message;
+            for(const client of clients) {
+                const broadcast = await databaseManager.getBroadcastByWebhookId(webhookMessage.webhook.id);
+                if(!broadcast) return;
+                if(broadcast.serviceClientId === client.user?.id) {
+                    const webhook = await client.fetchWebhook(broadcast.webhookId);
+                    message = await webhook.send(webhookMessage.messageData);
+                }
+            }
             if (!message) {
                 logger.warn(`Received empty message. Status: ${webhookMessagePromiseResult.status}`)
                 return;

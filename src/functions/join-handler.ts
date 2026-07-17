@@ -9,7 +9,7 @@ import {
 import { JoinData } from "../types/database";
 import { config } from "../const";
 import { databaseManager } from "../structures/database";
-import { BanShareButtonArg } from "../types/event";
+import { JoinRequestButtonArg } from "../types/event";
 import { Logger } from "../logger";
 import { NetworkJoinOptions } from "../types/command";
 import { rebuildNetworkInfoEmbeds } from "../utils/rebuild-comps";
@@ -17,10 +17,14 @@ import { clients } from "../structures/client";
 
 const logger = new Logger('JoinHandler');
 
+// TODO: test
+// TODO: implement ComponentsV2
 class JoinHandler {
     public async requestNetworkAccess(data: JoinData) {
         const client = clients.find((client) => client.guilds.cache.has(config.mainServerId));
-        if(!client) return;
+        if(!client) {
+            throw new Error("Could not find client in main server.");
+        }
         const requestEmbed = new EmbedBuilder()
             .setTitle(`New join request`)
             .setDescription(`**Network:** Aeon ${data.type}\n**Guild:** ${data.guild.name} | ${data.guild.id}\n**Channel:** ${data.channel.name} | ${data.channel.id}\n**User:** ${data.user} | ${data.user.id}`)
@@ -28,12 +32,12 @@ class JoinHandler {
         const requestActionRow = new ActionRowBuilder<ButtonBuilder>();
 
         const acceptButton = new ButtonBuilder()
-            .setCustomId(`${BanShareButtonArg.ACCEPT_REQUEST} ${data.guild.id} ${data.channel.id} ${data.type}`)
+            .setCustomId(`${JoinRequestButtonArg.ACCEPT_REQUEST} ${data.guild.id} ${data.channel.id} ${data.type}`)
             .setStyle(ButtonStyle.Success)
             .setLabel('Accept')
         
         const rejectButton = new ButtonBuilder()
-            .setCustomId(`${BanShareButtonArg.REJECT_REQUEST} ${data.guild.id} ${data.channel.id} ${data.type}`)
+            .setCustomId(`${JoinRequestButtonArg.REJECT_REQUEST} ${data.guild.id} ${data.channel.id} ${data.type}`)
             .setStyle(ButtonStyle.Danger)
             .setLabel('Reject')
         
@@ -42,11 +46,10 @@ class JoinHandler {
         const networkJoinChannel = await client.channels.fetch(config.networkJoinChannelId);
 
         if (!networkJoinChannel) {
-            logger.warn(`Could not get network join channel`);   
-            return;
+            throw new Error(`Could not get network join channel`);   
         }
 
-        await (networkJoinChannel as TextChannel).send({ embeds: [requestEmbed], components: [requestActionRow] });
+        return await (networkJoinChannel as TextChannel).send({ embeds: [requestEmbed], components: [requestActionRow] });
     }
 
     public async acceptNetworkAccessRequest(data: JoinData) {
@@ -69,13 +72,11 @@ class JoinHandler {
                 } else if (data.type === NetworkJoinOptions.INFO) {
                     const infoChannel = client.channels.cache.get(config.infoMessageChannelId);
                     if (!infoChannel) {
-                        logger.warn("Could not find AEON Info channel.");
-                        return;
+                        throw new Error("Could not find AEON Info channel.");
                     }
                     const infoMessage = await (infoChannel as GuildTextBasedChannel).messages.fetch(config.infoMessageId);
                     if (!infoMessage) {
-                        logger.warn("Could not find AEON Info message.");
-                        return;
+                        throw new Error("Could not find AEON Info message.");
                     }
                     await webhook.send({embeds: await rebuildNetworkInfoEmbeds(infoMessage, true)})
                 }
@@ -110,7 +111,7 @@ class JoinHandler {
                     }))
                 } catch (error) {
                     logger.error(`Could not save broadcast. Error: `, error as Error);
-                    return;
+                    throw error;
                 }
             });
         
@@ -118,7 +119,7 @@ class JoinHandler {
     }
 
     public async rejectNetworkAccessRequest(data: JoinData) {
-        await data.channel.send({content: `Sorry, but your application to join Aeon ${data.type} has been rejected, for more details please contact <@1201610070916603984>`, allowedMentions: {parse: []}});
+        await data.channel.send({content: `Sorry, but your application to join Aeon ${data.type} has been rejected.`, allowedMentions: {parse: []}});
     }
 }
 

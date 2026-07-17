@@ -4,6 +4,8 @@ import { FilteredWords } from "../types/database";
 
 const logger = new Logger("MsgFilter");
 
+// TODO: rework, test
+// TODO: implement ComponentsV2
 class MessageFilter {
     protected filterArray : string[] = [];
 

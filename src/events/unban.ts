@@ -11,6 +11,6 @@ export default new Event("guildBanRemove", async (guildBan) => {
     try {
         await databaseManager.updateBanshareStatus(guildBan.guild.id, guildBan.user.id, BanshareStatus.OVERTURNED);
     } catch(error) {
-        logger.error(`${guildBan.user.username}`, (error as Error));
+        logger.warn(`Could not unban ${guildBan.user.username}`, (error as Error));
     }
 });

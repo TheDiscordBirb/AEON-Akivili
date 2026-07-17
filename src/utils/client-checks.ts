@@ -4,11 +4,12 @@ import { clients } from "../structures/client";
 
 const logger = new Logger("ClientChecks");
 
-export const whoIs = async (guild: Guild | null | undefined) => {
-    if(!guild) throw new Error("No guild.");
-    const guildId = guild.id;
+// TODO: ?
+export const whoIs = async (guildId: string | null | undefined) => {
     if(!guildId) throw new Error("No guild id.");
     const clientsInGuild = clients.filter((client) => client.guilds.cache.has(guildId));
+    const guild = clientsInGuild[0].guilds.cache.get(guildId);
+    if(!guild) throw new Error("No guild.");
     if(!clientsInGuild.length) throw new Error(`Could not get bot client for ${guildId}`);
     if(clientsInGuild.length === 1) return clientsInGuild[0];
     if(!clientsInGuild[0].user) throw new Error(`No user for client.`);
@@ -26,4 +27,4 @@ export const whoIs = async (guild: Guild | null | undefined) => {
     const client = clients.find((client) => client.user?.id === oldestJoinedClient.user.id);
     if(!client) throw new Error("Couldnt find client in clients array.");
     return client;
-} 
+}

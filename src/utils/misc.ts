@@ -2,13 +2,16 @@ import {
     ActivityType,
     GuildMember,
     Collection,
+    Guild,
+    Invite,
 } from 'discord.js';
 import { databaseManager } from '../structures/database';
 import { Logger } from '../logger';
 import { config } from '../const';
 import sharp from 'sharp';
 import { sleep, Time } from './time';
-import { clients } from '../structures/client';
+import { clients, ExtendedClient } from '../structures/client';
+import { ErrorNames } from '../types/error-handler';
 const logger = new Logger("Utils");
 
 export const asyncRetry = async <T>(f: () => Promise<T>, retryCount = 5): Promise<T> => {
@@ -98,4 +101,16 @@ export const userActivityLevelCheck = async (userId: string): Promise<number> =>
         }
         return 0;
     }
+}
+
+export const getInvite = async(guildId: string): Promise<{invite: Invite, client: ExtendedClient}> => {
+    for(const client of clients) {
+        const guild = client.guilds.cache.get(guildId);
+        if(guild) {
+            if(!!guild.invites.cache.size) {
+                return {invite: guild.invites.cache.first() as Invite, client};
+            }
+        }
+    }
+    throw new Error(ErrorNames.NO_INVITE);
 }

@@ -8,6 +8,7 @@ import { PermissionLevels } from '../../types/permission-handler';
 
 const logger = new Logger('RequestBanshareCmd');
 
+// TODO: rework, test
 export default new Command({
     name: 'request-banshare',
     description: 'Starts the process to request a banshare.',
@@ -16,7 +17,7 @@ export default new Command({
     run: async (options) => {
         const guild = options.interaction.guild;
         if (!guild) {
-            await options.interaction.reply({ content: "To have a complete paper trail of every banshare, this command can only be used in servers", ephemeral: true });
+            await options.interaction.reply({ content: "To have a complete paper trail of every banshare, this command can only be used in servers", flags: 'Ephemeral' });
             return;
         }
         const client = options.client;
@@ -41,9 +42,9 @@ export default new Command({
             return { guildMember, userIsModerator: false };
         }, { guildMember: undefined, userIsModerator: false });
         if (!userInfo.userIsModerator) {
-            await options.interaction.reply({ content: "You dont have permissions to use this.", ephemeral: true });
+            await options.interaction.reply({ content: "You dont have permissions to use this.", flags: 'Ephemeral' });
         }
-        await options.interaction.reply({ content: "Check your dms for a message from Akivili, if you cant find one enable dms from this server.", ephemeral: true });
+        await options.interaction.reply({ content: "Check your dms for a message from Akivili, if you cant find one enable dms from this server.", flags: 'Ephemeral' });
 
         await banshareManager.dmBanshareFunction(guild.id, options);
     }

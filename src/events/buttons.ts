@@ -1,25 +1,24 @@
 import {
-    ActionRowBuilder,
-    ButtonBuilder,
-    Client,
-    ButtonStyle,
-    GuildMember,
-    TextChannel,
-    ButtonComponent,
-    BaseGuildTextChannel,
-    User,
-    ButtonInteraction,
-    CacheType,
-    MessageActionRowComponent,
     ActionRow,
+    ActionRowBuilder,
+    BaseGuildTextChannel,
+    ButtonBuilder,
+    ButtonComponent,
+    ButtonInteraction,
+    ButtonStyle,
+    CacheType,
+    Client,
+    GuildMember,
+    MessageActionRowComponent,
     MessageFlags,
-    PermissionFlagsBits
+    PermissionFlagsBits,
+    TextChannel,
+    User,
 } from "discord.js";
 import { banshareManager } from "../functions/banshare";
 import { Event } from "../structures/event";
 import { deleteEmojis, replaceEmojis } from "../utils/emoji";
 import { rebuildMessageComponentAfterUserInteraction } from "../utils/rebuild-comps"
-import { joinHandler } from "../functions/join-handler";
 import { Logger } from "../logger";
 import { BanShareButtonArg, BanshareStatus, DmMessageButtonArg } from "../types/event";
 import { config } from "../const";
@@ -28,11 +27,18 @@ import { ChannelType } from "discord.js";
 import { MessagesRecord } from "../types/database";
 import { modmailHandler } from "../functions/modmail";
 import { permissionHandler } from "../functions/permission-handler";
-import { clients, ExtendedClient } from "../structures/client";
+import { clients } from "../structures/client";
 
 const logger = new Logger("Buttons");
 
+// TODO: rework, test
+// TODO: relocate everything to their own file (except reactions)
 export default new Event("interactionCreate", async (interaction) => {
+    const True = true;
+    if(True) return;
+    if(config.botStarting) return;
+    if (!interaction.isButton()) return;
+    await interaction.deferUpdate();
     const guildId = interaction.guildId;
     if(!guildId) return;
     const client = clients.find((client) => client.guilds.cache.has(guildId));
@@ -40,11 +46,6 @@ export default new Event("interactionCreate", async (interaction) => {
         logger.warn(`Could not get bot client for ${interaction.guildId}`);
         return;
     }
-    if(config.botStarting) return;
-    if (!interaction.isButton()) return;
-    await interaction.deferUpdate();
-    if(interaction.message.interaction?.commandName === "remove-server") return;
-    if(interaction.message.interaction?.commandName === "catcake-trading") return;
     
     const buttonComponent = (interaction.component as ButtonComponent);
     if(!buttonComponent) {
@@ -86,7 +87,7 @@ export default new Event("interactionCreate", async (interaction) => {
     await moderationButtonFunction(client, interaction, guildMember);
 })
 
-const errorButtonFunction = async (interaction: ButtonInteraction<CacheType>): Promise<void> => {
+export const errorButtonFunction = async (interaction: ButtonInteraction<CacheType>): Promise<void> => {
     logger.warn(`Error button function executed, message server: ${interaction.message.guild} | channel: ${interaction.message.channel}`);
     const errorButton = new ButtonBuilder()
         .setCustomId("Error")
@@ -180,7 +181,7 @@ const emojiButtonFunction = async (client: Client, interaction: ButtonInteractio
     }
     const webhookBroadcast = await databaseManager.getBroadcastByWebhookId(webhook.id);
     if (!webhookBroadcast) {
-        await interaction.followUp({ content: `Could not remove this channel from the network, for more info contact Birb.`, ephemeral: true });
+        await interaction.followUp({ content: `Could not remove this channel from the network, for more info contact Birb.`, flags: 'Ephemeral' });
         logger.warn(`Could not get webhook broadcast`);
         return
     }
@@ -490,94 +491,6 @@ const moderationButtonFunction = async (client: Client | undefined, interaction:
 
             await databaseManager.updateBanshareStatus(interaction.guildId, customIdArgs[0], BanshareStatus.ENFORCED);
             await webhook.editMessage(interaction.message, { components: [banshareActionRow] });
-            break
-        }
-            
-        //Network  
-        case BanShareButtonArg.ACCEPT_REQUEST: {
-            if (customIdArgs.length !== 3) {
-                logger.warn(`Got wrong amount of arguments for ${BanShareButtonArg.ACCEPT_REQUEST}`);
-                return;
-            }
-
-            const guildId = customIdArgs[0];
-            const channelId = customIdArgs[1];
-            const type = customIdArgs[2];
-            client = clients.find((client) => client.guilds.cache.has(guildId));
-            if(!client) {
-                logger.warn("Could not get client.");
-                return;
-            }
-            const guild = client.guilds.cache.find((guild) => guild.id === guildId);
-            if (!guild) {
-                logger.warn('No guild found while trying to accept a request.')
-                return;
-            }
-
-            const channel = guild.channels.cache.find((channel) => channel.id === channelId);
-            if (!channel) {
-                logger.warn('No channel found while trying to accept a request.')
-                return;
-            }
-            try {
-                await joinHandler.acceptNetworkAccessRequest({ guild, channel: channel as TextChannel, type, user: client.users.cache.get(interaction.message.embeds[0].description?.split(/ +/)[interaction.message.embeds[0].description?.split(/ +/).length - 1] ?? interaction.user.id) ?? interaction.user });
-            } catch (error) {
-                logger.error(`There was an error gaining network access.`, (error as Error));
-                await errorButtonFunction(interaction);
-                return;
-            }
-        
-            const joinHandlerActionRow = new ActionRowBuilder<ButtonBuilder>();
-        
-            const acceptButton = new ButtonBuilder()
-                .setCustomId(interaction.customId)
-                .setLabel('Accepted')
-                .setStyle(ButtonStyle.Success)
-                .setDisabled(true)
-        
-            joinHandlerActionRow.addComponents(acceptButton);
-        
-            await interaction.message.edit({ components: [joinHandlerActionRow] });
-            break
-        }
-        case BanShareButtonArg.REJECT_REQUEST: {
-            if (customIdArgs.length !== 3) {
-                logger.warn(`Got wrong amount of arguments for ${BanShareButtonArg.REJECT_REQUEST}`);
-                return;
-            }
-            const guildId = customIdArgs[0];
-            const channelId = customIdArgs[1];
-            const type = customIdArgs[2];
-            const guild = client.guilds.cache.find((guild) => guild.id === guildId);
-            if (!guild) {
-                logger.warn('No guild found while trying to accept a request.')
-                return;
-            }
-
-            const channel = guild.channels.cache.find((channel) => channel.id === channelId);
-            if (!channel) {
-                logger.warn('No channel found while trying to accept a request.')
-                return;
-            }
-            try {
-                await joinHandler.rejectNetworkAccessRequest({ guild, channel: channel as TextChannel, type, user: client.users.cache.get(interaction.message.embeds[0].description?.split(/ +/)[interaction.message.embeds[0].description?.split(/ +/).length - 1] ?? interaction.user.id) ?? interaction.user });
-            } catch (error) {
-                logger.error(`There was an error refusing network access.`, (error as Error));
-                await errorButtonFunction(interaction);
-                return;
-            }
-            
-            const joinHandlerActionRow = new ActionRowBuilder<ButtonBuilder>();
-    
-            const rejectButton = new ButtonBuilder()
-                .setCustomId(interaction.customId)
-                .setLabel('Rejected')
-                .setStyle(ButtonStyle.Danger)
-                .setDisabled(true)
-    
-            joinHandlerActionRow.addComponents(rejectButton);
-    
-            await interaction.message.edit({ components: [joinHandlerActionRow] });
             break
         }
         default: {

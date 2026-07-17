@@ -24,6 +24,7 @@ import { clients } from "../structures/client";
 
 const logger = new Logger("ModmailHandler");
 
+// TODO: rework, test
 class ModmailHandler {
     constructor(protected client: Client) {
         this.client = client;
@@ -99,7 +100,7 @@ class ModmailHandler {
                     return;
                 }
                 await modmailUser.send({ embeds: [messageEmbed] });
-                await options.interaction.reply({ content: "Message sent.", ephemeral: true });
+                await options.interaction.reply({ content: "Message sent.", flags: 'Ephemeral' });
                 await (options.interaction.channel as GuildTextBasedChannel).send({ embeds: [messageEmbed] });
             } catch (error) {
                 logger.error("Could not message modmail user.", (error as Error));

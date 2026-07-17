@@ -1,17 +1,17 @@
 import {
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonInteraction,
+    ButtonStyle,
+    CacheType,
     Client,
+    Colors,
+    DMChannel,
     EmbedBuilder,
     Guild,
-    User,
-    ButtonBuilder,
-    ActionRowBuilder,
-    ButtonStyle,
-    TextChannel,
-    Colors,
-    ButtonInteraction,
-    CacheType,
     GuildMember,
-    DMChannel
+    TextChannel,
+    User,
 } from "discord.js";
 import { BanshareData } from "../types/database";
 import { config } from "../const";
@@ -24,6 +24,8 @@ import { clients } from "../structures/client";
 
 const logger = new Logger("Banshare");
 
+// TODO: rework, test
+// TODO: implement ComponentsV2
 class BanshareManager {
     constructor(protected client: Client) {
         this.client = client;

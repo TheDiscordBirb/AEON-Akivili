@@ -5,6 +5,7 @@ import { IsStaff } from "../utils/permissions";
 import { config } from "../const";
 import { clients } from "../structures/client";
 
+// TODO: test
 export class PermissionHandler {
     constructor(protected isStaff: IsStaff, protected client: Client) {
         this.isStaff = isStaff;

@@ -6,6 +6,7 @@ import { PermissionLevels } from '../../types/permission-handler';
 
 const logger = new Logger('CrowdControlCmd');
 
+// TODO: rework, test
 export default new Command({
     name: 'crowd-control',
     description: 'Enables/Disables crowd control.',
@@ -13,12 +14,12 @@ export default new Command({
 
     run: async (options) => {
         if (!options.interaction.guild) {
-            await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
+            await options.interaction.reply({ content: 'You cant use this here', flags: 'Ephemeral' });
             return;
         }
 
         if (!options.interaction.member) {
-            await options.interaction.reply({ content: `You cant use this command outside a server.`, ephemeral: true });
+            await options.interaction.reply({ content: `You cant use this command outside a server.`, flags: 'Ephemeral' });
             logger.warn(`Didnt get interaction member`);
             return;
         }
@@ -37,6 +38,6 @@ export default new Command({
 
         config.crowdControlActive = !config.crowdControlActive;
     
-        await options.interaction.reply({content: `Crowd control has been set to ${config.crowdControlActive ? "active" : "inactive"}`, ephemeral: true});
+        await options.interaction.reply({content: `Crowd control has been set to ${config.crowdControlActive ? "active" : "inactive"}`, flags: 'Ephemeral'});
     }
 });

@@ -7,6 +7,7 @@ import { permissionHandler } from '../../functions/permission-handler';
 
 const logger = new Logger('SetBanshareRole');
 
+// TODO: rework, test
 export default new Command({
     name: 'set-important-banshare-role',
     description: "Set the role that gets pinged when a new important banshare is posted.",
@@ -20,12 +21,12 @@ export default new Command({
 
     run: async (options) => {
         if (!options.interaction.guild) {
-            await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
+            await options.interaction.reply({ content: 'You cant use this here', flags: 'Ephemeral' });
             return;
         }
 
         if (!options.interaction.member) {
-            await options.interaction.reply({ content: `You cant use this command outside a server.`, ephemeral: true });
+            await options.interaction.reply({ content: `You cant use this command outside a server.`, flags: 'Ephemeral' });
             logger.warn(`Didnt get interaction member`);
             return;
         }
@@ -49,11 +50,11 @@ export default new Command({
         const broadcastRecords = await databaseManager.getBroadcasts();
         const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
         if (!channelWebhook) {
-            await options.interaction.reply({ content: `No channel webhook.`, ephemeral: true });
+            await options.interaction.reply({ content: `No channel webhook.`, flags: 'Ephemeral' });
             return;
         }
         if (channelWebhook.channelType !== NetworkJoinOptions.BANSHARE) {
-            await options.interaction.reply({ content: `No Aeon Banshare connection in this channel.`, ephemeral: true });
+            await options.interaction.reply({ content: `No Aeon Banshare connection in this channel.`, flags: 'Ephemeral' });
             return;
         }
 
@@ -66,13 +67,13 @@ export default new Command({
         };
         
         if (!webhook) {
-            await options.interaction.reply({ content: `No webhook in this channel`, ephemeral: true });
+            await options.interaction.reply({ content: `No webhook in this channel`, flags: 'Ephemeral' });
             return;
         }
 
         const broadcastToEdit = broadcastRecords.find((broadcast) => broadcast.channelType === NetworkJoinOptions.BANSHARE && broadcast.guildId === options.interaction.guildId);
         if (!broadcastToEdit) {
-            await options.interaction.reply({ content: `There is no banshare webhook in this server.`, ephemeral: true });
+            await options.interaction.reply({ content: `There is no banshare webhook in this server.`, flags: 'Ephemeral' });
             return;
         }
         try {

@@ -16,6 +16,7 @@ import { NotificationType } from "../../types/event";
 
 const logger = new Logger('EditMessageCmd');
 
+// TODO: rework, test
 export default new Command({
     name: 'edit-message',
     description: 'Used for editing messages in a network channel.',
@@ -41,7 +42,7 @@ export default new Command({
         const client = options.client;
         const channel = options.interaction.channel as BaseGuildTextChannel;
         if (!channel) {
-            await options.interaction.reply({ content: `Could not find channel`, ephemeral: true });
+            await options.interaction.reply({ content: `Could not find channel`, flags: 'Ephemeral' });
             logger.warn(`Could not find channel`);
             return;
         }
@@ -52,12 +53,12 @@ export default new Command({
             message = channel.messages.cache.find((channelMessage) => channelMessage.id === options.args.getString('message-id'));
         }
         catch (error) {
-            await options.interaction.reply({ content: `There was an error getting the message`, ephemeral: true });
+            await options.interaction.reply({ content: `There was an error getting the message`, flags: 'Ephemeral' });
             logger.error(`There was an error getting the message:`, error as Error);
         }
 
         if (!message) {
-            await options.interaction.reply({ content: `Could not get message`, ephemeral: true });
+            await options.interaction.reply({ content: `Could not get message`, flags: 'Ephemeral' });
             logger.warn(`Could not get message`);
             return;
         }
@@ -105,7 +106,7 @@ export default new Command({
         const matchingBroadcastRecords = (await databaseManager.getBroadcasts()).filter((broadcast) => broadcast.channelType === webhookChannelType);
 
         if (relatedMessageRecords.find((relatedMessage) => relatedMessage.channelId === messageChannelId)?.userId === options.interaction.user.id) {
-            await options.interaction.reply({ content: "You do not have permission to edit this message.", ephemeral: true });
+            await options.interaction.reply({ content: "You do not have permission to edit this message.", flags: 'Ephemeral' });
             return;
         }
 
@@ -116,13 +117,13 @@ export default new Command({
             try {
                 const networkMessageRecord = relatedMessageRecords.find((relatedMessage) => relatedMessage.channelId === broadcastRecord.channelId);
                 if (!networkMessageRecord) {
-                    await options.interaction.reply({ content: `Could not get network message record`, ephemeral: true });
+                    await options.interaction.reply({ content: `Could not get network message record`, flags: 'Ephemeral' });
                     logger.warn(`Could not get network message record`);
                     return;
                 }
                 const networkChannel = client.channels.cache.find((clientChannel) => clientChannel.id === broadcastRecord.channelId);
                 if (!networkChannel) {
-                    await options.interaction.reply({ content: `Could not find network channel`, ephemeral: true });
+                    await options.interaction.reply({ content: `Could not find network channel`, flags: 'Ephemeral' });
                     logger.warn(`Could not find network channel`);
                     return;
                 }
@@ -130,11 +131,11 @@ export default new Command({
                 networkMessage = guildNetworkChannel.messages.cache.find((guildMessage) => guildMessage.id === networkMessageRecord.channelMessageId);
             }
             catch (error) {
-                await options.interaction.reply({ content: `Got an error during getting network message`, ephemeral: true });
+                await options.interaction.reply({ content: `Got an error during getting network message`, flags: 'Ephemeral' });
                 logger.error(`Got an error during getting network message: `, error as Error);
             }
             if (!networkMessage) {
-                await options.interaction.reply({ content: `Got an error during getting network message`, ephemeral: true });
+                await options.interaction.reply({ content: `Got an error during getting network message`, flags: 'Ephemeral' });
                 logger.warn(`Could not get network message`);
                 return;
             }
@@ -145,7 +146,7 @@ export default new Command({
             }
 
             await webhook.editMessage(networkMessage, { content: options.args.getString('content') });
-            await options.interaction.reply({ content: `Successfully edited message.`, ephemeral: true });
+            await options.interaction.reply({ content: `Successfully edited message.`, flags: 'Ephemeral' });
         }));
         
         const targetUser = client.users.cache.find((clientUser) => clientUser.id === relatedMessageRecords[0].userId);

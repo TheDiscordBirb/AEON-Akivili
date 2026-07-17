@@ -7,6 +7,7 @@ import { PermissionLevels } from '../../types/permission-handler';
 
 const logger = new Logger('RmvPermCmd');
 
+// TODO: rework, test
 export default new Command({
     name: 'remove-permisson',
     description: "Removes all staff permissions from a user.",
@@ -20,7 +21,7 @@ export default new Command({
 
     run: async (options) => {
         if (!options.interaction.guild) {
-            await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
+            await options.interaction.reply({ content: 'You cant use this here', flags: 'Ephemeral' });
             return;
         }
                 

@@ -16,6 +16,7 @@ import { databaseManager } from "../../structures/database";
 
 const logger = new Logger("CatCakes");
 
+// TODO: rework, test
 export default new Command({
     name: "catcake-trading",
     description: "Gotta catch 'em all.",
@@ -67,9 +68,7 @@ export default new Command({
             .addTextDisplayComponents(
                 (textDisplay) => textDisplay.setContent(`To share your cat cakes with others:\nYou have to set "Allow strangers to enter Party Car" to "Yes" or accept friend requests.`),
             )
-            .addActionRowComponents<ButtonBuilder>((actionRow) => actionRow.addComponents(shareButton, lookForButton)
-        )
-
+            .addActionRowComponents<ButtonBuilder>((actionRow) => actionRow.addComponents(shareButton, lookForButton))
 
         const message = await options.interaction.reply({components: [container], flags: ['Ephemeral', 'IsComponentsV2']});
         const filter = (i : Interaction) => {

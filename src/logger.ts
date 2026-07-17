@@ -23,6 +23,7 @@ export class Logger {
 
     constructor(
         protected moduleName: string,
+        protected clientId: string = "-",
         protected fileName?: string,
         protected logFileBatchSize = 1,
         protected defaultLogLevel = 3 + (config.debugMode ? 1 : 0),
@@ -30,29 +31,38 @@ export class Logger {
         this.moduleName = this.moduleName.padEnd(20,' ');
     }
 
-    public wtf(message: string) {
-        this.log(`${LogLevelName[LogLevel.WTF]} ${this.moduleName} : ${this.now()} - ${message}`, LogLevel.WTF);
+    public updateLoggerClientId(clientId?: string) {
+        this.clientId = clientId ?? "-";
     }
 
-    public error(message: string, error: Error) {
-        this.log(`${LogLevelName[LogLevel.ERROR]} ${this.moduleName} : ${this.now()} - ${message}\nError: ${error}`, LogLevel.ERROR);
+    public wtf(message: string, clientId?: string) {
+        this.updateLoggerClientId(clientId);
+        this.log(`[${this.clientId}] ${LogLevelName[LogLevel.WTF]} ${this.moduleName} : ${this.now()} - ${message}`, LogLevel.WTF);
     }
 
-    public warn(message: string, error?: Error) {
-        let log = `${LogLevelName[LogLevel.WARN]} ${this.moduleName} : ${this.now()} - ${message}`;
+    public error(message: string, error: Error, clientId?: string) {
+        this.updateLoggerClientId(clientId);
+        this.log(`[${this.clientId}] ${LogLevelName[LogLevel.ERROR]} ${this.moduleName} : ${this.now()} - ${message}\nError: ${error}`, LogLevel.ERROR);
+    }
+
+    public warn(message: string, error?: Error, clientId?: string) {
+        this.updateLoggerClientId(clientId);
+        let log = `[${this.clientId}] ${LogLevelName[LogLevel.WARN]} ${this.moduleName} : ${this.now()} - ${message}`;
         if (error) {
             log = `${log}\nError: ${error}`;
         }
         this.log(log, LogLevel.WARN);
     }
 
-    public info(message: string) {
-        const log = `${LogLevelName[LogLevel.INFO]} ${this.moduleName} : ${this.now()} - ${message}`;
+    public info(message: string, clientId?: string) {
+        this.updateLoggerClientId(clientId);
+        const log = `[${this.clientId}] ${LogLevelName[LogLevel.INFO]} ${this.moduleName} : ${this.now()} - ${message}`;
         this.log(log, LogLevel.INFO);
     }
 
-    public debug(message: string) {
-        let log = `${LogLevelName[LogLevel.DEBUG]} ${this.moduleName} : ${this.now()} - ${message}`;
+    public debug(message: string, clientId?: string) {
+        this.updateLoggerClientId(clientId);
+        let log = `[${this.clientId}] ${LogLevelName[LogLevel.DEBUG]} ${this.moduleName} : ${this.now()} - ${message}`;
         this.log(log, LogLevel.DEBUG);
     }
 

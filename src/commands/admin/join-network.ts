@@ -4,15 +4,78 @@ import {
     BaseGuildTextChannel,
     ChannelType,
     PermissionFlagsBits,
-    TextChannel
+    TextChannel,
 } from 'discord.js'
 import { joinHandler } from '../../functions/join-handler';
 import { databaseManager } from '../../structures/database';
-import { NetworkJoinOptions } from '../../types/command';
+import { NetworkJoinOptions, RunOptions } from '../../types/command';
 import { Logger } from '../../logger';
 import { permissionHandler } from '../../functions/permission-handler';
+import { errorHandler } from '../../structures/error-handler';
+import { ErrorNames, InteractionTypes } from '../../types/error-handler';
+import { joinNetworkButtons } from '../../functions/buttons';
 
 const logger = new Logger('JoinNetworkCmd');
+
+// TEST: test
+export const joinNetworkChecks = async (options: RunOptions) => {
+        if (!options.interaction.guild) {
+            throw new Error(ErrorNames.NO_GUILD);
+        }
+
+        const guildChannel = options.interaction.channel as BaseGuildTextChannel;
+        if (guildChannel.type !== ChannelType.GuildText) {
+            throw new Error("Wrong channel type.");
+        }
+
+        const permissionCheck = await permissionHandler.checkForPermission(
+            options.interaction.user,
+            {local: true, onlyLocal: true},
+            options.interaction.guild,
+            [
+                PermissionFlagsBits.BanMembers,
+                PermissionFlagsBits.ManageGuild,
+                PermissionFlagsBits.ManageWebhooks,
+                PermissionFlagsBits.ManageChannels,
+                PermissionFlagsBits.ModerateMembers
+            ]);
+            
+        if(!permissionCheck.status) {
+            await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
+        throw new Error(ErrorNames.NO_PERMISSIONS)
+        }
+
+        const argChannel = options.args.getChannel('channel');
+        let channel = argChannel ? argChannel as TextChannel : options.interaction.channel as TextChannel;
+        if (!channel) {
+            throw new Error(ErrorNames.NO_INTERACTION_CHANNEL)
+        }
+
+        if (!channel.guild) {
+            throw new Error(ErrorNames.NO_GUILD)
+        }
+
+        const broadcastRecords = await databaseManager.getBroadcasts();
+        const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
+        if (channelWebhook) {
+            const webhooks = await (options.interaction.channel as TextChannel).fetchWebhooks();
+            if (webhooks.get(channelWebhook.webhookId)) {
+                await options.interaction.reply({ content: `This channel is already connected to Aeon ${channelWebhook.channelType}, please select another channel!` });   
+                return;
+            }
+        }
+
+        const channelType = options.args.getString('type');
+        if (!channelType) {
+            throw new Error(ErrorNames.NO_REQUIRED_FIELD)
+        }
+
+        await joinNetworkCommand(
+            options,
+            channel,
+            channelType
+        );
+}
 
 export default new Command({
     name: 'join-network',
@@ -37,72 +100,26 @@ export default new Command({
     }],
 
     run: async (options) => {
-        if (!options.interaction.guild) {
-            await options.interaction.reply({ content: 'You cant use this here', ephemeral: true });
-            return;
-        }
-
-        const guildChannel = options.interaction.channel as BaseGuildTextChannel;
-        if (guildChannel.type !== ChannelType.GuildText) {
-            await options.interaction.reply({ content: `You cant use this here.`, ephemeral: true });
-            return;
-        }
-
-        const permissionCheck = await permissionHandler.checkForPermission(
-            options.interaction.user,
-            {local: true, onlyLocal: true},
-            options.interaction.guild,
-            [
-                PermissionFlagsBits.BanMembers,
-                PermissionFlagsBits.ManageGuild,
-                PermissionFlagsBits.ManageWebhooks,
-                PermissionFlagsBits.ManageChannels,
-                PermissionFlagsBits.ModerateMembers
-            ]);
-            
-        if(!permissionCheck.status) {
-            await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
-            return;
-        }
-
-        const argChannel = options.args.getChannel('channel');
-        let channel = argChannel ? argChannel as TextChannel : options.interaction.channel as TextChannel;
-        if (!channel) {
-            logger.wtf(`${options.interaction.member.user.username} has used a command without a channel.`)
-            return;
-        }
-
-        if (!channel.guild) {
-            await options.interaction.reply('You cant use this here');
-            return;
-        }
-
-        const broadcastRecords = await databaseManager.getBroadcasts();
-        const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
-        if (channelWebhook) {
-            try {
-                const webhooks = await (options.interaction.channel as TextChannel).fetchWebhooks();
-                if (webhooks.get(channelWebhook.webhookId)) {
-                    await options.interaction.reply({ content: `This channel is already connected to Aeon ${channelWebhook.channelType}, please select another channel!` });   
-                    return;
-                }
-            } catch (error) {
-                logger.warn(`Couldnt get webhook`, (error as Error));
-            }
-        }
-
-        const channelType = options.args.getString('type');
-        if (!channelType) {
-            logger.wtf(`${options.interaction.member.user.username} has used a command without the required field 'type'.`);
-            await options.interaction.reply({ content: `Network type not selected.`, ephemeral: true });
-            return;
-        }
-
         try {
-            await joinHandler.requestNetworkAccess({ guild: channel.guild, channel: channel, type: channelType, user: options.interaction.user });
-            await options.interaction.reply({ content: `Your application has been sent to join Aeon ${channelType}, you will be notified when your application has been reviewed.`, ephemeral: true });
-        } catch (error) {
-            logger.error('Could not send application', error as Error);
+            await joinNetworkChecks(options);
+        } catch(e) {
+            await errorHandler.showError({
+                error: e as Error,
+                user: options.interaction.user,
+                interactionType: InteractionTypes.JOIN_NETWORK
+            });
+            logger.error(`Got error during ${options.interaction.commandName} command.`, e as Error);   
         }
     }
 });
+
+export const joinNetworkCommand = async (options: RunOptions, channel: TextChannel, channelType: string) => {
+    const requestMessage = await joinHandler.requestNetworkAccess({ guild: channel.guild, channel: channel, type: channelType, user: options.interaction.user });
+    await options.interaction.reply({ content: `Your application has been sent to join Aeon ${channelType}, you will be notified when your application has been reviewed.`, flags: 'Ephemeral' });
+    const collector = requestMessage.createMessageComponentCollector();
+    collector.on('collect', async (interaction) => {
+        if(interaction.isButton()) {
+            await joinNetworkButtons(interaction);
+        }
+    });
+}
