@@ -47,7 +47,7 @@ export default new Command({
                 user: options.interaction.user,
                 interactionType: InteractionTypes.LIST_NETWORK_SERVERS
             })
-            logger.error(`Got error during ${options.interaction.commandName} command.`, e as Error);
+            logger.error(`Got error during ${options.interaction.commandName} command.`, e as Error, options.client.user?.id);
         }
     }
 });
@@ -66,6 +66,7 @@ export const listNetworkServerCommand = async(options: RunOptions) => {
 
     const serversEmbed = new EmbedBuilder()
         .setTitle("Servers with an Aeon Network channel connection:");
+        
     const fields: { name: string, value: string, inline: boolean }[] = [];
 
     let column = "";

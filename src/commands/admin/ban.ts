@@ -16,9 +16,7 @@ const logger = new Logger('BanCmd');
 
 // TODO: test
 export const banChecks = async (options: RunOptions) => {
-    if (!options.interaction.guild) {
-        throw new Error(ErrorNames.NO_GUILD)
-    }
+    if (!options.interaction.guild) throw new Error(ErrorNames.NO_GUILD);
 
     const permissionCheck = await permissionHandler.checkForPermission(
         options.interaction.user,
@@ -33,31 +31,20 @@ export const banChecks = async (options: RunOptions) => {
 
     const banshareResponse = options.args.getString('banshare');
     
-    if (!options.interaction.channel) {
-        logger.wtf(`${options.interaction.member.user.username} has used a command without a channel.`);
-        throw new Error(ErrorNames.NO_INTERACTION_CHANNEL);
-    }
+    if (!options.interaction.channel) throw new Error(ErrorNames.NO_INTERACTION_CHANNEL);
         
     const messageId = options.args.getString('message-id');
-    if (!messageId) {
-        logger.warn(`${options.interaction.member.user.username} has used a command without the required field 'message-id'.`);
-        throw new Error(ErrorNames.NO_MESSAGE_ID);
-    }
+    if (!messageId) throw new Error(ErrorNames.NO_MESSAGE_ID);
+
     const message = await options.interaction.channel.messages.fetch(messageId);
-    if (!message) {
-        throw new Error(ErrorNames.MESSAGE_DOES_NOT_EXIST);
-    }
+    if (!message) throw new Error(ErrorNames.MESSAGE_DOES_NOT_EXIST);
     
     const userId = await databaseManager.getUserId(options.interaction.channel.id, messageId);
-
     const broadcasts = await databaseManager.getBroadcasts();
-
     const messageRecords = await databaseManager.getMessages(message.channel.id, message.id);
 
     const messageChannelType = broadcasts.find((broadcast) => broadcast.channelId === messageRecords[0].channelId)?.channelType;
-    if(!messageChannelType) {
-        throw new Error(ErrorNames.NO_CHANNEL_TYPE);
-    }
+    if(!messageChannelType) throw new Error(ErrorNames.NO_CHANNEL_TYPE);
     
     const userInfo = Object.values(broadcasts).reduce<{ guildMember?: GuildMember, userIsModerator: boolean }>((acc, broadcast) => {
         const guild = options.client.guilds.cache.get(broadcast.guildId);
@@ -115,7 +102,7 @@ export default new Command({
                 user: options.interaction.user,
                 interactionType: InteractionTypes.BAN
             });
-            logger.error(`Got error during ${options.interaction.commandName} command.`, e as Error);
+            logger.error(`Got error during ${options.interaction.commandName} command.`, e as Error, options.client.user?.id);
         }
         metrics.stop(metricId);
     }
@@ -145,7 +132,10 @@ export const banCommand = async (
     }
     
     await guild.bans.create(userId);
-    await options.interaction.reply({ content: `${userInfo.guildMember ? userInfo.guildMember : userId} has been banned.`, flags: 'Ephemeral' });
+    await options.interaction.reply({ 
+        content: `${userInfo.guildMember ? userInfo.guildMember : userId} has been banned.`, 
+        flags: 'Ephemeral' 
+    });
 
     if(banshareResponse == BanShareOption.YES) {
         await banshareManager.dmBanshareFunction(guild.id, options);

@@ -2,17 +2,16 @@ import { Command } from '../../structures/command';
 import { ApplicationCommandOptionType, BaseGuildTextChannel, ChannelType, PermissionFlagsBits } from 'discord.js'
 import { databaseManager } from '../../structures/database'; 
 import { Logger } from '../../logger';
-import { metrics } from '../../structures/metrics';
-import { TimeSpanMetricLabel } from '../../types/metrics';
 import { RunOptions } from '../../types/command';
 import { permissionHandler } from '../../functions/permission-handler';
 import { PermissionLevels } from '../../types/permission-handler';
-import { ErrorNames } from '../../types/error-handler';
+import { ErrorNames, InteractionTypes } from '../../types/error-handler';
+import { errorHandler } from '../../structures/error-handler';
 
 const logger = new Logger('RemoveReactionCmd');
 
 // TODO: rework, test
-const banCommand = async (options: RunOptions): Promise<void> => {
+const removeReactionChecks = async (options: RunOptions): Promise<void> => {
     if (!options.interaction.guild) {
         await options.interaction.reply({ content: 'You cant use this here', flags: 'Ephemeral' });
         return;
@@ -79,12 +78,19 @@ export default new Command({
     ],
     
     run: async (options) => {
-        const metricId = metrics.start(TimeSpanMetricLabel.CMD_REMOVE_REACTION);
-        try {
-            await banCommand(options);
-        } catch (error) {
-            logger.warn('Could not execute remove reaction command', error as Error);
-        }
-        metrics.stop(metricId);
+            try {
+                await removeReactionChecks(options);
+            } catch(e) {
+                await errorHandler.showError({
+                    error: e as Error,
+                    user: options.interaction.user,
+                    interactionType: InteractionTypes.REMOVE_REACTION
+                });
+                logger.error(`Got error during ${options.interaction.commandName} command.`, e as Error, options.client.user?.id);   
+            }
     }
 });
+
+export const removeReactionCommand = async () => {
+
+}

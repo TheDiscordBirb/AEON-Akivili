@@ -1,13 +1,54 @@
 import { ApplicationCommandOptionType, BaseGuildTextChannel, ChannelType, PermissionFlagsBits } from 'discord.js'
 import { Command } from '../../structures/command';
 import { databaseManager } from '../../structures/database';
-import { AutoBanLevelOptions, NetworkJoinOptions } from '../../types/command';
+import { AutoBanLevelOptions, NetworkJoinOptions, RunOptions } from '../../types/command';
 import { Logger } from '../../logger';
 import { permissionHandler } from '../../functions/permission-handler';
+import { errorHandler } from '../../structures/error-handler';
+import { ErrorNames, InteractionTypes } from '../../types/error-handler';
+import { BroadcastRecord } from '../../types/database';
 
 const logger = new Logger('SetAutoBanLevelCmd');
 
-// TODO: rework, test
+export const setAutoBanLevelChecks = async (options: RunOptions) => {
+    if (!options.interaction.guild) throw new Error(ErrorNames.NO_GUILD);
+
+    const permissionCheck = await permissionHandler.checkForPermission(
+        options.interaction.user,
+        {local: true, onlyLocal: true},
+        options.interaction.guild,
+        [PermissionFlagsBits.Administrator]);
+        
+    if(!permissionCheck.status) {
+        await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
+        throw new Error(ErrorNames.NO_PERMISSIONS);
+    }
+
+    const channel = options.interaction.channel as BaseGuildTextChannel;
+    if (channel.type !== ChannelType.GuildText) throw new Error(ErrorNames.WRONG_CHANNEL_TYPE);
+
+    const broadcastRecords = await databaseManager.getBroadcasts();
+    const channelBroadcast = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
+    if (!channelBroadcast) throw new Error(ErrorNames.NO_BROADCAST_IN_DB)
+    if (channelBroadcast.channelType !== NetworkJoinOptions.BANSHARE) throw new Error(ErrorNames.WRONG_CHANNEL_TYPE);
+
+    const webhook = await options.client.fetchWebhook(channelBroadcast.webhookId);
+    if (!webhook) throw new Error(ErrorNames.DID_NOT_FIND_WEBHOOK);
+
+    const optionsLevel = options.args.getString('level');
+    if (!optionsLevel) throw new Error(ErrorNames.NO_REQUIRED_FIELD);
+
+    const autoBanLevel = parseInt(optionsLevel);
+
+    await setAutoBanLevelCommand(
+        optionsLevel,
+        channelBroadcast,
+        autoBanLevel,
+        options
+    );
+}
+
+// TODO: test
 export default new Command({
     name: 'set-auto-ban-level',
     description: 'Sets the level where banshares automatically get executed.',
@@ -25,93 +66,41 @@ export default new Command({
     }],
 
     run: async (options) => {
-        if (!options.interaction.guild) {
-            await options.interaction.reply({ content: 'You cant use this here', flags: 'Ephemeral' });
-            return;
-        }
-
-        if (!options.interaction.member) {
-            await options.interaction.reply({ content: `You cant use this command outside a server.`, flags: 'Ephemeral' });
-            logger.warn(`Didnt get interaction member`);
-            return;
-        }
-
-        const permissionCheck = await permissionHandler.checkForPermission(
-            options.interaction.user,
-            {local: true, onlyLocal: true},
-            options.interaction.guild,
-            [PermissionFlagsBits.Administrator]);
-            
-        if(!permissionCheck.status) {
-            await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
-            return;
-        }
-
-        const channel = options.interaction.channel as BaseGuildTextChannel;
-        if (channel.type !== ChannelType.GuildText) return;
-
-        const broadcastRecords = await databaseManager.getBroadcasts();
-        const channelWebhook = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
-        if (!channelWebhook) {
-            await options.interaction.reply({ content: `No channel webhook.`, flags: 'Ephemeral' });
-            return;
-        }
-        if (channelWebhook.channelType !== NetworkJoinOptions.BANSHARE) {
-            await options.interaction.reply({ content: `No Aeon Banshare connection in this channel.`, flags: 'Ephemeral' });
-            return;
-        }
-
-        let webhook;
         try {
-            webhook = await options.client.fetchWebhook(channelWebhook.webhookId);
-        } catch (error) {
-            logger.error(`Could not fetch webhook in guild: ${options.interaction.guild?.name ?? 'Unknown'} channel: ${channel.name ?? 'Unknown'}`, error as Error)
-            return;
-        };
-        
-        if (!webhook) {
-            await options.interaction.reply({ content: `No webhook in this channel`, flags: 'Ephemeral' });
-            return;
-        }
-        if (!webhook.token) {
-            await options.interaction.reply({ content: "Couldnt get Aeon webhook token, contact Birb to resolve this issue." });
-            return;
-        }
-
-        const optionsLevel = options.args.getString('level');
-        if (optionsLevel === null) {
-            logger.wtf(`${options.interaction.member.user.username} has used a command without the required field 'level'.`);
-            return;
-        };
-
-        const autoBanLevel = parseInt(optionsLevel);
-        if (isNaN(autoBanLevel)) {
-            logger.wtf(`I set these up myself, how is it NaN.`);
-            return;
-        }
-
-        let autoBanLevelName;
-        switch (optionsLevel) {
-            case AutoBanLevelOptions.NONE: {
-                autoBanLevelName = 'None';
-                break;
-            }
-            case AutoBanLevelOptions.IMPORTANT: {
-                autoBanLevelName = 'Important';
-                break;
-            }
-            case AutoBanLevelOptions.ALL: {
-                autoBanLevelName = 'All';
-                break;
-            }
-        }
-
-        try {
-            await databaseManager.saveBroadcast({ ...channelWebhook, autoBanLevel });
-            await options.interaction.reply(`This server's auto ban level has been set to ${autoBanLevelName}.`);
-        } catch (error) {
-            logger.error(`Could not save broadcast. Error: `, error as Error);
-            return;
+            await setAutoBanLevelChecks(options);
+        } catch(e) {
+            await errorHandler.showError({
+                error: e as Error,
+                user: options.interaction.user,
+                interactionType: InteractionTypes.SET_AUTO_BAN_LEVEL
+            });
+            logger.error(`Got error during ${options.interaction.commandName} command.`, e as Error, options.client.user?.id);   
         }
     }
 });
+
+export const setAutoBanLevelCommand = async (
+    optionsLevel: string, 
+    channelBroadcast: BroadcastRecord,
+    autoBanLevel: number,
+    options: RunOptions
+) => {
+    let autoBanLevelName;
+    switch (optionsLevel) {
+        case AutoBanLevelOptions.NONE: {
+            autoBanLevelName = 'None';
+            break;
+        }
+        case AutoBanLevelOptions.IMPORTANT: {
+            autoBanLevelName = 'Important';
+            break;
+        }
+        case AutoBanLevelOptions.ALL: {
+            autoBanLevelName = 'All';
+            break;
+        }
+    }
+
+    await databaseManager.saveBroadcast({ ...channelBroadcast, autoBanLevel });
+    await options.interaction.reply(`This server's auto ban level has been set to ${autoBanLevelName}.`);
+}

@@ -14,9 +14,7 @@ import { errorHandler } from '../../structures/error-handler';
 const logger = new Logger('ManageMuteCmd');
 
 export const manageMuteChecks = async (options: RunOptions) => {
-    if (!options.interaction.guild) {
-        throw new Error(ErrorNames.NO_GUILD);
-    }
+    if (!options.interaction.guild) throw new Error(ErrorNames.NO_GUILD);
 
     const permissionCheck = await permissionHandler.checkForPermission(
         options.interaction.user,
@@ -30,20 +28,16 @@ export const manageMuteChecks = async (options: RunOptions) => {
         throw new Error(ErrorNames.NO_PERMISSIONS);
     }
 
-    if (!options.interaction.channel) {
-        throw new Error(ErrorNames.NO_CHANNEL);
-    }
+    if (!options.interaction.channel) throw new Error(ErrorNames.NO_CHANNEL);
 
     const messageId = options.args.getString('message-id');
-    if (!messageId) {
-        throw new Error(ErrorNames.NO_REQUIRED_FIELD);
-    }
+    if (!messageId) throw new Error(ErrorNames.NO_REQUIRED_FIELD);
     
     const userId = await databaseManager.getUserId(options.interaction.channel.id, messageId);
     const userMessages = await databaseManager.getUniqueUserMessages(userId, 1);
     for(const client of clients) {
         if(client.guilds.cache.get(userMessages[0].guildId)) {
-            await manageMuteCmd(client.users.cache.get(userId), options);
+            await manageMuteCommand(client.users.cache.get(userId), options);
             return;
         }
     }
@@ -76,12 +70,12 @@ export default new Command({
                 user: options.interaction.user,
                 interactionType: InteractionTypes.MANAGE_NETWORK_MUTE
             })
-            logger.error(`Got error during ${options.interaction.commandName} command.`, e as Error);
+            logger.error(`Got error during ${options.interaction.commandName} command.`, e as Error, options.client.user?.id);
         }
     }
 });
 
-export const manageMuteCmd = async (user: User | undefined, options: RunOptions) => {
+export const manageMuteCommand = async (user: User | undefined, options: RunOptions) => {
     if(!user) {
         throw new Error(ErrorNames.NO_USER);
     }

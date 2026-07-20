@@ -1,5 +1,5 @@
 import { Command } from '../../structures/command';
-import { ApplicationCommandOptionType, Guild, PermissionFlagsBits, Webhook, WebhookType } from 'discord.js'
+import { ApplicationCommandOptionType, PermissionFlagsBits, Webhook, WebhookType } from 'discord.js'
 import { Logger } from '../../logger';
 import { databaseManager } from '../../structures/database';
 import { config } from '../../const';
@@ -14,9 +14,8 @@ const logger = new Logger('DisconnectCmd');
 
 // TODO: test
 export const disconnectChecks = async (options: RunOptions) => {
-    if (!options.interaction.guild) {
-        throw new Error(ErrorNames.NO_GUILD);
-    }
+    if (!options.interaction.guild) throw new Error(ErrorNames.NO_GUILD);
+
     const permissionCheck = await permissionHandler.checkForPermission(
         options.interaction.user,
         {local: true, onlyLocal: true},
@@ -29,42 +28,33 @@ export const disconnectChecks = async (options: RunOptions) => {
     }
 
     const guildWebhooks = config.activeWebhooks;
-    if(!guildWebhooks) {
-        throw new Error(ErrorNames.NO_WEBHOOKS_IN_GUILD);
-    }
+    if(!guildWebhooks) throw new Error(ErrorNames.NO_WEBHOOKS_IN_GUILD);
+
     const guildBroadcasts = (await databaseManager.getBroadcasts()).filter((broadcast) => broadcast.guildId === options.interaction.guildId);
     const correctBroadcast = guildBroadcasts.find((broadcast) => broadcast.channelType === options.args.getString("type"));
-    if(!correctBroadcast) {
-        throw new Error(ErrorNames.NO_BROADCAST_IN_DB);
-    }
-    const correctWebhook = guildWebhooks.find((gWebhook) => gWebhook.id === correctBroadcast.webhookId);
-    if(!correctWebhook) {
-        throw new Error(ErrorNames.DID_NOT_FIND_WEBHOOK);
-    }
+    if(!correctBroadcast) throw new Error(ErrorNames.NO_BROADCAST_IN_DB);
 
-    let leavingGuild: Guild | undefined;
+    const correctWebhook = guildWebhooks.find((gWebhook) => gWebhook.id === correctBroadcast.webhookId);
+    if(!correctWebhook) throw new Error(ErrorNames.DID_NOT_FIND_WEBHOOK);
+
 
     const client = clients.find((client) => client.user?.id === correctBroadcast.serviceClientId);
-    if(!client) {
-        throw new Error(ErrorNames.NO_CLIENT_IN_SERVER);
-    }
-    leavingGuild = client.guilds.cache.get(correctBroadcast.guildId);
-    if(!leavingGuild) {
-        throw new Error(ErrorNames.NO_LEAVING_GUILD);
-    }
+    if(!client) throw new Error(ErrorNames.NO_CLIENT_IN_SERVER);
 
-    if (config.nonChatWebhooks.includes(correctWebhook.name)){
-        throw new Error(ErrorNames.DID_NOT_FIND_WEBHOOK_IN_CACHE);
-    }
+    const leavingGuild = client.guilds.cache.get(correctBroadcast.guildId);
+    if(!leavingGuild) throw new Error(ErrorNames.NO_LEAVING_GUILD);
+
+    if (config.nonChatWebhooks.includes(correctWebhook.name)) throw new Error(ErrorNames.DID_NOT_FIND_WEBHOOK_IN_CACHE);
+
     const relatedBroadcastRecords = (await databaseManager.getBroadcasts()).filter((broadcast) => broadcast.channelType === correctBroadcast.channelType && broadcast.webhookId !== correctBroadcast.webhookId);
 
     await disconnectCommand(
         correctWebhook,
         correctBroadcast,
-        options
+        options,
+        relatedBroadcastRecords, 
+        leavingGuild.name
     );
-
-    await sendMessages(relatedBroadcastRecords, leavingGuild.name);
 }
 
 export default new Command({
@@ -93,12 +83,23 @@ export default new Command({
                 user: options.interaction.user,
                 interactionType: InteractionTypes.DISCONNECT
             });
-            logger.error(`Got error during ${options.interaction.commandName} command.`, e as Error);
+            logger.error(`Got error during ${options.interaction.commandName} command.`, e as Error, options.client.user?.id);
         }
     }
 });
 
-export const disconnectCommand = async (correctWebhook: Webhook<WebhookType>, correctBroadcast: BroadcastRecord, options: RunOptions) => {
+export const disconnectCommand = async (
+    correctWebhook: Webhook<WebhookType>,
+    correctBroadcast: BroadcastRecord, 
+    options: RunOptions,
+    relatedBroadcastRecords: BroadcastRecord[],
+    leavingGuildName: string
+) => {
+    await disconnectServer(correctWebhook, correctBroadcast, options);
+    await sendMessages(relatedBroadcastRecords, leavingGuildName);
+}
+
+const disconnectServer = async (correctWebhook: Webhook<WebhookType>, correctBroadcast: BroadcastRecord, options: RunOptions) => {
     await databaseManager.deleteBroadcastByWebhookId(correctWebhook.id);
     await correctWebhook.delete();
     await options.interaction.reply(`Successfully disconnected from Aeon ${correctBroadcast.channelType}`);
@@ -107,15 +108,9 @@ export const disconnectCommand = async (correctWebhook: Webhook<WebhookType>, co
 const sendMessages = async (relatedBroadcastRecords: BroadcastRecord[], leavingGuildName: string) => {
     await Promise.allSettled(relatedBroadcastRecords.map(async (broadcastRecord) => {
         const client = clients.find((client) => client.user?.id === broadcastRecord.serviceClientId);
-        if(!client) {
-            logger.warn(`Could not get client for ${broadcastRecord.channelId}`);
-            return;
-        }
+        if(!client) throw new Error(ErrorNames.NO_CLIENT_IN_SERVER);
         const webhook = await client.fetchWebhook(broadcastRecord.webhookId);
-        if(!webhook) {
-            logger.warn(`Could not get webhook ${broadcastRecord.webhookId}`);
-            return;
-        }
+        if(!webhook) throw new Error(ErrorNames.DID_NOT_FIND_WEBHOOK);
         const webhookMessage = `${leavingGuildName ?? "A server"} has left Aeon ${broadcastRecord.channelType}`;
         await webhook.send({content: `\`${webhookMessage}\``, username: 'Akivili'});
     }));

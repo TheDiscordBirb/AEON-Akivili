@@ -1,15 +1,13 @@
 import { Command } from '../../structures/command';
 import { 
-    APIEmbedField,
     ActionRowBuilder,
     ButtonBuilder, 
     ButtonStyle, 
     Colors, 
-    ComponentType,
     EmbedBuilder,
     Guild,
     MessageActionRowComponentBuilder,
-    PermissionFlagsBits,
+    PermissionFlagsBits
 } from 'discord.js'
 import { Logger } from '../../logger';
 import { databaseManager } from '../../structures/database';
@@ -29,15 +27,11 @@ const logger = new Logger('BanshareListCmd');
 
 // TODO: test
 export const banshareListChecks = async (options: RunOptions) => {
-    if (!options.interaction.guild) {
-        throw new Error(ErrorNames.NO_GUILD)
-    }
+    if (!options.interaction.guild) throw new Error(ErrorNames.NO_GUILD);
 
     const guildMember = options.interaction.guild.members.cache.get(options.interaction.member.user.id);
     
-    if (!guildMember) {
-        throw new Error(ErrorNames.NO_GUILD_MEMBER);
-    }
+    if (!guildMember) throw new Error(ErrorNames.NO_GUILD_MEMBER);
 
     const permissionCheck = await permissionHandler.checkForPermission(
         options.interaction.user,
@@ -51,10 +45,7 @@ export const banshareListChecks = async (options: RunOptions) => {
         throw new Error(ErrorNames.NO_PERMISSIONS);
     }
 
-    if (!options.interaction.channel) {
-        logger.wtf(`${options.interaction.member.user.username} has used a command without a channel.`);
-        throw new Error(ErrorNames.NO_INTERACTION_CHANNEL);
-    }
+    if (!options.interaction.channel) throw new Error(ErrorNames.NO_INTERACTION_CHANNEL);
     
     const unsortedBanshares = await databaseManager.getBanshareList(options.interaction.guild?.id);
 
@@ -80,7 +71,7 @@ export default new Command({
                 user: options.interaction.user, 
                 interactionType: InteractionTypes.BANSHARE_LIST
             });
-            logger.error(`Got error during ${options.interaction.commandName} command.`, e as Error);
+            logger.error(`Got error during ${options.interaction.commandName} command.`, e as Error, options.client.user?.id);
         }
     }
 });
@@ -99,7 +90,8 @@ export const banshareListCommand = async (
             sortedBanshareBlock.length = 0;
         }
         sortedBanshareBlock.push(banshareData);
-    })
+    });
+    
     if(sortedBanshareBlock.length) {
         sortedBanshares.push(sortedBanshareBlock);
     }
