@@ -44,7 +44,7 @@ export const deleteMessageChecks = async (options: RunOptions) => {
     if (!webhook) throw new Error(ErrorNames.DID_NOT_FIND_WEBHOOK);
     if(config.nonChatWebhooksTypes.includes(channelBroadcast.channelType)) return;
     
-    await deleteMessageCmd(
+    await deleteMessageCommand(
         channelBroadcast.channelType,
         message,
         options,
@@ -79,7 +79,7 @@ export default new Command({
     }
 })
 
-export const deleteMessageCmd = async (
+export const deleteMessageCommand = async (
     channelType: string, 
     message: Message<boolean>, 
     options: RunOptions, 
