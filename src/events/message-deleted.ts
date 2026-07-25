@@ -21,6 +21,9 @@ export default new Event("messageDelete", async (interaction) => {
     if(!client) throw new Error(ErrorNames.NO_CLIENT_IN_SERVER);
     
     const broadcasts = await databaseManager.getBroadcasts();
+    
+    const referencedMessages = await databaseManager.getMessages(interaction.channelId, interaction.id);
+    if (!referencedMessages.length) throw new Error(ErrorNames.NO_MESSAGE_IN_DB);
 
     let messageChannelType = '';
     await Promise.allSettled(broadcasts.map((broadcast) => {
@@ -30,9 +33,6 @@ export default new Event("messageDelete", async (interaction) => {
         }
     }));
     if(!messageChannelType) throw new Error(ErrorNames.NO_BROADCAST_IN_DB);
-
-    const referencedMessages = await databaseManager.getMessages(interaction.channelId, interaction.id);
-    if (!referencedMessages.length) throw new Error(ErrorNames.NO_MESSAGE_IN_DB);
     
     const targetUser = client.users.cache.find((clientUser) => clientUser.id === referencedMessages[0].userId);
     let message: Message<true> | undefined;
