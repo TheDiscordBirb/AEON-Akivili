@@ -53,7 +53,7 @@ export default new Command({
             PermissionLevels.NAVIGATOR);
             
         if(!permissionCheck.status) {
-            await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
+            await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral" });
             return;
         }
 

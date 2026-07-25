@@ -13,7 +13,7 @@ import {
     TextChannel,
     User,
 } from "discord.js";
-import { BanshareData } from "../types/database";
+import { BanshareRecord } from "../types/database";
 import { config } from "../const";
 import { databaseManager } from "../structures/database";
 import { BanShareButtonArg, BanshareStatus, DmMessageButtonArg } from "../types/event";
@@ -25,13 +25,13 @@ import { clients } from "../structures/client";
 const logger = new Logger("Banshare");
 
 // TODO: rework, test
-// TODO: implement ComponentsV2
+ 
 class BanshareManager {
     constructor(protected client: Client) {
         this.client = client;
     }
 
-    public async requestBanshare(data: BanshareData, submitter: User, guildOfOrigin: Guild) {
+    public async requestBanshare(data: BanshareRecord, submitter: User, guildOfOrigin: Guild) {
         const mainChannel = this.client.channels.cache.get(config.aeonBanshareChannelId);
         if (!mainChannel) {
             logger.warn(`Could not get main channel`);
@@ -81,7 +81,7 @@ class BanshareManager {
         await (mainChannel as TextChannel).send({ content: proofMessage, embeds, components: [banshareActionRow] });
     }
 
-    public async shareBanshare(data: BanshareData, importantBansharePing = false) {
+    public async shareBanshare(data: BanshareRecord, importantBansharePing = false) {
         let dataUsername: string, dataUserId: string;
         if (typeof (data.user) === "string") {
             dataUsername = dataUserId = data.user;
@@ -230,7 +230,7 @@ class BanshareManager {
                 .setTitle("Banshare request process started.")
                 .setDescription("Please input the id of a single user id:")
 
-            const data: BanshareData = { user: "", reason: "", proof: [] }
+            const data: BanshareRecord = { user: "", reason: "", proof: [] }
             const message = await (interactionMember.user as User).send({ embeds: [dmBanshareEmbed] });
             await (message.channel as DMChannel).awaitMessages({ max: 1, time: Time.minutes(5) }).then(async (userIdMessage) => {
                 const firstUserIdMessage = userIdMessage.first();

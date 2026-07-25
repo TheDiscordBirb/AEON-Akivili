@@ -22,6 +22,14 @@ export default new Event("clientReady", async (client: Client) => {
     const guilds = await client.guilds.fetch();
     const clientId = client.user?.id ?? "-";
     const broadcasts = await databaseManager.getBroadcasts();
+    const test = databaseManager;/*
+    for(let broadcast of broadcasts) {
+        await postgresDatabaseManager.saveBroadcast(broadcast);
+    }
+    const postgressBroadcasts = await postgresDatabaseManager.getBroadcasts();
+    console.log(postgressBroadcasts);
+    console.log("-\n-\n-\n-\n-\n")
+    console.log(broadcasts);*/
     const chatBroadcasts = broadcasts.filter((broadcast) => !config.nonChatWebhooksTypes.includes(broadcast.channelType));
     const otherBroadcasts = broadcasts.filter((broadcast) => config.nonChatWebhooksTypes.includes(broadcast.channelType));
     let guildCount = 0;

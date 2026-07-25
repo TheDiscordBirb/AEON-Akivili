@@ -1,5 +1,5 @@
 import { Guild, TextChannel, User } from "discord.js"
-import { CatCakes, Regions } from "./command"
+import { CatCakeTypes, Regions } from "./command"
 
 export interface BroadcastRecord {
     channelId: string,
@@ -17,24 +17,24 @@ export interface MessagesRecord {
     guildId: string,
     timestamp: number,
     userId: string,
-    userMessageId: string,
-    userName: string,
-    messageOrigin: number
+    uniqueMessageId: string,
+    username: string,
+    messageOrigin: boolean
 }
 
 export interface ModmailRecord {
     userId: string,
     channelId: string,
-    active: number
+    active: boolean
 }
 
 export interface UserReactionRecord {
-    userMessageId: string,
+    uniqueMessageId: string,
     userId: string,
     reactionIdentifier: string
 }
 
-export interface BanshareData {
+export interface BanshareRecord {
     user: User | string,
     reason: string,
     proof: string[],
@@ -47,13 +47,7 @@ export interface JoinData {
     user: User
 }
 
-export interface NetworkProfileData {
-    userId: string,
-    name: string,
-    avatarUrl: string
-}
-
-export interface BanshareListData {
+export interface BanshareListRecord {
     serverId: string,
     status: string,
     userId: string,
@@ -62,12 +56,12 @@ export interface BanshareListData {
     timestamp: number
 }
 
-export interface FilteredWords {
+export interface FilteredWordRecord {
     word: string
 }
 
-export interface CatCakeData {
+export interface CatCakeRecord {
     uid: string,
     region: Regions,
-    catType: CatCakes
+    catType: CatCakeTypes
 }

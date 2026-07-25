@@ -1,5 +1,5 @@
 import { Client, Guild, PermissionResolvable, User } from "discord.js";
-import { PermissionLocal, PermissionResult } from "../structures/types";
+import { PermissionLocal, PermissionResult } from "../types/permission-handler"
 import { PermissionLevels } from "../types/permission-handler";
 import { IsStaff } from "../utils/permissions";
 import { config } from "../const";

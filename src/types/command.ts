@@ -57,7 +57,7 @@ export enum Regions {
     ASIA = "as"
 }
 
-export enum CatCakes {
+export enum CatCakeTypes {
     AKIVILI_CAKE = "Akivimeow",
     ASTRA_LATTE = "AstraLatte",
     BLUEBERRY_JAR = "Blueberry Jar",

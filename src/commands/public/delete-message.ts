@@ -27,19 +27,25 @@ const logger = new Logger('DeleteMessageCmd');
 
 export const deleteMessageChecks = async (options: RunOptions) => {
     if (!options.interaction.guild) throw new Error(ErrorNames.NO_GUILD);
+    
     const channel = options.interaction.channel as BaseGuildTextChannel;
     if (!channel) throw new Error(ErrorNames.NO_CHANNEL);
     if (channel.type !== ChannelType.GuildText) throw new Error(ErrorNames.WRONG_CHANNEL_TYPE);
+
     const messageId = options.args.getString('message-id');
     if(!messageId) throw new Error(ErrorNames.NO_REQUIRED_FIELD);
+    
     const message = await channel.messages.fetch(messageId);
     if(!message) throw new Error(ErrorNames.NO_MESSAGE);
+    
     const broadcastRecords = await databaseManager.getBroadcasts();
     const channelBroadcast = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
-    if (!channelBroadcast) throw new Error(ErrorNames.NO_BROADCAST_IN_DB)
+    if (!channelBroadcast) throw new Error(ErrorNames.NO_BROADCAST_IN_DB);
+    
     const webhooks = config.activeWebhooks;
     const guildWebhooks = webhooks.filter((webhook) => webhook.guildId === options.interaction.guildId);
     if(!guildWebhooks) throw new Error(ErrorNames.NO_WEBHOOKS_IN_GUILD);
+    
     const webhook = guildWebhooks.find((channelWebhook) => channelWebhook.channelId === options.interaction.channelId);
     if (!webhook) throw new Error(ErrorNames.DID_NOT_FIND_WEBHOOK);
     if(config.nonChatWebhooksTypes.includes(channelBroadcast.channelType)) return;
@@ -86,7 +92,7 @@ export const deleteMessageCommand = async (
     guild: Guild,
     webhooks: Webhook<WebhookType>[]
 ) => {
-    const relatedMessageRecords = await databaseManager.getMessages(message.channelId, message.id, true);
+    const relatedMessageRecords = await databaseManager.getMessages(message.channelId, message.id);
     const matchingBroadcastRecords = (await databaseManager.getBroadcasts()).filter((broadcast) => broadcast.channelType === channelType);
 
     let deletedByMod = (relatedMessageRecords[0].userId === options.interaction.user.id) ? false : true;
@@ -120,7 +126,8 @@ export const deleteMessageCommand = async (
         if(!webhook) throw new Error(ErrorNames.DID_NOT_FIND_WEBHOOK_IN_CACHE);
 
         await webhook.deleteMessage(networkMessage);
-    }))
+    }));
+    await databaseManager.deleteMessages(relatedMessageRecords[0].uniqueMessageId);
     await options.interaction.reply({ content: `Successfully deleted message.`, flags: 'Ephemeral' });
 
     const targetUser = options.client.users.cache.find((clientUser) => clientUser.id === relatedMessageRecords[0].userId);

@@ -9,7 +9,7 @@ import {
     StringSelectMenuInteraction,
 } from "discord.js";
 import { Command } from "../../structures/command";
-import { CatCakes, Regions } from "../../types/command";
+import { CatCakeTypes, Regions } from "../../types/command";
 import { Logger } from "../../logger";
 import { ActionRowBuilder } from "@discordjs/builders";
 import { databaseManager } from "../../structures/database";
@@ -77,7 +77,7 @@ export default new Command({
 
         let catCakesString: string = "";
         let idx = 1;
-        for(const catType of Object.values(CatCakes)) {
+        for(const catType of Object.values(CatCakeTypes)) {
             catCakesString += `${idx++} : ${catType}${idx === 28 ? "" : "\n"}`;
         }
         const componentCollector = message.createMessageComponentCollector({filter});
@@ -88,8 +88,8 @@ export default new Command({
         let jdx = 0;
         let kdx = 0;
         const catSections: string[][] = [[], []];
-        for(const catType of Object.values(CatCakes)) {
-            if(jdx <= Object.keys(CatCakes).length/2) {
+        for(const catType of Object.values(CatCakeTypes)) {
+            if(jdx <= Object.keys(CatCakeTypes).length/2) {
                 jdx++;
                 catSections[kdx].push(catType);
             } else {
@@ -274,7 +274,7 @@ export default new Command({
                 if(!uid) return;
                 for(const catCake of sharedCats) {
                     try {
-                        await databaseManager.insertIntoCatCakes(uid, region, catCake as CatCakes);
+                        await databaseManager.insertIntoCatCakes(uid, region, catCake as CatCakeTypes);
                     } catch(e) {
                         logger.error("Error during cat cake saving.", e as Error);
                         await clearContainer(container);
@@ -295,7 +295,7 @@ export default new Command({
 
             if(component.customId === "lookForSpecificCat") {
                 try {
-                    const catsInDb = await databaseManager.checkForCat(region, lookForCat as CatCakes);
+                    const catsInDb = await databaseManager.checkForCat(region, lookForCat as CatCakeTypes);
                     if(catsInDb.length == 0) {
                         await clearContainer(container);
                         container.addTextDisplayComponents(

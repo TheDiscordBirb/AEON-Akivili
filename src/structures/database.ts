@@ -1,511 +1,425 @@
-import sqlite3 from 'sqlite3';
-import { Database, open } from 'sqlite';
+import { Logger } from '../logger';
+import { DataSource } from 'typeorm';
 import { 
-    BanshareListData,
-    BroadcastRecord,
-    CatCakeData,
-    FilteredWords,
-    MessagesRecord,
-    ModmailRecord,
-    NetworkProfileData,
+    BanshareListRecord, 
+    BroadcastRecord, 
+    CatCakeRecord, 
+    FilteredWordRecord, 
+    MessagesRecord, 
+    ModmailRecord, 
     UserReactionRecord
 } from '../types/database';
-import { Logger } from "../logger";
+import { Messages } from './entities/messages';
+import { Broadcasts } from './entities/broadcasts';
+import { UserReactions } from './entities/user-reactions';
+import { NetworkChatMutedUsers } from './entities/network-chat-muted-users';
+import { Modmails } from './entities/modmails';
+import { Banshares } from './entities/banshares';
+import { CatCakeTypes } from '../types/command';
 import { config } from '../const';
-import * as fs from "fs";
-import path from 'path';
+import { ErrorNames } from '../types/error-handler';
 import { Time } from '../utils/time';
-import { messageFilter } from '../functions/message-filter';
-import { CatCakes, Regions } from '../types/command';
+import { FilteredWords } from './entities/filtered-words';
+import { Regions } from '../types/command';
+import { CatCakes } from './entities/cat-cakes';
 
 const logger = new Logger('Database');
 
-const dbName = 'aeon.db';
-
 class DatabaseManager {
-    protected _db: Database | null = null;
-    protected _broadcastCache: BroadcastRecord[] | null = null;
+    protected _db: DataSource | null = null;
+    protected _broadcastCache: BroadcastRecord[] = [];
 
     constructor() {
-        this.open()
-        .catch((error) => {
-            logger.warn('Could not initialize the database.', error as Error);
-        })
-        this.setUpDb()
-        .catch((error) => {
-            logger.warn("Could not set up db correctly.", error as Error)
-        })
+        this.connect();
     }
 
-    protected open = async (): Promise<Database> => {
-        this._db = await open({
-            filename: dbName,
-            driver: sqlite3.cached.Database,
+    private connect = async (): Promise<DataSource> => {
+        this._db = new DataSource({
+            type: 'postgres',
+            username: 'postgres',
+            password: 'Akivili',
+            host: 'localhost',
+            port: 5432,
+            database: 'aeon-beta',
+            logging: false,
+            entities: [
+                Messages,
+                Broadcasts,
+                UserReactions,
+                NetworkChatMutedUsers,
+                Modmails,
+                Banshares,
+                FilteredWords,
+                CatCakes
+            ]
         });
-
-        await this._db.run(
-            `CREATE TABLE IF NOT EXISTS Messages (
-                userId TEXT,
-                userMessageId TEXT,
-                userName TEXT,
-                channelId TEXT,
-                channelMessageId TEXT,
-                guildId TEXT,
-                timestamp INT,
-                messageOrigin INT,
-                PRIMARY KEY (userMessageId, userId, channelMessageId)
-            )`
-        )
-
-        await this._db.run(
-            `CREATE TABLE IF NOT EXISTS Broadcast (
-                channelId TEXT,
-                channelType TEXT,
-                webhookId TEXT,
-                guildId TEXT,
-                importantBanshareRoleId TEXT,
-                autoBanLevel INT,
-                serviceClientId TEXT,
-                PRIMARY KEY (webhookId)
-            )`
-        )
-
-        await this._db.run(
-            `CREATE TABLE IF NOT EXISTS UserReaction (
-                userMessageId TEXT,
-                userId TEXT,
-                reactionIdentifier TEXT,
-                PRIMARY KEY (userMessageId, userId, reactionIdentifier)
-            )`
-        )
-
-        await this._db.run(
-            `CREATE TABLE IF NOT EXISTS NetworkChatMutedUser (
-                userId TEXT,
-                staffId TEXT,
-                PRIMARY KEY (userId)
-            )`
-        )
-
-        await this._db.run(
-            `CREATE TABLE IF NOT EXISTS NetworkProfiles (
-                userId TEXT,
-                name TEXT,
-                avatar BLOB,
-                PRIMARY KEY (userId)
-            )`
-        )
-
-        await this._db.run(
-            `CREATE TABLE IF NOT EXISTS Modmails (
-                userId TEXT,
-                channelId TEXT,
-                active INT,
-                PRIMARY KEY (channelId)
-            )`
-        )
-
-        await this._db.run(
-            `CREATE TABLE IF NOT EXISTS Banshares (
-                serverId TEXT,
-                status TEXT,
-                userId TEXT,
-                reason TEXT,
-                proof TEXT,
-                timestamp INT,
-                PRIMARY KEY (serverId, userId, reason, proof, timestamp)
-            )`
-        )
-
-        await this._db.run(
-            `CREATE TABLE IF NOT EXISTS FilteredWords (
-                word TEXT,
-                PRIMARY KEY (word)
-            )`
-        )
-
-        await this._db.run(
-            `CREATE TABLE IF NOT EXISTS CatCakes (
-                uid TEXT,
-                region TEXT,
-                catType TEXT,
-                PRIMARY KEY (uid, catType)
-            )`
-        )
-
-        logger.info('Database initialized.');
-
+        await this._db.initialize();
+        await this._db.synchronize();
+        logger.info(`Database connected.`);
         return this._db;
     }
 
-    public async close(): Promise<void> {
+    public async disconnect(): Promise<void> {
         const db = await this.db();
-        await db.close();
+        db.destroy();
+        this._db = null;
+        logger.info('Database disconnected')
     }
 
-    public async db(): Promise<Database> {
-        if (this._db) return this._db;
-        this._db = await this.open();
+    public async db(): Promise<DataSource> {
+        if(this._db) return this._db;
+        this._db = await this.connect();
         return this._db;
-    }
-    
-    private async setUpDb(): Promise<void> {
-        const messagesInDb = await this.totalMessageLogs();
-        logger.info(`There ${messagesInDb >= 100000 ? "were" : "are"} ${messagesInDb} messages in Db.`);
-        if(messagesInDb >= 100000) {
-            await this.cleanDb(Date.now());
-        }
-        await messageFilter.addToFilterArray(await this.getFilteredWords());
     }
     
     public async saveBroadcast(broadcastRecord: BroadcastRecord): Promise<void> {
         const db = await this.db();
-        db.run(
-            `INSERT OR REPLACE INTO Broadcast (channelId, channelType, webhookId, guildId, importantBanshareRoleId, autoBanLevel, serviceClientId) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [
-                broadcastRecord.channelId,
-                broadcastRecord.channelType,
-                broadcastRecord.webhookId,
-                broadcastRecord.guildId,
-                broadcastRecord.importantBanshareRoleId,
-                broadcastRecord.autoBanLevel,
-                broadcastRecord.serviceClientId
-            ],
-            (error: Error) => {
-                throw new Error(`Could not save into the Broadcast table. Error: ${error.message}`);
-            }
-        )
-        
+        await db.createQueryBuilder()
+            .insert()
+            .into(Broadcasts)
+            .values([{
+                ...broadcastRecord
+            }])
+            .execute();
+
         if (!this._broadcastCache) {
             this._broadcastCache = await this.getBroadcasts();
-        }        
+        }      
+
         this._broadcastCache.push(broadcastRecord);
-    }
-
-    public async getBroadcasts(): Promise<BroadcastRecord[]> {
-        if (this._broadcastCache) return this._broadcastCache;
-        try {
-            this._broadcastCache = await this.getBroadcastsFromDb();
-        } catch (error) {
-            logger.error(`Could not get broadcast records. Error: `, error as Error);
-            return [];
-        }
-        return this._broadcastCache;
-        
-    }
-
-    public async getBroadcastByWebhookId(webhookId: string): Promise<BroadcastRecord | undefined> {
-        const db = await this.db();
-        const result = await db.get<BroadcastRecord>(`SELECT * FROM Broadcast WHERE webhookId=?`, [webhookId]);
-        return result;
-    }
-
-    public async getChatBroadcasts(): Promise<BroadcastRecord[]> {
-        if(this._broadcastCache) {
-            return this._broadcastCache.filter((broadcast) => !config.nonChatWebhooksTypes.includes(broadcast.channelType));
-        }
-        try {
-            this._broadcastCache = await this.getBroadcastsFromDb();
-        } catch (error) {
-            logger.error(`Could not get broadcast records. Error: `, error as Error);
-            return [];
-        }
-        return this._broadcastCache.filter((broadcast) => !config.nonChatWebhooksTypes.includes(broadcast.channelType));
     }
 
     private getBroadcastsFromDb = async (): Promise<BroadcastRecord[]> => {
         const db = await this.db();
-        const result = await db.all<BroadcastRecord[]>(`SELECT * FROM Broadcast`);
-        if (!result) {
-            throw new Error('Could not get the contents of the Broadcast table.');
-        }
-        return result;
+        return await db.createQueryBuilder(Broadcasts, "broadcasts")
+            .select()
+            .getMany();
     }
-    
+
+    public async getBroadcasts(): Promise<BroadcastRecord[]> {
+        if(this._broadcastCache) return this._broadcastCache;
+        this._broadcastCache = await this.getBroadcastsFromDb();
+        return this._broadcastCache;
+    }
+
+    public async getBroadcastByWebhookId(webhookId: string): Promise<BroadcastRecord | undefined> {
+        const broadcasts = await this.getBroadcasts();
+        return broadcasts.find((broadcast) => broadcast.webhookId === webhookId);
+    }
+
+    public async getChatBroadcasts(): Promise<BroadcastRecord[]> {
+        const broadcasts = await this.getBroadcasts();
+        return broadcasts.filter((broadcast) => !config.nonChatWebhooksTypes.includes(broadcast.channelType));
+    }
+
     public async deleteBroadcastByWebhookId(webhookId: string): Promise<void> {
         const db = await this.db();
-        await db.run(`DELETE FROM Broadcast WHERE webhookId=?`, [webhookId]);
-        if (this._broadcastCache) {
-            const idx = this._broadcastCache.findIndex((cacheElement) => cacheElement.webhookId === webhookId);
-            if (idx !== -1) {
-                this._broadcastCache.splice(idx, 1);
-            }
+        await db.createQueryBuilder(Broadcasts, "broadcasts")
+            .delete()
+            .where('"webhookId" = :webhookId', { webhookId })
+            .execute();
+
+        const idx = this._broadcastCache.findIndex((cacheElement) => cacheElement.webhookId === webhookId);
+        if (idx !== -1) {
+            this._broadcastCache.splice(idx, 1);
         }
     }
 
     public async logMessage(messagesRecord: MessagesRecord): Promise<void> {
         const db = await this.db();
-        await db.run(
-            `INSERT OR REPLACE INTO Messages (userId, userMessageId, userName, channelId, channelMessageId, guildId, timestamp, messageOrigin) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [messagesRecord.userId, messagesRecord.userMessageId, messagesRecord.userName, messagesRecord.channelId, messagesRecord.channelMessageId, messagesRecord.guildId, messagesRecord.timestamp, messagesRecord.messageOrigin],
-            (error: Error) => {
-                throw new Error(`Could not save record to the Messages table. Error: ${error.message}`);
-            }
-        );
+        await db.createQueryBuilder()
+            .insert()
+            .into(Messages)
+            .values([{
+                ...messagesRecord, 
+                messageOrigin: !!messagesRecord.messageOrigin
+            }])
+            .execute();
+    }
+    
+    public async getMessages(channelId: string, channelMessageId: string): Promise<MessagesRecord[]> {
+        const db = await this.db();
+        const message = await db.createQueryBuilder(Messages, "messages")
+            .select()
+            .where('"channelId" = :channelId AND "channelMessageId" = :channelMessageId', { channelId, channelMessageId})
+            .getOne();
+        if(!message) throw new Error('Could not find message.');
+        return await db.createQueryBuilder(Messages, 'messages')
+            .select()
+            .where('"userId" = :userId AND "uniqueMessageId" = :uniqueMessageId', {userId: message.userId, uniqueMessageId: message.uniqueMessageId})
+            .getMany();
     }
 
-    public async getMessages(channelId: string, channelMessageId: string, deleteRecords = false): Promise<MessagesRecord[]> {
+    public async deleteMessages(uniqueMessageId: string): Promise<void> {
         const db = await this.db();
-        const userMessageRecord = await db.get<MessagesRecord>(`SELECT * FROM Messages WHERE channelId=? AND channelMessageId=?`, [channelId, channelMessageId]);
-        if (!userMessageRecord) {
-            if (deleteRecords) return [];
-            throw new Error(`Could not get user message. ChannelId: ${channelId}, channelMessageId: ${channelMessageId}`);
-        }
-        const relatedMessageRecords = await db.all<MessagesRecord[]>(`SELECT * FROM Messages WHERE userId=? AND userMessageId=?`, [userMessageRecord.userId, userMessageRecord.userMessageId]);
-        if ((relatedMessageRecords.length) && (deleteRecords)) {
-            await db.run(`DELETE FROM Messages WHERE userId=? AND userMessageId=?`, [userMessageRecord.userId, userMessageRecord.userMessageId]);
-        }
-        return relatedMessageRecords;
+        await db.createQueryBuilder(Messages, "messages")
+            .delete()
+            .where('"uniqueMessageId" = :uniqueMessageId', { uniqueMessageId })
+            .execute();
     }
 
     public async getMessageUid(channelId: string, channelMessageId: string): Promise<string> {
         const db = await this.db();
-        const messageUid = await db.get<{ userMessageId: string }>(`SELECT userMessageId FROM Messages WHERE channelId=? AND channelMessageId=?`, [channelId, channelMessageId]);
-        if (!messageUid) {
-            throw new Error('Could not get user message.');
-        }
-        return messageUid.userMessageId;
+        const message = await db.createQueryBuilder(Messages, "messages")
+            .select()
+            .where('"channelId" = :channelId AND "channelMessageId" = :channelMessageId', { channelId, channelMessageId})
+            .getOne();
+        if(!message) throw new Error(ErrorNames.NO_MESSAGE_IN_DB);
+        return message.uniqueMessageId;
+    }
+    
+    public async getMessagesByUid(uniqueMessageId: string): Promise<MessagesRecord[]> {
+        const db = await this.db();
+        return await db.createQueryBuilder(Messages, "messages")
+            .select()
+            .where('"uniqueMessageId" = :uniqueMessageId', { uniqueMessageId })
+            .getMany();
     }
 
-    public async getMessagesByUid(userMessageId: string): Promise<MessagesRecord[]> {
+    public async getUniqueUserMessageCount(userId: string): Promise<number> {
         const db = await this.db();
-        const relatedMessageRecords = await db.all<MessagesRecord[]>(`SELECT * FROM Messages WHERE userMessageId=?`, userMessageId);
-        if (!relatedMessageRecords?.length) {
-            throw new Error('Could not get user message.');
-        }
-        return relatedMessageRecords;
+        return await db.createQueryBuilder(Messages, "messages")
+            .select()
+            .where('"userId" = :userId AND "messageOrigin" = true', { userId })
+            .getCount();
     }
 
     public async getUniqueUserMessages(userId: string, amount: number, offset = 0): Promise<MessagesRecord[]> {
         const db = await this.db();
-        const allUniqueUserMessageRecords = await db.all<MessagesRecord[]>(`SELECT * FROM Messages WHERE userId=? AND messageOrigin=1`, [userId]);
-        if(allUniqueUserMessageRecords.length < offset) {
-            throw new Error('User does not have enough messages.');
-        }
-        const uniqueUserMessageRecords = await db.all<MessagesRecord[]>(`SELECT * FROM Messages WHERE userId=? AND messageOrigin=1 ORDER BY timestamp DESC LIMIT ? OFFSET ?`, [userId, amount, offset]);
-        if (!uniqueUserMessageRecords?.length) {
-            throw new Error('Could not get user message.');
-        }
-        return uniqueUserMessageRecords;
+        const count = await this.getUniqueUserMessageCount(userId);
+        if(count < offset) throw new Error(ErrorNames.NOT_ENOUGH_MESSAGES);
+        return await db.createQueryBuilder(Messages, "messages")
+            .select()
+            .where('"userId" = :userId AND "messageOrigin" = true')
+            .orderBy('"timestamp" DESC')
+            .limit(amount)
+            .offset(offset)
+            .getMany()
     }
 
     public async totalMessageLogs(): Promise<number> {
         const db = await this.db();
-        const amount = await db.get<{count: number}>(`SELECT COUNT(*) as 'count' FROM Messages`);
-        if(!amount) {
-            throw new Error("Could not get total amount of messages.");
-        }
-        return amount.count;
-    }
-
-    private async backUpDb(date: number): Promise<void> {
-        const backUpName = `aeon_backup_${date}.db`
-        try {
-            fs.copyFileSync(path.join(".", dbName), path.join(".", backUpName));
-        } catch(e) {
-            throw new Error((e as Error).message);
-        }
-        logger.info(`Db has been backed up into ${backUpName}`);
+        return await db.createQueryBuilder(Messages, "messages")
+            .select()
+            .getCount();
     }
 
     public async cleanDb(date: number): Promise<void> {
         const db = await this.db();
-        await this.backUpDb(date);
-        try {
-            await db.run(`DELETE FROM Messages WHERE timestamp<=?`, [date-Time.hours(10)]);
-            await db.run(`DELETE FROM UserReaction`);
-        } catch(e) {
-            throw new Error((e as Error).message);
-        }
-        logger.info("Db was cleared");
+        await db.createQueryBuilder(Messages, "messages")
+            .delete()
+            .where('"timestamp" <= :timestamp', { timestamp: date-Time.hours(10)})
+            .execute();
+        await db.createQueryBuilder(UserReactions, "user_reactions")
+            .delete()
+            .execute();
+        logger.info('Db was cleared.');
     }
-
+    
     public async getUserId(channelId: string, channelMessageId: string): Promise<string> {
         const db = await this.db();
-        const userId = await db.get<{ userId: string }>(`SELECT userId FROM Messages WHERE channelId=? AND channelMessageId=?`, [channelId, channelMessageId]);
-        if (!userId) {
-            throw new Error(`Could not get user id.`);
-        }
-        return userId.userId;
+        const message = await db.createQueryBuilder(Messages, "messages")
+            .select()
+            .where('"channelId" = :channelId AND "channelMessageId" = :channelMessageId and "messageOrigin" = true',
+                { channelId, channelMessageId }
+            )
+            .getOne()
+        if(!message) throw new Error(ErrorNames.NO_MESSAGE_IN_DB);
+        return message.userId;
     }
-
-
-    public async toggleUserReaction(userReactionRecord: UserReactionRecord): Promise<void> {
+    
+    public async toggleUserReaction(userReactionRecord: UserReactionRecord, onlyDelete = false): Promise<void> {
         const db = await this.db();
-        const result = await db.get<UserReactionRecord>(`SELECT * FROM UserReaction WHERE userId = ? AND userMessageId=? and reactionIdentifier=?`, [ userReactionRecord.userId, userReactionRecord.userMessageId, userReactionRecord.reactionIdentifier])
-        if (!result) {
-            await db.run(`INSERT OR REPLACE INTO UserReaction (userId, userMessageId, reactionIdentifier) VALUES (?, ?, ?)`, [ userReactionRecord.userId, userReactionRecord.userMessageId, userReactionRecord.reactionIdentifier])
+        const current = await this.hasUserReactedToMessage(userReactionRecord);
+        if(current) {
+            if(!onlyDelete) return;
+            await db.createQueryBuilder(UserReactions, "user_reactions")
+                .delete()
+                .where('"userId" = :userId AND "uniqueMessageId" = :uniqueMessageId AND "reactionIdentifier" = :reactionIdentifier',
+                    { ...userReactionRecord }
+                )
+                .execute();
         } else {
-            await db.run(`DELETE FROM UserReaction WHERE userId = ? AND userMessageId=? and reactionIdentifier=?`, [userReactionRecord.userId, userReactionRecord.userMessageId, userReactionRecord.reactionIdentifier]);
-        }
-    }
-
-    public async deleteReaction(userReactionRecord: UserReactionRecord): Promise<void> {
-        const db = await this.db();
-        const result = await db.get<UserReactionRecord>(`SELECT * FROM UserReaction WHERE userMessageId=? and reactionIdentifier=?`, [userReactionRecord.userMessageId, userReactionRecord.reactionIdentifier])
-        if (!result) {
-            throw new Error(`Could not find reactions to delete.`);
-        } else {
-            await db.run(`DELETE FROM UserReaction WHERE userMessageId=? and reactionIdentifier=?`, [userReactionRecord.userMessageId,userReactionRecord.reactionIdentifier]);
+            await db.createQueryBuilder(UserReactions, "user_reactions")
+                .insert()
+                .values([{
+                    ...userReactionRecord
+                }])
+                .execute();
         }
     }
 
     public async hasUserReactedToMessage(userReactionRecord: UserReactionRecord): Promise<boolean> {
         const db = await this.db();
-        const result = await db.get<UserReactionRecord>(`SELECT * FROM UserReaction WHERE userId = "${userReactionRecord.userId}" AND userMessageId="${userReactionRecord.userMessageId}" and reactionIdentifier="${userReactionRecord.reactionIdentifier}"`)
-        return (!!result);
+        return !!await db.createQueryBuilder(UserReactions, "user_reactions")
+            .select()
+            .where('"userId" = :userId AND "uniqueMessageId" = :uniqueMessageId AND "reactionIdentifier" = :reactionIdentifier',
+                { ...userReactionRecord }
+            )
+            .getCount();
     }
 
-    public async getReactionCountForMessage(userMessageId: string): Promise<number> {
+    public async getReactionCountForMessage(uniqueMessageId: string): Promise<number> {
         const db = await this.db();
-        const result = await db.all<UserReactionRecord[]>(`SELECT * FROM UserReaction WHERE userId = ?`, [userMessageId])
-        return result.length;
+        return await db.createQueryBuilder(UserReactions, "user_reactions")
+            .select()
+            .where('"uniqueMessageId" = :uniqueMessageId', { uniqueMessageId })
+            .getCount();
     }
 
     public async hasUserBeenMutedOnNetworkChat(userId: string): Promise<boolean> {
         const db = await this.db();
-        const result = await db.get<{ userId: string }>(`SELECT * FROM NetworkChatMutedUser WHERE userId = ?`, [userId])
-        return (!!result);
+        return !!await db.createQueryBuilder(NetworkChatMutedUsers, "network_chat_muted_users")
+            .select()
+            .where('"userId" = :userId', { userId })
+            .getCount();
     }
 
-    public async whoMutedUser(userId: string): Promise<string | undefined> {
+    public async whoMutedUser(userId: string): Promise<string> {
         const db = await this.db();
-        return await db.get(`SELECT staffId FROM NetworkChatMutedUser WHERE userId = ?`, [userId]);
+        const entry = await db.createQueryBuilder(NetworkChatMutedUsers, "network_chat_muted_users")
+            .select()
+            .where('"userId" = :userId', { userId })
+            .getOne();
+        if(!entry) throw new Error(ErrorNames.NO_MUTE_INFO);
+        return entry.staffId;
     }
 
     public async toggleNetworkChatMute(userId: string, staffId: string): Promise<void> {
         const db = await this.db();
-        const result = await db.get<{ userId: string }>(`SELECT * FROM NetworkChatMutedUser WHERE userId = ?`, [userId]);
-         if (!result) {
-            await db.run(`INSERT OR REPLACE INTO NetworkChatMutedUser (userId, staffId) VALUES (?, ?)`, [userId,staffId]);
+        const current = await db.createQueryBuilder(NetworkChatMutedUsers, "network_chat_muted_users")
+            .select()
+            .where('"userId" = :userId', { userId })
+            .getCount();
+        if(current) {
+            await db.createQueryBuilder(NetworkChatMutedUsers, "network_chat_muted_users")
+                .delete()
+                .where('"userId" = :userId', { userId })
+                .execute();
         } else {
-            await db.run(`DELETE FROM NetworkChatMutedUser WHERE userId = ?`, [userId]);
-        }
-    }
-
-    public async getCustomProfile(userId: string): Promise<NetworkProfileData | undefined> {
-        const db = await this.db();
-        const result = await db.get<NetworkProfileData>(`SELECT * FROM NetworkProfiles WHERE userId = ?`, [userId]);
-        return result;
-    }
-
-    public async updateCustomProfile(networkProfileData: NetworkProfileData, deleteProfile = false): Promise<void> {
-        const db = await this.db();
-        if (deleteProfile) {
-            await db.run(`DELETE FROM NetworkProfiles WHERE userId = ?`, [networkProfileData.userId]);
-        } else {
-            await db.run(`INSERT OR REPLACE INTO NetworkProfiles (userId, name, avatarUrl) VALUES (?, ?, ?)`, [networkProfileData.userId,networkProfileData.name,networkProfileData.avatarUrl]);
+            await db.createQueryBuilder(NetworkChatMutedUsers, "network_chat_muted_users")
+                .insert()
+                .values([{ userId, staffId }])
+                .execute();
         }
     }
 
     public async getModmail(channelId: string): Promise<ModmailRecord> {
         const db = await this.db();
-        const result = await db.get<ModmailRecord>(`SELECT * FROM Modmails WHERE channelId = ?`, [channelId]);
-        if(!result) {
-            throw new Error("Could not find modmail.");
-        }
+        const result = await db.createQueryBuilder(Modmails, "modmails")
+            .select()
+            .where('"channelId" = :channelId', { channelId })
+            .getOne();
+        if(!result) throw new Error(ErrorNames.NO_MODMAIL_IN_DB);
         return result;
     }
 
     public async getModmailByUserId(userId: string): Promise<ModmailRecord> {
         const db = await this.db();
-        const result = await db.get<ModmailRecord>(`SELECT * FROM Modmails WHERE userId = ? AND active = ?`, [userId, 1]);
-        if(!result) {
-            throw new Error("Could not find modmail.");
-        }
+        const result = await db.createQueryBuilder(Modmails, "modmails")
+            .select()
+            .where('"userId" = :userId', { userId })
+            .getOne();
+        if(!result) throw new Error(ErrorNames.NO_MODMAIL_IN_DB);
         return result;
     }
-
+    
     public async createModmail(userId: string, channelId: string): Promise<void> {
         const db = await this.db();
-        await db.run(`INSERT OR REPLACE INTO Modmails (userId, channelId, active) VALUES (?, ?, ?)`, [userId, channelId, 1]);
+        await db.createQueryBuilder(Modmails, "modmails")
+            .insert()
+            .values([{ userId, channelId, active: true }])
+            .execute();
     }
 
+    
     public async closeModmail(channelId: string) {
         const db = await this.db();
         const modmail = await this.getModmail(channelId);
-        await db.run(`INSERT OR REPLACE INTO Modmails (userId, channelId, active) VALUES (?, ?, ?)`, [modmail.userId, channelId, 0]);
+        await db.createQueryBuilder(Modmails, "modmails")
+            .update()
+            .where('"userId" = :userId AND "channelId" = :channelId AND "active" = true', 
+                { userId: modmail.userId, channelId: modmail.channelId}
+            )
+            .set({ active: false })
+            .execute();
     }
 
-    public async getBanshareList(serverId: string): Promise<BanshareListData[]> {
+    public async getBanshareList(serverId: string): Promise<BanshareListRecord[]> {
         const db = await this.db();
-        const result = await db.all<BanshareListData[]>(`SELECT * FROM Banshares WHERE serverId=?`, [serverId]);
-        if(!result) {
-            throw new Error(`Could not get banshares for server ${serverId}.`);
-        }
-        return result;
+        return await db.createQueryBuilder(Banshares, "banshares")
+            .select()
+            .where('"serverId" = :serverId', { serverId })
+            .getMany();
     }
 
-    public async registerBanshare(data: BanshareListData) {
+    public async registerBanshare(data: BanshareListRecord) {
         const db = await this.db();
-        await db.run(`INSERT OR REPLACE INTO Banshares (serverId, status, userId, reason, proof, timestamp) VALUES (?, ?, ?, ?, ?, ?)`, [data.serverId, data.status, data.userId, data.reason, data.proof, data.timestamp]);
+        await db.createQueryBuilder(Banshares, "banshares")
+            .insert()
+            .values([{ ...data }])
+            .execute();
     }
 
-    public async updateBanshareStatus(serverId: string, userId: string, status: string) {
+    public async updateBanshareStatus(serverId: string, userId: string, status: string): Promise<void> {
         const db = await this.db();
-        const banshare = await db.get<BanshareListData>(`SELECT * FROM Banshares WHERE serverId=? AND userId=?`, [serverId, userId]);
-        if(!banshare) {
-            throw new Error(`Could not get banshare for ${userId} in ${serverId}`);
-        }
-        await db.run(`INSERT OR REPLACE INTO Banshares (serverId, status, userId, reason, proof, timestamp) VALUES (?, ?, ?, ?, ?, ?)`, [banshare.serverId, status, banshare.userId, banshare.reason, banshare.proof, banshare.timestamp]);
+        const banshare = await db.createQueryBuilder(Banshares, "banshares")
+            .select()
+            .where('"serverId" = :serverId AND "userId" = :userId', { serverId, userId })
+            .getOne();
+        if(!banshare) throw new Error(ErrorNames.NO_MODMAIL_IN_DB);
+        await db.createQueryBuilder(Banshares, "banshares")
+            .update()
+            .where('"serverId" = :serverId AND "userId" = :userId', { serverId, userId })
+            .set({ status })
+            .execute();
     }
 
-    public async getFilteredWords(): Promise<FilteredWords[]> {
+    public async getFilteredWords(): Promise<FilteredWordRecord[]> {
         const db = await this.db();
-        const result = await db.all<FilteredWords[]>(`SELECT word FROM FilteredWords`);
-        return result;
+        return await db.createQueryBuilder(FilteredWords, "filtered_words")
+            .select()
+            .getMany();
     }
 
-    public async addToFilteredWords(word: string) {
+
+    public async addToFilteredWords(word: string): Promise<void> {
+        const db = await this.db();    
+        if((await this.getFilteredWords()).includes({ word })) return;
+        await db.createQueryBuilder(FilteredWords, "filtered_words") 
+            .insert()
+            .values([{ word }])
+            .execute();
+    }
+
+    
+    public async insertIntoCatCakes(uid: string, region: Regions, catType: CatCakeTypes):Promise<void> {
         const db = await this.db();
-        const currentWords = await this.getFilteredWords();
-        if(!currentWords.includes({word})) {
-            await db.run(`INSERT INTO FilteredWords (word) VALUES (?)`, [word]);
-        }
+        await db.createQueryBuilder(CatCakes, "cat_cakes")
+            .insert()
+            .values([{ uid, region, catType }])
+            .execute();
     }
 
-    public async insertIntoCatCakes(uid: string, region: Regions, catType: CatCakes) {
+    public async checkForCat(region: Regions, catType: CatCakeTypes): Promise<CatCakeRecord[]> {
+        const regionCats = await this.allCatsInRegion(region);
+        return regionCats.filter((cat) => cat.catType === catType);
+    }
+
+    public async allCatsInRegion(region: Regions): Promise<CatCakeRecord[]> {
         const db = await this.db();
-        await db.run(`INSERT OR REPLACE INTO CatCakes (uid, region, catType) VALUES (?, ?, ?)`, [uid, region, catType],
-            (error: Error) => {
-                throw new Error(`Could not insert cat cake into CatCakes Error: ${error.message}`);
-            }
-        );
+        return await db.createQueryBuilder(CatCakes, "cat_cakes")
+            .select()
+            .where('"region" = :region', { region })
+            .getMany();
     }
 
-    public async checkForCat(region: Regions, catType: CatCakes) {
-        const db = await this.db();
-        const result = await db.all<CatCakeData[]>(`SELECT * FROM CatCakes WHERE region=? AND catType=?`, [region, catType],
-            (error: Error) => {
-                throw new Error("Got an error checking for cats");
-            }
-        )
-        if(!result.length) {
-            return [];
-        }
-        return result;
-    }
-
-    public async allCatsInRegion(region: Regions) {
-        const db = await this.db();
-        const result = await db.all<CatCakeData[]>(`SELECT * FROM CatCakes WHERE region=?`, [region],
-            (error: Error) => {
-                throw new Error("Got an error during getting all cats from region");
-            }
-        )
-        if(!result.length) {
-            return [];
-        }
-        return result;
-    }
-
+    
     public async deleteCatCakeData() {
         const db = await this.db();
-        await db.run(`DELETE FROM CatCakes`,
-            (error: Error) => {
-                throw new Error(`Could not delete cat cakes.`);
-            }
-        );
+        await db.createQueryBuilder(CatCakes, "cat_cakes")
+            .delete()
+            .execute();
     }
 }
 

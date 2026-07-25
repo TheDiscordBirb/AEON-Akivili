@@ -3,10 +3,10 @@ import { clients } from "../structures/client";
 import { databaseManager } from "../structures/database";
 import { Event } from "../structures/event";
 import { Logger } from "../logger";
-import { MessagesRecord } from "../types/database";
 import { notificationManager } from "../functions/notification";
 import { NotificationType } from "../types/event";
 import { config } from "../const";
+import { ErrorNames } from "../types/error-handler";
 
 const logger = new Logger("MessageDeleted");
 
@@ -18,28 +18,21 @@ export default new Event("messageDelete", async (interaction) => {
     const guildId = interaction.guildId;
     if(!guildId) return;
     const client = clients.find((client) => client.guilds.cache.has(guildId));
-    if(!client) {
-        logger.warn(`Could not get bot client for ${interaction.guildId}`);
-        return;
-    }
-
-    let referencedMessages: MessagesRecord[];
-    try {
-        referencedMessages = await databaseManager.getMessages(interaction.channelId, interaction.id, true);
-    } catch (error) {
-        logger.error(`Could not get messages. Error: `, error as Error);
-        return;
-    }
-    if (!referencedMessages.length) return;
-
+    if(!client) throw new Error(ErrorNames.NO_CLIENT_IN_SERVER);
+    
     const broadcasts = await databaseManager.getBroadcasts();
+
     let messageChannelType = '';
-    broadcasts.forEach((broadcast) => {
+    await Promise.allSettled(broadcasts.map((broadcast) => {
         if (broadcast.channelId === referencedMessages[0].channelId) {
             messageChannelType = broadcast.channelType;
             return;
         }
-    })
+    }));
+    if(!messageChannelType) throw new Error(ErrorNames.NO_BROADCAST_IN_DB);
+
+    const referencedMessages = await databaseManager.getMessages(interaction.channelId, interaction.id);
+    if (!referencedMessages.length) throw new Error(ErrorNames.NO_MESSAGE_IN_DB);
     
     const targetUser = client.users.cache.find((clientUser) => clientUser.id === referencedMessages[0].userId);
     let message: Message<true> | undefined;
@@ -61,6 +54,7 @@ export default new Event("messageDelete", async (interaction) => {
             logger.error('Could not delete message.', error as Error);
         }
     }));
+    await databaseManager.deleteMessages(referencedMessages[0].channelMessageId);
     await notificationManager.sendNotification({
         executingUser: targetUser as User,
         targetUser: targetUser,

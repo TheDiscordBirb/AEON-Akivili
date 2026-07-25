@@ -16,7 +16,7 @@ import { clients } from "../structures/client";
 import { joinHandler } from "./join-handler";
 import { errorButtonFunction } from "../events/buttons";
 import { ButtonTypes, RunOptions } from "../types/command";
-import { BanshareListData } from "../types/database";
+import { BanshareListRecord } from "../types/database";
 import { config } from "../const";
 
 export const joinNetworkButtons = async (interaction: ButtonInteraction<"cached">) => {
@@ -91,15 +91,15 @@ export const joinNetworkButtons = async (interaction: ButtonInteraction<"cached"
 export const banshareListButtons = async (
     componentInteraction: ButtonInteraction<CacheType> | StringSelectMenuInteraction<CacheType>,
     options: RunOptions,
-    sortedBanshares: BanshareListData[][],
+    sortedBanshares: BanshareListRecord[][],
     banshareListEmbed: EmbedBuilder,
     backButton: ButtonBuilder,
     forwardButton: ButtonBuilder,
     banshareListEmbedButtonRow: ActionRowBuilder<MessageActionRowComponentBuilder>,
     filterSelectorActionRow: ActionRowBuilder<MessageActionRowComponentBuilder>,
     actionRows: ActionRowBuilder<MessageActionRowComponentBuilder>[],
-    sortedBanshareBlock: BanshareListData[],
-    unsortedBanshares: BanshareListData[]
+    sortedBanshareBlock: BanshareListRecord[],
+    unsortedBanshares: BanshareListRecord[]
 ) => {
     switch(componentInteraction.componentType) {
         case ComponentType.Button:

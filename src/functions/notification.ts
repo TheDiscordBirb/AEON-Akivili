@@ -8,7 +8,7 @@ import { clients } from "../structures/client";
 const logger = new Logger("Notification");
 
 // TODO: rework, test
-// TODO: implement ComponentsV2
+ 
 class NotificationManager {
     constructor(protected client: Client) {
         this.client = client;

@@ -76,7 +76,7 @@ export const experimentalPatchWarning = async () => {
         await Promise.allSettled(broadcasts.map(async (broadcast) => {
             const activeWebhook = config.activeWebhooks.find((webhook) => webhook.id === broadcast.webhookId)
             if(!activeWebhook) return;
-            await activeWebhook.send({content: "This patch is highly experimental and due to limitations could not be tested fully in beta, if you encounter any problems please let your server's staff or an aeon navigator know.", username: "Akivili"});
+            await activeWebhook.send({content: "This patch is highly experimental and due to limitations could not be tested fully in beta, if you encounter any problems please let your server's staff or an aeon navigator know.", username: "Akivili" });
         }))
 }
 

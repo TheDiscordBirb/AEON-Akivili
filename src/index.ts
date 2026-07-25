@@ -1,4 +1,5 @@
 require("dotenv").config();
+import "reflect-metadata";
 import { clients } from "./structures/client";
 import { Logger } from "./logger";
 import { config } from "./const";
@@ -31,15 +32,16 @@ fs.readdir(path.join(__dirname, '..', '/logs'), (err, files) => {
         }
     })
 })
-/*
 import process from 'node:process';
-process.on('unhandledRejection', async (reason, promise) => {
-    console.log(`Unhandled rejection at: ${promise}, reason: ${reason}`);
-})
-process.on('uncaughtException', (err) => {
-    console.log(`Uncaught exception: ${err}`);
-})
-*/
+if(!config.debugMode) {
+    process.on('unhandledRejection', async (reason, promise) => {
+        logger.warn(`Unhandled rejection at: ${promise}, reason: ${reason}`);
+    })
+    process.on('uncaughtException', (err) => {
+        logger.warn(`Uncaught exception: ${err}`);
+    })
+}
+
 for(const client of clients) {
     client.start();
 }

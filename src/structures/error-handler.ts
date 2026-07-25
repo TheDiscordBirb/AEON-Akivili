@@ -55,7 +55,7 @@ class ErrorHandler {
                 .setStyle(ButtonStyle.Success)
                 .setLabel("Sent to Birb")
             const disabledButtonSection = new SectionBuilder((errorContainer.components[0] as SectionBuilder).data)
-                .addTextDisplayComponents(new TextDisplayBuilder({content: "# Error"}))
+                .addTextDisplayComponents(new TextDisplayBuilder({content: "# Error" }))
                 .setButtonAccessory(disabledButton);
             await errorMessage.edit({components: [errorContainer.spliceComponents(0, 1, disabledButtonSection)]});
 

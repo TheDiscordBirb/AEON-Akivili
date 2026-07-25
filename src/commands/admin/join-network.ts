@@ -37,7 +37,7 @@ export const joinNetworkChecks = async (options: RunOptions) => {
         ]);
         
     if(!permissionCheck.status) {
-        await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
+        await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral" });
         throw new Error(ErrorNames.NO_PERMISSIONS)
     }
 
@@ -55,9 +55,17 @@ export const joinNetworkChecks = async (options: RunOptions) => {
     if (channelWebhook) {
         const webhooks = await (options.interaction.channel as TextChannel).fetchWebhooks();
         if (webhooks.get(channelWebhook.webhookId)) {
-            await options.interaction.reply({ content: `This channel is already connected to Aeon ${channelWebhook.channelType}, please select another channel!` });   
+            await options.interaction.reply({ 
+                content: `This channel is already connected to Aeon ${channelWebhook.channelType}, please select another channel!`,
+                flags: 'Ephemeral' 
+            });   
             return;
         }
+    }
+    const guildBroadcasts = broadcastRecords.filter((broadcast) => broadcast.guildId === options.interaction.guildId);
+    if(guildBroadcasts.some((broadcast) => broadcast.channelType === channelType)) {
+        await options.interaction.reply({ content: `This server already has an Aeon ${channelType} connection.`, flags: 'Ephemeral'});
+        return;
     }
 
     await joinNetworkCommand(

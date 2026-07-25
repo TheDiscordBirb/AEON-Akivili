@@ -51,9 +51,9 @@ export const networkChannelPingNotificationEmbedBuilder = async (pingedUserId: s
         logger.warn(`Can not get network message`);
         return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};
     }
-    const relatedNetworkMessages = await databaseManager.getMessagesByUid(networkMessage.userMessageId);
+    const relatedNetworkMessages = await databaseManager.getMessagesByUid(networkMessage.uniqueMessageId);
     if (replyMessage) {
-        const replyMessageInCorrectGuild = pingedUserMessages.find((pingedUserMessage) => pingedUserMessage.userMessageId === replyMessage.userMessageId);
+        const replyMessageInCorrectGuild = pingedUserMessages.find((pingedUserMessage) => pingedUserMessage.uniqueMessageId === replyMessage.uniqueMessageId);
         if (!replyMessageInCorrectGuild) {
             logger.warn(`Can not get reply message in correct guild`);
             return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};

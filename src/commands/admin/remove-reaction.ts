@@ -32,7 +32,7 @@ const removeReactionChecks = async (options: RunOptions): Promise<void> => {
         PermissionLevels.REPRESENTATIVE);
         
     if(!permissionCheck.status) {
-        await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
+        await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral" });
         throw new Error(ErrorNames.NO_PERMISSIONS)
     }
 

@@ -11,7 +11,7 @@ import {
 } from 'discord.js'
 import { Logger } from '../../logger';
 import { databaseManager } from '../../structures/database';
-import { BanshareListData } from '../../types/database';
+import { BanshareListRecord } from '../../types/database';
 import { ButtonTypes, RunOptions } from '../../types/command';
 import { config } from '../../const';
 import { StringSelectMenuBuilder } from '@discordjs/builders';
@@ -41,7 +41,7 @@ export const banshareListChecks = async (options: RunOptions) => {
         PermissionLevels.NAVIGATOR);
         
     if(!permissionCheck.status) {
-        await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
+        await options.interaction.reply({ content: permissionCheck.message, flags: "Ephemeral" });
         throw new Error(ErrorNames.NO_PERMISSIONS);
     }
 
@@ -78,11 +78,11 @@ export default new Command({
 
 export const banshareListCommand = async (
     options: RunOptions,
-    unsortedBanshares: BanshareListData[],
+    unsortedBanshares: BanshareListRecord[],
     guild: Guild
 ) => {
-    const sortedBanshares : BanshareListData[][] = [];
-    const sortedBanshareBlock : BanshareListData[] = [];
+    const sortedBanshares : BanshareListRecord[][] = [];
+    const sortedBanshareBlock : BanshareListRecord[] = [];
     
     unsortedBanshares.forEach((banshareData, idx) => {
         if(idx%config.embedFieldLimit == 0 && idx != 0) {
@@ -140,12 +140,12 @@ export const banshareListCommand = async (
             actionRows.push(filterSelectorActionRow)
         }
         actionRows.push(banshareListEmbedButtonRow);
-        await options.interaction.reply({embeds: [banshareListEmbed], components: actionRows, flags: 'Ephemeral'});
+        await options.interaction.reply({ embeds: [banshareListEmbed], components: actionRows, flags: 'Ephemeral'});
         return;
     }
 
     sortedBanshares[0].forEach((banshare) => {
-        banshareListEmbed.addFields({name: `${banshare.userId}${config.mainServerId === options.interaction.guildId ? "" : ` | ${banshare.status}`}`, value: `Reason: ${banshare.reason}\nProof:\n${banshare.proof}\nTimestamp: ${new Date(banshare.timestamp).getFullYear()}.${new Date(banshare.timestamp).getMonth() + 1}.${new Date(banshare.timestamp).getDate()}. ${new Date(banshare.timestamp).getHours()}:${new Date(banshare.timestamp).getMinutes()}:${new Date(banshare.timestamp).getSeconds()}`});
+        banshareListEmbed.addFields({ name: `${banshare.userId}${config.mainServerId === options.interaction.guildId ? "" : ` | ${banshare.status}`}`, value: `Reason: ${banshare.reason}\nProof:\n${banshare.proof}\nTimestamp: ${new Date(banshare.timestamp).getFullYear()}.${new Date(banshare.timestamp).getMonth() + 1}.${new Date(banshare.timestamp).getDate()}. ${new Date(banshare.timestamp).getHours()}:${new Date(banshare.timestamp).getMinutes()}:${new Date(banshare.timestamp).getSeconds()}`});
     });
 
     if(sortedBanshares.length == 1) {
@@ -159,7 +159,7 @@ export const banshareListCommand = async (
         actionRows.push(filterSelectorActionRow)
     }
     actionRows.push(banshareListEmbedButtonRow);
-    const collector = (await options.interaction.reply({embeds: [banshareListEmbed], components: actionRows, flags: 'Ephemeral'})).createMessageComponentCollector();
+    const collector = (await options.interaction.reply({ embeds: [banshareListEmbed], components: actionRows, flags: 'Ephemeral'})).createMessageComponentCollector();
     collector.on('collect', async (componentInteraction) => {
         if(componentInteraction.isButton() || componentInteraction.isStringSelectMenu()) {
             await banshareListButtons(

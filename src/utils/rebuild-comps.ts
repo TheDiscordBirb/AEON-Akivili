@@ -151,7 +151,7 @@ export const rebuildMessageComponentAfterUserInteraction = async (message: Messa
 
     if (deleteAll) {
         try {
-            await databaseManager.deleteReaction(userReactionRecord);
+            await databaseManager.toggleUserReaction(userReactionRecord, true);
         } catch (error) {
             logger.error(`Got error while deleting reactions.`, (error as Error));
         }

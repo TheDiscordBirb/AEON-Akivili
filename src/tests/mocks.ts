@@ -16,7 +16,7 @@ import {
     Channel,
     AddGuildMemberOptions
 } from "discord.js"
-import { PermissionLocal } from "../structures/types";
+import { PermissionLocal } from "../types/permission-handler";
 import { ExtendedClient } from "../structures/client";
 import { config } from "../const";
 

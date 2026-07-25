@@ -23,7 +23,7 @@ export const disconnectChecks = async (options: RunOptions) => {
         [PermissionFlagsBits.Administrator]);
         
     if(!permissionCheck.status) {
-        await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
+        await options.interaction.reply({ content: permissionCheck.message, flags: "Ephemeral" });
         throw new Error(ErrorNames.NO_PERMISSIONS)
     }
 
@@ -112,6 +112,6 @@ const sendMessages = async (relatedBroadcastRecords: BroadcastRecord[], leavingG
         const webhook = await client.fetchWebhook(broadcastRecord.webhookId);
         if(!webhook) throw new Error(ErrorNames.DID_NOT_FIND_WEBHOOK);
         const webhookMessage = `${leavingGuildName ?? "A server"} has left Aeon ${broadcastRecord.channelType}`;
-        await webhook.send({content: `\`${webhookMessage}\``, username: 'Akivili'});
+        await webhook.send({ content: `\`${webhookMessage}\``, username: 'Akivili' });
     }));
 }

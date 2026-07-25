@@ -18,7 +18,6 @@ import {
 } from "discord.js";
 import { Event } from "../structures/event";
 import axios from "axios";
-import { databaseManager } from '../structures/database';
 import { ulid } from "ulid";
 import { config } from "../const";
 import { Logger } from "../logger";
@@ -44,6 +43,7 @@ import { messageFilter } from "../functions/message-filter";
 import { notificationManager } from "../functions/notification";
 import { errorHandler } from "../structures/error-handler";
 import { ErrorNames, InteractionTypes } from "../types/error-handler";
+import { databaseManager } from "../structures/database";
 
 
 const logger = new Logger('MessageCreated');
@@ -408,6 +408,7 @@ const createWebhookMessages = async (
             let referencedMessages: MessagesRecord[];
             try {
                 referencedMessages = await databaseManager.getMessages(referenceMessage.channelId, referenceMessage.id);
+                await databaseManager.getMessages(referenceMessage.channelId, referenceMessage.id);
             } catch (error) {
                 logger.error(`Could not get messages. Error: `, error as Error);
                 return;
@@ -421,18 +422,10 @@ const createWebhookMessages = async (
                     return;
                 }
 
-                let labelName = referencedMessages.find((referencedMessage) => referencedMessage.messageOrigin)?.userName;
-                if (!labelName) {
-                    labelName = referenceMessage.author.displayName.split("||")[0];
-                }
-                const referencedUserId = referencedMessageOnChannel.userId;
-                const referencedUserCustomProfile = await databaseManager.getCustomProfile(referencedUserId);
-                if (referencedUserCustomProfile) {
-                    labelName = referencedUserCustomProfile.name;
-                }
-
+                let originalMessage = referencedMessages.find((referencedMessage) => referencedMessage.messageOrigin);
+                if (!originalMessage) throw new Error(ErrorNames.NO_MESSAGE);
                 const replyButtonUser = new ButtonBuilder()
-                    .setLabel(labelName)
+                    .setLabel(originalMessage.username)
                     .setDisabled(true)
                     .setStyle(ButtonStyle.Primary)
                     .setCustomId(CustomId.REPLY)
@@ -521,11 +514,6 @@ const createWebhookMessages = async (
             .replaceAll("「 Navigator 」", "")
             + (genRole ? "" : " ")
             + nameSuffix;
-        const customProfile = await databaseManager.getCustomProfile(interactionMember.id);
-        if (customProfile) {
-            avatarURL = customProfile.avatarUrl;
-            username = `${customProfile.name}` + nameSuffix;
-        }
         
         return {
             webhook: webhook,
@@ -556,10 +544,7 @@ const createWebhookMessages = async (
             logger.warn(`Received empty webhook message. Status: ${webhookMessagePromiseResult.status}, Webhook guildId: ${webhookMessagePromiseResult.value?.guildId}`)
             return undefined;
         }
-        let messageOrigin = 0;
-        if (webhookMessagePromiseResult.value?.guildId === interaction.guildId) {
-            messageOrigin = 1;
-        }
+        const messageOrigin = webhookMessagePromiseResult.value?.guildId === interaction.guildId;
         try {
             let message;
             for(const client of clients) {
@@ -581,9 +566,9 @@ const createWebhookMessages = async (
                 guildId: webhookMessage.guildId,
                 timestamp: interaction.createdAt.getTime(),
                 userId: webhookMessage.userId,
-                userMessageId: uid,
-                userName: interaction.guild?.members.cache.find((member) => member.id === interaction.author.id)?.nickname ?? interaction.author.displayName,
-                messageOrigin: messageOrigin
+                uniqueMessageId: uid,
+                username: interaction.guild?.members.cache.find((member) => member.id === interaction.author.id)?.nickname ?? interaction.author.displayName,
+                messageOrigin
             }
             await databaseManager.logMessage(messageData);
             if (messageOrigin) {

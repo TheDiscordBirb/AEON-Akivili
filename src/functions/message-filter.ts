@@ -1,15 +1,15 @@
 import { Logger } from "../logger";
 import { FilterOutput } from "../types/message-filter";
-import { FilteredWords } from "../types/database";
+import { FilteredWordRecord } from "../types/database";
 
 const logger = new Logger("MsgFilter");
 
 // TODO: rework, test
-// TODO: implement ComponentsV2
+ 
 class MessageFilter {
     protected filterArray : string[] = [];
 
-    public async addToFilterArray(list: FilteredWords[]) {
+    public async addToFilterArray(list: FilteredWordRecord[]) {
         list.map((filteredWord) => {
             this.filterArray.push(...this.getEveryVariationOfWord(filteredWord.word.toString().toLowerCase()));
         })

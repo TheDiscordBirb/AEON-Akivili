@@ -33,12 +33,12 @@ export default new Command({
             PermissionLevels.REPRESENTATIVE);
             
         if(!permissionCheck.status) {
-            await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
+            await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral" });
             return;
         }
         
         config.suspendedPermissionUserIds.push(options.args.getString("user-id") ?? "");
-        await options.interaction.reply({content: "User has had their permissions removed.", flags: "Ephemeral"});
+        await options.interaction.reply({content: "User has had their permissions removed.", flags: "Ephemeral" });
         return;
     }
 }); 

@@ -20,7 +20,7 @@ export const setAutoBanLevelChecks = async (options: RunOptions) => {
         [PermissionFlagsBits.Administrator]);
         
     if(!permissionCheck.status) {
-        await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
+        await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral" });
         throw new Error(ErrorNames.NO_PERMISSIONS);
     }
 

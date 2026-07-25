@@ -3,41 +3,52 @@ import { Logger } from '../../logger';
 import { config } from '../../const';
 import { permissionHandler } from '../../functions/permission-handler';
 import { PermissionLevels } from '../../types/permission-handler';
+import { RunOptions } from '../../types/command';
+import { ErrorNames, InteractionTypes } from '../../types/error-handler';
+import { errorHandler } from '../../structures/error-handler';
 
 const logger = new Logger('CrowdControlCmd');
 
-// TODO: rework, test
+export const crowdControlChecks = async (options: RunOptions) => {
+    if (!options.interaction.guild) throw new Error(ErrorNames.NO_GUILD);
+
+    const permissionCheck = await permissionHandler.checkForPermission(
+        options.interaction.user,
+        {local: false, onlyLocal: false},
+        options.interaction.guild,
+        [],
+        PermissionLevels.NAVIGATOR);
+        
+    if(!permissionCheck.status) {
+        await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral" });
+        throw new Error(ErrorNames.NO_PERMISSIONS);
+    }
+    await crowdControlCommand(options);
+}
+// TODO: rework
 export default new Command({
     name: 'crowd-control',
-    description: 'Enables/Disables crowd control.',
+    description: 'Toggles crowd control.',
     options: [],
 
     run: async (options) => {
-        if (!options.interaction.guild) {
-            await options.interaction.reply({ content: 'You cant use this here', flags: 'Ephemeral' });
-            return;
+        try {
+            await crowdControlChecks(options);
+        } catch(e) {
+            await errorHandler.showError({
+                error: e as Error,
+                user: options.interaction.user,
+                interactionType: InteractionTypes.CROWD_CONTROL
+            });
+            logger.error(`Got error during ${options.interaction.commandName} command.`, e as Error, options.client.user?.id);   
         }
-
-        if (!options.interaction.member) {
-            await options.interaction.reply({ content: `You cant use this command outside a server.`, flags: 'Ephemeral' });
-            logger.warn(`Didnt get interaction member`);
-            return;
-        }
-
-        const permissionCheck = await permissionHandler.checkForPermission(
-            options.interaction.user,
-            {local: false, onlyLocal: false},
-            options.interaction.guild,
-            [],
-            PermissionLevels.NAVIGATOR);
-            
-        if(!permissionCheck.status) {
-            await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
-            return;
-        }
-
-        config.crowdControlActive = !config.crowdControlActive;
-    
-        await options.interaction.reply({content: `Crowd control has been set to ${config.crowdControlActive ? "active" : "inactive"}`, flags: 'Ephemeral'});
     }
 });
+
+export const crowdControlCommand = async (options: RunOptions) => {
+    config.crowdControlActive = !config.crowdControlActive;
+    await options.interaction.reply({
+        content: `Crowd control has been set to ${config.crowdControlActive ? "active" : "inactive"}`, 
+        flags: 'Ephemeral'
+    });   
+}

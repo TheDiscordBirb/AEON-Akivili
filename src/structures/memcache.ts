@@ -6,7 +6,7 @@ import { config } from "../const";
 const logger = new Logger('Memcache');
 
 // TODO: rework(?), test
-// TODO: implement ComponentsV2
+ 
 class CacheManager {
     protected _mem: Cacheable = new Cacheable();
     public async saveCache(record: 'emoji' | 'sticker', key: string, value: Buffer<ArrayBuffer>): Promise<Boolean> {

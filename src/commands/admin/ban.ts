@@ -25,16 +25,16 @@ export const banChecks = async (options: RunOptions) => {
         [PermissionFlagsBits.BanMembers]);
         
     if(!permissionCheck.status) {
-        await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
+        await options.interaction.reply({ content: permissionCheck.message, flags: "Ephemeral" });
         throw new Error(ErrorNames.NO_PERMISSIONS);
     }
 
     const banshareResponse = options.args.getString('banshare');
-    
+
     if (!options.interaction.channel) throw new Error(ErrorNames.NO_INTERACTION_CHANNEL);
         
     const messageId = options.args.getString('message-id');
-    if (!messageId) throw new Error(ErrorNames.NO_MESSAGE_ID);
+    if (!messageId) throw new Error(ErrorNames.NO_REQUIRED_FIELD);
 
     const message = await options.interaction.channel.messages.fetch(messageId);
     if (!message) throw new Error(ErrorNames.MESSAGE_DOES_NOT_EXIST);

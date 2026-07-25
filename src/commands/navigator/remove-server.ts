@@ -19,7 +19,7 @@ import { Logger } from '../../logger';
 import { databaseManager } from '../../structures/database';
 import { config } from '../../const';
 import { ButtonTypes, RunOptions } from '../../types/command';
-import { BroadcastRecord } from '../../structures/types';
+import { BroadcastRecord } from '../../types/database';
 import { permissionHandler } from '../../functions/permission-handler';
 import { PermissionLevels } from '../../types/permission-handler';
 
@@ -52,7 +52,7 @@ export default new Command({
             PermissionLevels.NAVIGATOR);
             
         if(!permissionCheck.status) {
-            await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral"});
+            await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral" });
             return;
         }
 
@@ -122,7 +122,7 @@ export default new Command({
                                 const actionRows = await deleteWebhookButtonHandler(selectedServerId, componentInteractionCustomIdArgs[0], componentInteraction);
                                 firstReply.edit({components: actionRows});
                             } catch(error) {
-                                firstReply.edit({content: "Got an error during the process, contact Birb"});
+                                firstReply.edit({content: "Got an error during the process, contact Birb" });
                                 logger.error("Got error while deleting webhook.", (error as Error));
                             }
                             break;
@@ -135,7 +135,7 @@ export default new Command({
                         const serverRemovalUi = await buildServerRemovalUi(options, componentInteraction.values[0]);
                         firstReply.edit({embeds: [serverRemovalUi.embed], components: serverRemovalUi.components});
                     } catch(error) {
-                        firstReply.edit({content: "Got an error during the process, contact Birb"});
+                        firstReply.edit({content: "Got an error during the process, contact Birb" });
                         logger.error("Got error during building server removal ui.", (error as Error));
                     }
                     break;
@@ -288,7 +288,7 @@ const deleteWebhookButtonHandler = async (serverId: string, selectedWebhookId: s
     } catch(error) {
         logger.error('Could not delete webhook.', (error as Error));
         await componentInteraction.deferUpdate();
-        await componentInteraction.followUp({content: 'Could not delete webhook.', flags: "Ephemeral"});
+        await componentInteraction.followUp({content: 'Could not delete webhook.', flags: "Ephemeral" });
     }
 
     const message = componentInteraction.message;

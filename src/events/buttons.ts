@@ -140,9 +140,9 @@ const checkForGuildMember = async (interaction: ButtonInteraction<CacheType>): P
 }
 
 const emojiButtonFunction = async (client: Client, interaction: ButtonInteraction<CacheType>): Promise<void> => {
-    let userMessageId: string;
+    let uniqueMessageId: string;
     try {
-        userMessageId = await databaseManager.getMessageUid(interaction.channelId, interaction.message.id);
+        uniqueMessageId = await databaseManager.getMessageUid(interaction.channelId, interaction.message.id);
     } catch (error) {
         logger.error(`Could not get messages. Error: `, error as Error);
         return;
@@ -150,7 +150,7 @@ const emojiButtonFunction = async (client: Client, interaction: ButtonInteractio
     
     const userId = interaction.user.id;
     const reactionIdentifier = (interaction.component as ButtonComponent).customId;
-    if (!userMessageId) {
+    if (!uniqueMessageId) {
         logger.warn(`No user message id`);
         return;
     }   
@@ -191,7 +191,7 @@ const emojiButtonFunction = async (client: Client, interaction: ButtonInteractio
     const webhookNameParts = webhook.name.split(' ');
     const webhookChannelType = webhookNameParts[webhookNameParts.length - 1];
     const matchingBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === webhookChannelType);
-    const newActionRows = await rebuildMessageComponentAfterUserInteraction(interaction.message, interaction.message.components as ActionRow<MessageActionRowComponent>[], { userId, userMessageId, reactionIdentifier }, (interaction.user.id === client.user?.id ? true : false));
+    const newActionRows = await rebuildMessageComponentAfterUserInteraction(interaction.message, interaction.message.components as ActionRow<MessageActionRowComponent>[], { userId, uniqueMessageId, reactionIdentifier }, (interaction.user.id === client.user?.id ? true : false));
     const emojiReplacement = await replaceEmojis(interaction.message.content, client);
 
 

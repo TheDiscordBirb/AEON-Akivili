@@ -18,7 +18,7 @@ import { clients } from "../structures/client";
 const logger = new Logger('JoinHandler');
 
 // TODO: test
-// TODO: implement ComponentsV2
+ 
 class JoinHandler {
     public async requestNetworkAccess(data: JoinData) {
         const client = clients.find((client) => client.guilds.cache.has(config.mainServerId));

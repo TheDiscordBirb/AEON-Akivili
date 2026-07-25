@@ -69,7 +69,7 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
         logger.error(`Could not get messages. Error: `, error as Error);
         return;
     }
-    const newActionRows = await rebuildMessageComponentAfterUserInteraction(interaction.message as Message<boolean>, actionRows as ActionRow<MessageActionRowComponent>[], { userId: user.id, userMessageId: messageUidInDb, reactionIdentifier: interaction.emoji.identifier });
+    const newActionRows = await rebuildMessageComponentAfterUserInteraction(interaction.message as Message<boolean>, actionRows as ActionRow<MessageActionRowComponent>[], { userId: user.id, uniqueMessageId: messageUidInDb, reactionIdentifier: interaction.emoji.identifier });
     let messageContent = interaction.message.content;
     let emojiReplacement : EmojiReplacementData | undefined;
     if(messageContent) {
