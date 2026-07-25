@@ -43,5 +43,10 @@ export interface configType {
     tempBanshareServerId: string,
     suspendedPermissionUserIds: string[],
     representativeRoleId: string,
-    botStarting: boolean
+    botStarting: boolean,
+    databaseUsername: string,
+    databasePassword: string,
+    databaseHost: string,
+    databasePort: number,
+    databaseName: string,
 }

@@ -59,7 +59,7 @@ export const deleteMessageChecks = async (options: RunOptions) => {
     );
 }
 
-// TODO: rework, test
+// TODO: test
 export default new Command({
     name: 'delete-message',
     description: 'Used for deleting messages in a network channel.',

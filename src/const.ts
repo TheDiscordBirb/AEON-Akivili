@@ -7,21 +7,24 @@ export const unitTest = false;
 export let config: configType;
 if(!unitTest) {
     config = {
-        clientName: "Akivili",
-        maxServerPerClient: 50,
-        loadedClients: 0,
-        tokens: getEnvVar<string>("DISCORD_TOKENS").split(" "),
         activeBanshareFuncionUserIds: [] as string[],
         activeWebhooks: [] as Webhook[],
         aeonBanshareChannelId: getEnvVar<string>("AEON_BANSHARE_CHANNEL_ID"),
         approvalCountNeededForImportantBanshare: 2,
         birbId: getEnvVar<string>("BIRB_ID"),
+        botStarting: false,
         cachedEmojiUids: [] as string[],
         cleanDbMode: true,
+        clientName: "Akivili",
         conductorRoleId: getEnvVar<string>("CONDUCTOR_ROLE_ID"),
         crowdControlActive: false,
         crowdControlChannelId: getEnvVar<string>("CROWD_CONTROL_CHANNEL_ID"),
         currentLogFileName: '',
+        databaseHost: getEnvVar<string>("DATABASE_HOST"),  
+        databaseName: getEnvVar<string>("DATABASE_NAME"), 
+        databasePassword: getEnvVar<string>("DATABASE_PASSWORD"), 
+        databasePort: getEnvVar<number>("DATABASE_PORT"),  
+        databaseUsername: getEnvVar<string>("DATABASE_USERNAME"),  
         debugMode: true,
         devIds: getEnvVar<string>("DEV_IDS").split(' '),
         disabledStickerNetworkServerIds: ["1068066545344970783"] as string[], //This will be put into the db soon, im just lazy
@@ -30,10 +33,12 @@ if(!unitTest) {
         enableStickers: true,
         infoMessageChannelId: getEnvVar<string>("INFO_MESSAGE_CHANNEL_ID"),
         infoMessageId: getEnvVar<string>("INFO_MESSAGE_ID"),
+        loadedClients: 0,
         mainServerId: getEnvVar<string>("MAIN_SERVER_ID"),
         maxConcurrentRequestCount: 10,
         maxEmbedColumnValueLength: 1024,
         maxEmojiPerServer: 50,
+        maxServerPerClient: 50,
         modmailCategoryChannelId: getEnvVar<string>("MODMAIL_CATEGORY_CHANNEL_ID"),
         modmailLogChannelId: getEnvVar<string>("MODMAIL_LOG_CHANNEL_ID"),
         navigatorRoleId: getEnvVar<string>("NAVIGATOR_ROLE_ID"),
@@ -46,10 +51,10 @@ if(!unitTest) {
         publicNotificationChannelId: getEnvVar<string>("PUBLIC_NOTIFICATION_CHANNEL_ID"),
         replyArrowEmojiId: getEnvVar<string>("REPLY_ARROW_EMOJI_ID"),
         replyPictureEmojiId: getEnvVar<string>("REPLY_PICTURE_EMOJI_ID"),
-        tempBanshareServerId: getEnvVar<string>("TEMP_BANSHARE_SERVER_ID"),
-        suspendedPermissionUserIds: [] as string[],
         representativeRoleId: getEnvVar<string>("REPRESENTATIVE_ROLE_ID"),
-        botStarting: false
+        suspendedPermissionUserIds: [] as string[],
+        tempBanshareServerId: getEnvVar<string>("TEMP_BANSHARE_SERVER_ID"),
+        tokens: getEnvVar<string>("DISCORD_TOKENS").split(" "),
     }
 } else {
     config = mockConfig;

@@ -13,6 +13,7 @@ import { CatCakeTypes, Regions } from "../../types/command";
 import { Logger } from "../../logger";
 import { ActionRowBuilder } from "@discordjs/builders";
 import { databaseManager } from "../../structures/database";
+import { ErrorNames } from "../../types/error-handler";
 
 const logger = new Logger("CatCakes");
 
@@ -44,10 +45,7 @@ export default new Command({
 
     run: async (options) => {
         const region = options.args.getString("region") as Regions | null;
-        if(!region) {
-            logger.warn("No region?");
-            return;
-        }
+        if(!region) throw new Error(ErrorNames.NO_REQUIRED_FIELD);
 
         const shareButton = new ButtonBuilder()
             .setCustomId("share")

@@ -22,7 +22,6 @@ import { Time } from '../utils/time';
 import { FilteredWords } from './entities/filtered-words';
 import { Regions } from '../types/command';
 import { CatCakes } from './entities/cat-cakes';
-import { getEnvVar } from '../utils/get-env-var';
 
 const logger = new Logger('Database');
 
@@ -37,11 +36,11 @@ class DatabaseManager {
     private connect = async (): Promise<DataSource> => {
         this._db = new DataSource({
             type: 'postgres',
-            username: getEnvVar<string>("DATABASE_USERNAME"),  
-            password: getEnvVar<string>("DATABASE_PASSWORD"), 
-            host: getEnvVar<string>("DATABASE_HOST"),  
-            port: getEnvVar<number>("DATABASE_PORT"),  
-            database: getEnvVar<string>("DATABASE_NAME"),  
+            username: config.databaseUsername,  
+            password: config.databasePassword, 
+            host: config.databaseHost,  
+            port: config.databasePort,  
+            database: config.databaseName,  
             logging: false,
             entities: [
                 Messages,
@@ -416,7 +415,6 @@ class DatabaseManager {
             .getMany();
     }
 
-    
     public async deleteCatCakeData() {
         const db = await this.db();
         await db.createQueryBuilder(CatCakes, "cat_cakes")

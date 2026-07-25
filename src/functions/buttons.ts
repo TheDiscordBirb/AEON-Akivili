@@ -5,9 +5,12 @@ import {
     ButtonInteraction, 
     ButtonStyle, 
     CacheType, 
+    Client, 
     ComponentType, 
     EmbedBuilder, 
+    InteractionResponse, 
     MessageActionRowComponentBuilder, 
+    MessageFlags, 
     StringSelectMenuInteraction, 
     TextChannel 
 } from "discord.js";
@@ -16,8 +19,11 @@ import { clients } from "../structures/client";
 import { joinHandler } from "./join-handler";
 import { errorButtonFunction } from "../events/buttons";
 import { ButtonTypes, RunOptions } from "../types/command";
-import { BanshareListRecord } from "../types/database";
+import { BanshareListRecord, BroadcastRecord } from "../types/database";
 import { config } from "../const";
+import { buildList, buildServerRemovalUi, buildServerSelectionMessage, deleteWebhookButtonHandler } from "../commands/navigator/remove-server";
+import { databaseManager } from "../structures/database";
+import { ErrorNames } from "../types/error-handler";
 
 export const joinNetworkButtons = async (interaction: ButtonInteraction<"cached">) => {
     const customIdArgs = interaction.customId.split(" ");
@@ -191,6 +197,106 @@ export const banshareListButtons = async (
             actionRows.push(banshareListEmbedButtonRow);
 
             await options.interaction.editReply({embeds: [banshareListEmbed], components: actionRows});
+            break;
+    }
+}
+
+export const removeServerButtons = async (
+    componentInteraction: StringSelectMenuInteraction<CacheType> | ButtonInteraction<CacheType>,
+    serverSelection: {
+        embed: EmbedBuilder,
+        components: ActionRowBuilder<MessageActionRowComponentBuilder>[]
+    },
+    client: Client<boolean>,
+    segmentedServerListEmbedFields: { name: string, value: string }[][],
+    options: RunOptions,
+    firstReply: InteractionResponse<boolean>,
+    broadcasts: BroadcastRecord[],
+    selectedServerId: string
+) => {
+    switch(componentInteraction.componentType) {
+        case ComponentType.Button:
+            const componentInteractionCustomIdArgs = componentInteraction.customId.split(/ +/);
+            if(componentInteractionCustomIdArgs.length < 2) {
+                throw new Error('Got less than 2 arguments for component interaction custom id.');
+            }
+            const buttonType = componentInteractionCustomIdArgs[1];
+            switch(buttonType) {
+                case ButtonTypes.BACK:
+                    serverSelection = await buildServerSelectionMessage(
+                        segmentedServerListEmbedFields[parseInt(componentInteractionCustomIdArgs[2])-2], 
+                        options.interaction.user.id, 
+                        segmentedServerListEmbedFields.length, 
+                        parseInt(componentInteractionCustomIdArgs[2])-1
+                    );
+                    firstReply.edit({ embeds: [serverSelection.embed], components: serverSelection.components });
+                    break;
+                case ButtonTypes.FORWARD:
+                    serverSelection = await buildServerSelectionMessage(
+                        segmentedServerListEmbedFields[parseInt(componentInteractionCustomIdArgs[2])], 
+                        options.interaction.user.id, 
+                        segmentedServerListEmbedFields.length, 
+                        parseInt(componentInteractionCustomIdArgs[2])+1
+                    );
+                    firstReply.edit({ embeds: [serverSelection.embed], components: serverSelection.components });
+                    break;
+                case ButtonTypes.MENU_BACK:
+                    broadcasts = await databaseManager.getBroadcasts();
+                    segmentedServerListEmbedFields = await buildList(broadcasts);
+                    serverSelection = await buildServerSelectionMessage(
+                        segmentedServerListEmbedFields[0], 
+                        options.interaction.user.id, 
+                        segmentedServerListEmbedFields.length, 
+                        1
+                    );
+                    firstReply.edit({ embeds: [serverSelection.embed], components: serverSelection.components });
+                    break;
+                case ButtonTypes.REMOVE_SERVER:
+                    const removedServerClient = clients.find((c) => c.guilds.cache.has(componentInteractionCustomIdArgs[2]));
+                    if(!removedServerClient) throw new Error(ErrorNames.NO_CLIENT_IN_SERVER);
+                    const guildToLeave = removedServerClient.guilds.cache.get(componentInteractionCustomIdArgs[2]);
+                    if(!guildToLeave) throw new Error(ErrorNames.NO_GUILD);
+
+                    await Promise.allSettled((await guildToLeave.fetchWebhooks()).map(async (webhook) => {
+                        if(webhook.owner === removedServerClient.user) {
+                            await databaseManager.deleteBroadcastByWebhookId(webhook.id);
+                            config.activeWebhooks.splice(
+                                config.activeWebhooks.findIndex((activeWebhook) => activeWebhook.id === webhook.id),
+                                1
+                            );
+                            await removedServerClient.deleteWebhook(webhook.id);
+                        }
+                    }));
+                    await guildToLeave.leave();
+
+                    await options.interaction.followUp({content: "Successfully left the server.", flags: MessageFlags.Ephemeral});
+                    broadcasts = await databaseManager.getBroadcasts();
+                    segmentedServerListEmbedFields = await buildList(broadcasts);
+                    serverSelection = await buildServerSelectionMessage(
+                        segmentedServerListEmbedFields[0], 
+                        options.interaction.user.id, 
+                        segmentedServerListEmbedFields.length, 
+                        1
+                    );
+                    firstReply.edit({embeds: [serverSelection.embed], components: serverSelection.components});
+                    break;
+                case ButtonTypes.WEBHOOK:
+                    broadcasts = await databaseManager.getBroadcasts();
+                    segmentedServerListEmbedFields = await buildList(broadcasts);
+                        const actionRows = await deleteWebhookButtonHandler(
+                            selectedServerId, 
+                            componentInteractionCustomIdArgs[0], 
+                            componentInteraction
+                        );
+                        firstReply.edit({components: actionRows});
+                    break;
+            }
+            break;
+        case ComponentType.StringSelect:
+            await componentInteraction.deferUpdate();
+            selectedServerId = componentInteraction.values[0];
+            const serverRemovalUi = await buildServerRemovalUi(options, componentInteraction.values[0]);
+            firstReply.edit({embeds: [serverRemovalUi.embed], components: serverRemovalUi.components});
             break;
     }
 }

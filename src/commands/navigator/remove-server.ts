@@ -7,12 +7,15 @@ import {
     ButtonStyle,
     CacheType,
     Client,
+    Collection,
     ComponentType,
     EmbedBuilder,
+    Guild,
     Interaction,
     MessageActionRowComponent,
     MessageActionRowComponentBuilder,
     MessageFlags,
+    OAuth2Guild,
     StringSelectMenuBuilder
 } from 'discord.js'
 import { Logger } from '../../logger';
@@ -22,8 +25,30 @@ import { ButtonTypes, RunOptions } from '../../types/command';
 import { BroadcastRecord } from '../../types/database';
 import { permissionHandler } from '../../functions/permission-handler';
 import { PermissionLevels } from '../../types/permission-handler';
+import { removeServerButtons } from '../../functions/buttons';
+import { ErrorNames, InteractionTypes } from '../../types/error-handler';
+import { clients } from '../../structures/client';
+import { errorHandler } from '../../structures/error-handler';
 
 const logger = new Logger('RemoveServerCmd');
+
+export const removeServerChecks = async (options: RunOptions) => {
+    if (!options.interaction.guild) throw new Error(ErrorNames.NO_GUILD);
+        
+    const permissionCheck = await permissionHandler.checkForPermission(
+        options.interaction.user,
+        {local: false, onlyLocal: false},
+        options.interaction.guild,
+        [],
+        PermissionLevels.NAVIGATOR);
+        
+    if(!permissionCheck.status) {
+        await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral" });
+        throw new Error(ErrorNames.NO_PERMISSIONS);
+    }
+
+    await removeServerCommand(options);
+}
 
 // TODO: rework, test
 export default new Command({
@@ -32,121 +57,66 @@ export default new Command({
     options:[],
 
     run: async (options) => {
-        if (!options.interaction.guild) {
-            await options.interaction.reply({ content: 'You cant use this here', flags: 'Ephemeral' });
-            return;
+        try {
+            await removeServerChecks(options);
+        } catch(e) {
+            await errorHandler.showError({
+                error: e as Error,
+                user: options.interaction.user,
+                interactionType: InteractionTypes.REMOVE_SERVER
+            });
+            logger.error(`Got error during ${options.interaction.commandName} command.`, e as Error, options.client.user?.id);   
         }
-        const client = options.client;
-
-        const mainGuild = client.guilds.cache.get(config.mainServerId);
-        if(!mainGuild) {
-            logger.warn('Could not get main server.');
-            return;
-        }
-          
-        const permissionCheck = await permissionHandler.checkForPermission(
-            options.interaction.user,
-            {local: false, onlyLocal: false},
-            options.interaction.guild,
-            [],
-            PermissionLevels.NAVIGATOR);
-            
-        if(!permissionCheck.status) {
-            await options.interaction.reply({content: permissionCheck.message, flags: "Ephemeral" });
-            return;
-        }
-
-        let selectedServerId = "";
-        let broadcasts = await databaseManager.getBroadcasts();
-        let segmentedServerListEmbedFields = await buildList(client, broadcasts);
-        let serverSelection = await buildServerSelectionMessage(client, segmentedServerListEmbedFields[0], options.interaction.user.id, segmentedServerListEmbedFields.length, 1);
-        
-        const firstReply = await options.interaction.reply({embeds: [serverSelection.embed], components: serverSelection.components, flags: MessageFlags.Ephemeral})
-        const filter = (i : Interaction) => {
-            return i.user.id === options.interaction.user.id;
-        }
-        const serverSelectionCollector = firstReply.createMessageComponentCollector({ filter });
-        serverSelectionCollector.on('collect', async (componentInteraction) => {
-            switch(componentInteraction.componentType) {
-                case ComponentType.Button:
-                    const componentInteractionCustomIdArgs = componentInteraction.customId.split(/ +/);
-                    if(componentInteractionCustomIdArgs.length < 2) {
-                        logger.warn('Got less than 2 arguments for component interaction custom id.');
-                        return;
-                    }
-                    const buttonType = componentInteractionCustomIdArgs[1];
-                    switch(buttonType) {
-                        case ButtonTypes.BACK:
-                            serverSelection = await buildServerSelectionMessage(client, segmentedServerListEmbedFields[parseInt(componentInteractionCustomIdArgs[2])-2], options.interaction.user.id, segmentedServerListEmbedFields.length, parseInt(componentInteractionCustomIdArgs[2])-1);
-                            firstReply.edit({embeds: [serverSelection.embed], components: serverSelection.components});
-                            break;
-                        case ButtonTypes.FORWARD:
-                            serverSelection = await buildServerSelectionMessage(client, segmentedServerListEmbedFields[parseInt(componentInteractionCustomIdArgs[2])], options.interaction.user.id, segmentedServerListEmbedFields.length, parseInt(componentInteractionCustomIdArgs[2])+1);
-                            firstReply.edit({embeds: [serverSelection.embed], components: serverSelection.components});
-                            break;
-                        case ButtonTypes.MENU_BACK:
-                            broadcasts = await databaseManager.getBroadcasts();
-                            segmentedServerListEmbedFields = await buildList(client, broadcasts);
-                            serverSelection = await buildServerSelectionMessage(client, segmentedServerListEmbedFields[0], options.interaction.user.id, segmentedServerListEmbedFields.length, 1);
-                            firstReply.edit({embeds: [serverSelection.embed], components: serverSelection.components});
-                            break;
-                        case ButtonTypes.REMOVE_SERVER:
-                            try {
-                                const guildToLeave = client.guilds.cache.get(componentInteractionCustomIdArgs[2]);
-                                if(!guildToLeave) {
-                                    await options.interaction.followUp({content: "Could not find server, contact Birb.", flags: MessageFlags.Ephemeral});
-                                    return;
-                                }
-                                await Promise.allSettled((await guildToLeave.fetchWebhooks()).map(async (webhook) => {
-                                    if(webhook.owner === options.client.user) {
-                                        await databaseManager.deleteBroadcastByWebhookId(webhook.id);
-                                        config.activeWebhooks.splice(config.activeWebhooks.findIndex((activeWebhook) => activeWebhook.id === webhook.id), 1);
-                                        webhook.delete();
-                                    }
-                                }))
-                                guildToLeave.leave();
-                                await options.interaction.followUp({content: "Successfully left the server.", flags: MessageFlags.Ephemeral});
-                            } catch(error) {
-                                await options.interaction.followUp({content: "Could not leave server, contact Birb.", flags: MessageFlags.Ephemeral});
-                                logger.error("Couldnt leave server", (error as Error));
-                            }
-                            broadcasts = await databaseManager.getBroadcasts();
-                            segmentedServerListEmbedFields = await buildList(client, broadcasts);
-                            serverSelection = await buildServerSelectionMessage(client, segmentedServerListEmbedFields[0], options.interaction.user.id, segmentedServerListEmbedFields.length, 1);
-                            firstReply.edit({embeds: [serverSelection.embed], components: serverSelection.components});
-                            break;
-                        case ButtonTypes.WEBHOOK:
-                            broadcasts = await databaseManager.getBroadcasts();
-                            segmentedServerListEmbedFields = await buildList(client, broadcasts);
-                            try {
-                                const actionRows = await deleteWebhookButtonHandler(selectedServerId, componentInteractionCustomIdArgs[0], componentInteraction);
-                                firstReply.edit({components: actionRows});
-                            } catch(error) {
-                                firstReply.edit({content: "Got an error during the process, contact Birb" });
-                                logger.error("Got error while deleting webhook.", (error as Error));
-                            }
-                            break;
-                    }
-                    break;
-                case ComponentType.StringSelect:
-                    await componentInteraction.deferUpdate();
-                    selectedServerId = componentInteraction.values[0];
-                    try {
-                        const serverRemovalUi = await buildServerRemovalUi(options, componentInteraction.values[0]);
-                        firstReply.edit({embeds: [serverRemovalUi.embed], components: serverRemovalUi.components});
-                    } catch(error) {
-                        firstReply.edit({content: "Got an error during the process, contact Birb" });
-                        logger.error("Got error during building server removal ui.", (error as Error));
-                    }
-                    break;
-            }
-        })
     }
 
 });
 
-const buildList = async (client: Client, broadcasts: BroadcastRecord[]): Promise<({name: string, value: string})[][]> => {
-    const clientGuilds = await client.guilds.fetch();
+export const removeServerCommand = async (options: RunOptions) => {
+    let selectedServerId = "";
+    const broadcasts = await databaseManager.getBroadcasts();
+    const segmentedServerListEmbedFields = await buildList(broadcasts);
+    const serverSelection = await buildServerSelectionMessage(
+        segmentedServerListEmbedFields[0], 
+        options.interaction.user.id, 
+        segmentedServerListEmbedFields.length, 
+        1
+    );
+
+    const firstReply = await options.interaction.reply({
+        embeds: [serverSelection.embed], 
+        components: serverSelection.components, 
+        flags: MessageFlags.Ephemeral
+    });
+    const filter = (i : Interaction) => {
+        return i.user.id === options.interaction.user.id;
+    }
+
+    const serverSelectionCollector = firstReply.createMessageComponentCollector({ filter });
+    serverSelectionCollector.on('collect', async (componentInteraction) => {
+        if(componentInteraction.componentType != ComponentType.Button 
+            && componentInteraction.componentType != ComponentType.StringSelect) {
+                throw new Error(ErrorNames.WRONG_BUTTON_TYPE);
+        }
+        await removeServerButtons(
+            componentInteraction,
+            serverSelection,
+            options.client,
+            segmentedServerListEmbedFields,
+            options,
+            firstReply,
+            broadcasts,
+            selectedServerId,
+        )
+    })
+}
+
+export const buildList = async (broadcasts: BroadcastRecord[]): Promise<({name: string, value: string})[][]> => {
+    const clientGuilds = new Map<string, Guild>();
+    await Promise.allSettled(clients.map((c) => {
+        c.guilds.cache.map((g) => {
+            clientGuilds.set(g.id, g)
+        })
+    }))
     const serverListEmbedFields: ({name: string, value: string})[] = [];
     const segmentedServerListEmbedFields: ({name: string, value: string})[][] = [];
     clientGuilds.forEach(async (guild) => {
@@ -163,16 +133,23 @@ const buildList = async (client: Client, broadcasts: BroadcastRecord[]): Promise
     });
     let currentServerListPage = 0;
     serverListEmbedFields.forEach((embedField, idx) => {
-        if(idx%config.embedFieldLimit == 0 && idx != 0) {
-            currentServerListPage++;
-        }
-        segmentedServerListEmbedFields[currentServerListPage] = ([] as {name: string, value: string}[]).concat(embedField).concat(segmentedServerListEmbedFields[currentServerListPage]).filter((list) => list != undefined);
+        if(idx%config.embedFieldLimit == 0 && idx != 0) currentServerListPage++;
+
+        segmentedServerListEmbedFields[currentServerListPage] = ([] as {name: string, value: string}[])
+            .concat(embedField)
+            .concat(segmentedServerListEmbedFields[currentServerListPage])
+            .filter((list) => list != undefined);
     })
     
     return segmentedServerListEmbedFields;
 }
 
-const buildServerSelectionMessage = async (client: Client, list: ({name: string, value: string})[], interactionUserId: string, pages: number, currentPage: number): Promise<({embed: EmbedBuilder, components: ActionRowBuilder<MessageActionRowComponentBuilder>[]})> => {
+export const buildServerSelectionMessage = async (
+    list: ({name: string, value: string})[],
+    interactionUserId: string, 
+    pages: number, 
+    currentPage: number
+): Promise<({embed: EmbedBuilder, components: ActionRowBuilder<MessageActionRowComponentBuilder>[]})> => {
     const serverSelectorActionRow = new ActionRowBuilder<MessageActionRowComponentBuilder>();
     const directionButtonActionRow = new ActionRowBuilder<MessageActionRowComponentBuilder>();
     let actionRows: ActionRowBuilder<MessageActionRowComponentBuilder>[] = [];
@@ -201,6 +178,8 @@ const buildServerSelectionMessage = async (client: Client, list: ({name: string,
         .setPlaceholder("Select a server.")
     
     list.forEach((embedField) => {
+        const client = clients.find((c) => c.guilds.cache.find((guild) => guild.name === embedField.name));
+        if(!client) return;
         const guild = client.guilds.cache.find((guild) => guild.name === embedField.name);
         if(!guild) return;
         serverSelector.addOptions({label: embedField.name, value: guild.id});
@@ -220,16 +199,16 @@ const buildServerSelectionMessage = async (client: Client, list: ({name: string,
     return({embed: serverListEmbed, components: actionRows});
 }
 
-const buildServerRemovalUi = async (options: RunOptions, selectedServerId: string): Promise<({embed: EmbedBuilder, components: ActionRowBuilder<MessageActionRowComponentBuilder>[]})> => {
-    const client = options.client;
+export const buildServerRemovalUi = async (
+    options: RunOptions, 
+    selectedServerId: string
+): Promise<({ embed: EmbedBuilder, components: ActionRowBuilder<MessageActionRowComponentBuilder>[] })> => {
+    const client = clients.find((c) => c.guilds.cache.has(selectedServerId));
+    if(!client) throw new Error(ErrorNames.NO_CLIENT_IN_SERVER);
     const selectedServer = client.guilds.cache.get(selectedServerId);
-    if(!selectedServer) {
-        await options.interaction.followUp({ content: 'Could not find the server, please verify that the bot is on it, if it is dm Birb.', flags: 'Ephemeral' });
-        throw new Error('Could not find selected server.');
-    }
+    if(!selectedServer) throw new Error(ErrorNames.NO_GUILD);
     
     const serverAeonWebhooks = config.activeWebhooks.filter((webhook) => webhook.guildId === selectedServer.id);
-
     const webhookButtons = new ActionRowBuilder<ButtonBuilder>();
     await Promise.allSettled(serverAeonWebhooks.map(async (aeonWebhook) => {
         const broadcast = await databaseManager.getBroadcastByWebhookId(aeonWebhook.id);
@@ -273,29 +252,32 @@ const buildServerRemovalUi = async (options: RunOptions, selectedServerId: strin
     })
 }
 
-const deleteWebhookButtonHandler = async (serverId: string, selectedWebhookId: string, componentInteraction: ButtonInteraction<CacheType>): Promise<ActionRowBuilder<MessageActionRowComponentBuilder>[]> => {
-    
+export const deleteWebhookButtonHandler = async (
+    serverId: string, 
+    selectedWebhookId: string, 
+    componentInteraction: ButtonInteraction<CacheType>,
+): Promise<ActionRowBuilder<MessageActionRowComponentBuilder>[]> => {
+    const client = clients.find((c) => c.guilds.cache.has(serverId));
+    if(!client) throw new Error(ErrorNames.NO_CLIENT_IN_SERVER);
     const serverAeonWebhooks = config.activeWebhooks.filter((activeWebhook) => activeWebhook.guildId === serverId);
     const selectedWebhook = serverAeonWebhooks.find((webhook) => webhook.id === selectedWebhookId);
-    if(!selectedWebhook) {
-        throw new Error('Could not find webhook.');
-    }
+    if(!selectedWebhook) throw new Error(ErrorNames.DID_NOT_FIND_WEBHOOK);
+
     const selectedWebhookPosition = config.activeWebhooks.findIndex((webhook) => webhook === selectedWebhook);
     try {
         config.activeWebhooks.splice(selectedWebhookPosition);
-        await selectedWebhook.delete();
+        await client.deleteWebhook(selectedWebhook.id);
         await databaseManager.deleteBroadcastByWebhookId(selectedWebhookId);
     } catch(error) {
-        logger.error('Could not delete webhook.', (error as Error));
         await componentInteraction.deferUpdate();
-        await componentInteraction.followUp({content: 'Could not delete webhook.', flags: "Ephemeral" });
+        throw error;
     }
 
     const message = componentInteraction.message;
     const webhookButtonsRow = new ActionRowBuilder<ButtonBuilder>();
     const removeServerButtonRow = new ActionRowBuilder<ButtonBuilder>();
     const backToMenuButtonRow = new ActionRowBuilder<ButtonBuilder>();
-    message.components.forEach((row) => {
+    message.components.map((row) => {
         (row as ActionRow<MessageActionRowComponent>).components.forEach((buttonComponent) => {
             if(buttonComponent.type === ComponentType.Button) {
                 if(!buttonComponent.customId) {

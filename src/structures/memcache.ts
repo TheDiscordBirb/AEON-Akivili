@@ -5,7 +5,7 @@ import { config } from "../const";
 
 const logger = new Logger('Memcache');
 
-// TODO: rework(?), test
+// TODO: test
  
 class CacheManager {
     protected _mem: Cacheable = new Cacheable();
