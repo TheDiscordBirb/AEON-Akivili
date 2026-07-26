@@ -2,10 +2,23 @@ import { Command } from '../../structures/command';
 import { ApplicationCommandOptionType} from 'discord.js'
 import { databaseManager } from '../../structures/database';
 import { Logger } from '../../logger';
+import { RunOptions } from '../../types/command';
+import { ErrorNames, InteractionTypes } from '../../types/error-handler';
+import { errorHandler } from '../../structures/error-handler';
 
 const logger = new Logger('GetUidCmd');
 
-// TODO: rework, test
+export const getUidChecks = async (options: RunOptions) => {
+        if (!options.interaction.guild) throw new Error(ErrorNames.NO_GUILD);
+        if (!options.interaction.channel) throw new Error(ErrorNames.NO_CHANNEL);
+
+        const messageId = options.args.getString('message-id');
+        if (!messageId) throw new Error(ErrorNames.NO_REQUIRED_FIELD);
+
+        await getUidCommand(options, messageId);
+}
+
+// TODO: test
 export default new Command({
     name: 'get-uid',
     description: "Gets a person's uid using a message id from Aeon Chat",
@@ -18,37 +31,20 @@ export default new Command({
     }],
 
     run: async (options) => {
-        const guildMember = options.interaction.guild?.members.cache.find(m => m.id === options.interaction.member.user.id);
-
-        if (!guildMember) {
-            logger.wtf("Interaction's creator does not exist.");
-            return;
-        }
-
-        if (!options.interaction.guild) {
-            await options.interaction.reply({ content: 'You cant use this here', flags: 'Ephemeral' });
-            return;
-        }
-
-        if (!options.interaction.channel) {
-            logger.wtf(`${options.interaction.member.user.username} has used a command without a channel.`);
-            return;
-        }
-
-        const messageId = options.args.getString('message-id');
-        if (!messageId) {
-            logger.warn(`${options.interaction.member.user.username} has used a command without the required field 'message-id'.`);
-            await options.interaction.reply({ content: 'No message id provided.', flags: 'Ephemeral' });
-            return;
-        }
-        let userId: string;
         try {
-            userId = await databaseManager.getUserId(options.interaction.channel.id, messageId);
-        } catch (error) {
-            await options.interaction.reply({ content: 'There was an error fetching this user.', flags: 'Ephemeral' });
-            logger.error(`There was an error fetching this user: ${messageId}`, error as Error);
-            return;
+            await getUidChecks(options);
+        } catch(e) {
+            await errorHandler.showError({
+                error: e as Error,
+                user: options.interaction.user,
+                interactionType: InteractionTypes.GET_UID
+            });
+            logger.error(`Got error during ${options.interaction.commandName} command.`, e as Error, options.client.user?.id);   
         }
-        await options.interaction.reply({ content: userId, flags: 'Ephemeral' });
     }
 });
+
+export const getUidCommand = async (options: RunOptions, messageId: string) => {
+    const userId = await databaseManager.getUserId(options.interaction.channelId, messageId);
+    await options.interaction.reply({ content: userId, flags: 'Ephemeral' });
+}

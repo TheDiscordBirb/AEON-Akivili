@@ -40,14 +40,14 @@ export const setImportantBanshareRoleChecks = async (options: RunOptions) => {
     );
     if (!broadcastToEdit) throw new Error(ErrorNames.NO_BROADCAST_IN_DB);
 
-    await setImportantBanshareRoleCmd(
+    await setImportantBanshareRoleCommand(
         options,
         options.args.getRole('role'),
         broadcastToEdit
     )
 }
 
-// TODO: rework, test
+// TODO: test
 export default new Command({
     name: 'set-important-banshare-role',
     description: "Set the role that gets pinged when a new important banshare is posted.",
@@ -73,7 +73,7 @@ export default new Command({
     }
 });
 
-export const setImportantBanshareRoleCmd = async (
+export const setImportantBanshareRoleCommand = async (
     options: RunOptions,
     role: Role | APIRole | null,
     broadcastToEdit: BroadcastRecord

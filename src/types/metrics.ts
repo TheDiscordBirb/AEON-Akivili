@@ -1,10 +1,11 @@
 export enum TimeSpanMetricLabel {
-    CMD_BAN  = 'Ban Command execution time',
-    MESSAGE_CREATED = 'Message Created event execution time',
-    CMD_REMOVE_REACTION = 'Remove Reaction Command execution time',
+    CMD_BAN  = 'Ban Command',
+    MESSAGE_CREATED = 'Message Created',
+    CMD_REMOVE_REACTION = 'Remove Reaction Command',
 }
 
 export enum ScalarMetricLabel {
+    
 }
 
 export interface ScalarMetric {

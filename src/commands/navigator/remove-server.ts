@@ -50,7 +50,7 @@ export const removeServerChecks = async (options: RunOptions) => {
     await removeServerCommand(options);
 }
 
-// TODO: rework, test
+// TODO: test
 export default new Command({
     name: 'remove-server',
     description: "Used for removing servers/webhooks from the network.",
@@ -72,7 +72,6 @@ export default new Command({
 });
 
 export const removeServerCommand = async (options: RunOptions) => {
-    let selectedServerId = "";
     const broadcasts = await databaseManager.getBroadcasts();
     const segmentedServerListEmbedFields = await buildList(broadcasts);
     const serverSelection = await buildServerSelectionMessage(
@@ -100,12 +99,9 @@ export const removeServerCommand = async (options: RunOptions) => {
         await removeServerButtons(
             componentInteraction,
             serverSelection,
-            options.client,
             segmentedServerListEmbedFields,
             options,
             firstReply,
-            broadcasts,
-            selectedServerId,
         )
     })
 }
@@ -203,7 +199,7 @@ export const buildServerRemovalUi = async (
     options: RunOptions, 
     selectedServerId: string
 ): Promise<({ embed: EmbedBuilder, components: ActionRowBuilder<MessageActionRowComponentBuilder>[] })> => {
-    const client = clients.find((c) => c.guilds.cache.has(selectedServerId));
+    const client = clients.find((client) => client.guilds.cache.has(selectedServerId));
     if(!client) throw new Error(ErrorNames.NO_CLIENT_IN_SERVER);
     const selectedServer = client.guilds.cache.get(selectedServerId);
     if(!selectedServer) throw new Error(ErrorNames.NO_GUILD);
@@ -214,7 +210,7 @@ export const buildServerRemovalUi = async (
         const broadcast = await databaseManager.getBroadcastByWebhookId(aeonWebhook.id);
         if(!broadcast) return;
         const button = new ButtonBuilder()
-            .setCustomId(`${aeonWebhook.id} ${ButtonTypes.WEBHOOK}`)
+            .setCustomId(`${aeonWebhook.id} ${ButtonTypes.WEBHOOK} ${selectedServer.id}`)
             .setLabel(broadcast.channelType)
             .setStyle(ButtonStyle.Primary)
         
@@ -257,7 +253,7 @@ export const deleteWebhookButtonHandler = async (
     selectedWebhookId: string, 
     componentInteraction: ButtonInteraction<CacheType>,
 ): Promise<ActionRowBuilder<MessageActionRowComponentBuilder>[]> => {
-    const client = clients.find((c) => c.guilds.cache.has(serverId));
+    const client = clients.find((client) => client.guilds.cache.has(serverId));
     if(!client) throw new Error(ErrorNames.NO_CLIENT_IN_SERVER);
     const serverAeonWebhooks = config.activeWebhooks.filter((activeWebhook) => activeWebhook.guildId === serverId);
     const selectedWebhook = serverAeonWebhooks.find((webhook) => webhook.id === selectedWebhookId);

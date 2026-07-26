@@ -103,7 +103,7 @@ class Metrics {
             end: Date.now(),
         };
 
-        logger.debug(`Metric ended. Label: ${finishedMetric.label} Value: ${finishedMetric.end - finishedMetric.start}ms`);
+        logger.debug(`Metric ended. Label: ${finishedMetric.label} execution time. Value: ${finishedMetric.end - finishedMetric.start}ms`);
 
         const specificMetric = this.timeSpanValues[activeMetric.label];
         

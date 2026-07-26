@@ -207,13 +207,12 @@ export const removeServerButtons = async (
         embed: EmbedBuilder,
         components: ActionRowBuilder<MessageActionRowComponentBuilder>[]
     },
-    client: Client<boolean>,
     segmentedServerListEmbedFields: { name: string, value: string }[][],
     options: RunOptions,
     firstReply: InteractionResponse<boolean>,
-    broadcasts: BroadcastRecord[],
-    selectedServerId: string
 ) => {
+    const broadcasts = await databaseManager.getBroadcasts();
+    await componentInteraction.deferUpdate();
     switch(componentInteraction.componentType) {
         case ComponentType.Button:
             const componentInteractionCustomIdArgs = componentInteraction.customId.split(/ +/);
@@ -221,6 +220,7 @@ export const removeServerButtons = async (
                 throw new Error('Got less than 2 arguments for component interaction custom id.');
             }
             const buttonType = componentInteractionCustomIdArgs[1];
+            const selectedServerId = componentInteractionCustomIdArgs[2];
             switch(buttonType) {
                 case ButtonTypes.BACK:
                     serverSelection = await buildServerSelectionMessage(
@@ -241,7 +241,6 @@ export const removeServerButtons = async (
                     firstReply.edit({ embeds: [serverSelection.embed], components: serverSelection.components });
                     break;
                 case ButtonTypes.MENU_BACK:
-                    broadcasts = await databaseManager.getBroadcasts();
                     segmentedServerListEmbedFields = await buildList(broadcasts);
                     serverSelection = await buildServerSelectionMessage(
                         segmentedServerListEmbedFields[0], 
@@ -252,9 +251,9 @@ export const removeServerButtons = async (
                     firstReply.edit({ embeds: [serverSelection.embed], components: serverSelection.components });
                     break;
                 case ButtonTypes.REMOVE_SERVER:
-                    const removedServerClient = clients.find((c) => c.guilds.cache.has(componentInteractionCustomIdArgs[2]));
+                    const removedServerClient = clients.find((c) => c.guilds.cache.has(selectedServerId));
                     if(!removedServerClient) throw new Error(ErrorNames.NO_CLIENT_IN_SERVER);
-                    const guildToLeave = removedServerClient.guilds.cache.get(componentInteractionCustomIdArgs[2]);
+                    const guildToLeave = removedServerClient.guilds.cache.get(selectedServerId);
                     if(!guildToLeave) throw new Error(ErrorNames.NO_GUILD);
 
                     await Promise.allSettled((await guildToLeave.fetchWebhooks()).map(async (webhook) => {
@@ -270,7 +269,6 @@ export const removeServerButtons = async (
                     await guildToLeave.leave();
 
                     await options.interaction.followUp({content: "Successfully left the server.", flags: MessageFlags.Ephemeral});
-                    broadcasts = await databaseManager.getBroadcasts();
                     segmentedServerListEmbedFields = await buildList(broadcasts);
                     serverSelection = await buildServerSelectionMessage(
                         segmentedServerListEmbedFields[0], 
@@ -281,7 +279,6 @@ export const removeServerButtons = async (
                     firstReply.edit({embeds: [serverSelection.embed], components: serverSelection.components});
                     break;
                 case ButtonTypes.WEBHOOK:
-                    broadcasts = await databaseManager.getBroadcasts();
                     segmentedServerListEmbedFields = await buildList(broadcasts);
                         const actionRows = await deleteWebhookButtonHandler(
                             selectedServerId, 
@@ -293,8 +290,6 @@ export const removeServerButtons = async (
             }
             break;
         case ComponentType.StringSelect:
-            await componentInteraction.deferUpdate();
-            selectedServerId = componentInteraction.values[0];
             const serverRemovalUi = await buildServerRemovalUi(options, componentInteraction.values[0]);
             firstReply.edit({embeds: [serverRemovalUi.embed], components: serverRemovalUi.components});
             break;

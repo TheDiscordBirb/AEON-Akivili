@@ -29,7 +29,7 @@ export const modmailResponseChecks = async (options: RunOptions) => {
     await modmailResponseCommand(options);
 }
 
-// TODO: rework, test
+// TODO: test
 export default new Command({
     name: 'modmail-response',
     description: 'Used to respond to modmails.',

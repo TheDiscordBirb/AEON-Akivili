@@ -25,7 +25,7 @@ export const crowdControlChecks = async (options: RunOptions) => {
     }
     await crowdControlCommand(options);
 }
-// TODO: rework
+
 export default new Command({
     name: 'crowd-control',
     description: 'Toggles crowd control.',
