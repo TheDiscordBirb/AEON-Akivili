@@ -91,10 +91,9 @@ class DatabaseManager {
 
     private getBroadcastsFromDb = async (): Promise<BroadcastRecord[]> => {
         const db = await this.db();
-        const test = await db.createQueryBuilder(Broadcasts, "broadcasts")
+        return await db.createQueryBuilder(Broadcasts, "broadcasts")
             .select()
             .getMany();
-        return test;
     }
 
     public async getBroadcasts(): Promise<BroadcastRecord[]> {

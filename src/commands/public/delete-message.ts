@@ -72,16 +72,16 @@ export default new Command({
     }],
 
     run: async (options) => {
-            try {
-                await deleteMessageChecks(options);
-            } catch(e) {
-                await errorHandler.showError({
-                    error: e as Error,
-                    user: options.interaction.user,
-                    interactionType: InteractionTypes.DELETE_MESSAGE
-                })
-                logger.error(`Got error during ${options.interaction.commandName} command.`, e as Error);
-            }
+        try {
+            await deleteMessageChecks(options);
+        } catch(e) {
+            await errorHandler.showError({
+                error: e as Error,
+                user: options.interaction.user,
+                interactionType: InteractionTypes.DELETE_MESSAGE
+            })
+            logger.error(`Got error during ${options.interaction.commandName} command.`, e as Error);
+        }
     }
 })
 

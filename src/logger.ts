@@ -42,14 +42,14 @@ export class Logger {
 
     public error(message: string, error: Error, clientId?: string) {
         this.updateLoggerClientId(clientId);
-        this.log(`[${this.clientId}] ${LogLevelName[LogLevel.ERROR]} ${this.moduleName} : ${this.now()} - ${message}\nError: ${error}`, LogLevel.ERROR);
+        this.log(`[${this.clientId}] ${LogLevelName[LogLevel.ERROR]} ${this.moduleName} : ${this.now()} - ${message}\n${error}`, LogLevel.ERROR);
     }
 
     public warn(message: string, error?: Error, clientId?: string) {
         this.updateLoggerClientId(clientId);
         let log = `[${this.clientId}] ${LogLevelName[LogLevel.WARN]} ${this.moduleName} : ${this.now()} - ${message}`;
         if (error) {
-            log = `${log}\nError: ${error}`;
+            log = `${log}\n${error}`;
         }
         this.log(log, LogLevel.WARN);
     }

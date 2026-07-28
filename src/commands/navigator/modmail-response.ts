@@ -56,6 +56,6 @@ export default new Command({
 });
 
 export const modmailResponseCommand = async (options: RunOptions) => {
-        await databaseManager.getModmail(options.interaction.channelId);
-        await modmailHandler.forwardModmailMessage(undefined, options);
+    await databaseManager.getModmail(options.interaction.channelId);
+    await modmailHandler.forwardModmailMessage(undefined, options);
 }
