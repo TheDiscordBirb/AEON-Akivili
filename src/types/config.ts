@@ -23,8 +23,8 @@ export interface configType {
     */
     disabledStickerNetworkServerIds: string[],
     embedFieldLimit: number,
-    emojiServerIds: string[],
     enableStickers: boolean,
+    emojiServerIds: string[],
     infoMessageChannelId: string,
     infoMessageId: string,
     mainServerId: string,

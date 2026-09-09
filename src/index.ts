@@ -32,6 +32,7 @@ fs.readdir(path.join(__dirname, '..', '/logs'), (err, files) => {
         }
     })
 })
+
 import process from 'node:process';
 if(!config.debugMode) {
     process.on('unhandledRejection', async (reason, promise) => {

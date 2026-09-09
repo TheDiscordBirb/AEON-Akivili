@@ -58,7 +58,16 @@ const messageCreatedEvent = async (
     broadcastRecords: BroadcastRecord[],
 ): Promise<void> => {
     const webhookChannelType = channelWebhookBroadcast.channelType;
-    const {accepted: files, rejected: rejectedFiles} = await convertStickersAndImagesToFiles(interaction);
+    let accepted: AttachmentBuilder[] = [];
+    let rejected: string[] = [];
+    try {
+        const result = await convertStickersAndImagesToFiles(interaction);
+        accepted = result.accepted;
+        rejected = result.rejected;
+    } catch(e) {
+        await interaction.delete();
+        throw e;
+    }
     const emojiReplacement = await replaceEmojis(interaction.content, client);
 
     await interaction.delete();
@@ -74,8 +83,8 @@ const messageCreatedEvent = async (
         webhookChannelType, 
         interaction, 
         interactionMember, 
-        files, 
-        rejectedFiles, 
+        accepted, 
+        rejected, 
         emojiReplacement
     );
     
@@ -199,33 +208,52 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
         try {
             sticker = await interactionSticker.fetch();
         } catch(e) {
-            logger.warn(`Could not get sticker.`);
-            rejectedFiles.push(interactionSticker.name);
-            return undefined;
+            await Promise.reject(ErrorNames.NO_STICKER);
+            return;
         }
+        // This if statement ensures that out of network and disabled server stickers cant be used by Akivili
+        const stickerStatus = await databaseManager.getServerStickerStatus(sticker.guildId ?? "");
+        if(stickerStatus != true) {
+            await Promise.reject(ErrorNames.DISABLED_STICKER)
+            return;
+        }
+        if (config.enableStickers) {
+            stickerBuffer = await axios.get(sticker.url, { responseType: 'arraybuffer' })
+        } else {
+            rejectedFiles.push(interactionSticker.name);
+            await Promise.reject(ErrorNames.STICKERS_DISABLED);
+            return;
+        }
+
         const cachedSticker = await cacheManager.retrieveCache('sticker', sticker.id);
         if(cachedSticker) {
             return new AttachmentBuilder(cachedSticker, { name: `${sticker.name}${isApng(cachedSticker) ? ".gif" : ".png"}` });
         }
-        // This if statement ensures that out of network and disabled server stickers cant be used by Akivili
-        if (sticker.guildId && broadcastGuildIds.includes(sticker.guildId) 
-            && !config.disabledStickerNetworkServerIds.includes(sticker.guildId)) {
-            if (config.enableStickers) {
-                stickerBuffer = await axios.get(sticker.url, { responseType: 'arraybuffer' })
-            } else {
-                rejectedFiles.push(interactionSticker.name);
-                return undefined;
-            }
-        } else {
-            rejectedFiles.push(interactionSticker.name);
-            return undefined;
+        
+        const guildId = sticker.guildId;
+        if(!guildId) {
+            await Promise.reject(ErrorNames.NO_GUILD_ID);
+            return;
         }
+        console.log(guildId);
+        const client = clients.find((c) => c.guilds.cache.get(guildId));
+        if(!client) {
+            await Promise.reject(ErrorNames.NO_CLIENT_IN_SERVER);
+            return;
+        }
+        const guild = client.guilds.cache.get(guildId);
+        if(!guild) {
+            await Promise.reject(ErrorNames.NO_GUILD);
+            return;
+        }
+        let watermarkText = guild.name;
 
-        let watermarkText = sticker.guild?.name;
         if(!watermarkText){
             rejectedFiles.push(interactionSticker.name);
-            return undefined;
+            await Promise.reject(ErrorNames.NO_GUILD_NAME);
+            return;
         }
+
         watermarkText = watermarkText
             .replaceAll("&", "&amp;")
             .replaceAll(/</g, "&lt;")
@@ -267,9 +295,9 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
         try {
             watermarkedStickerBuffer = await (watermarked as sharp.Sharp).toBuffer();
         } catch(error) {
-            logger.warn(`Could not put watermark on sticker.`);
             rejectedFiles.push(interactionSticker.name);
-            return undefined;
+            await Promise.reject(ErrorNames.DID_NOT_APPLY_WATERMARK);
+            return;
         }
         await cacheManager.saveCache('sticker', sticker.id, watermarkedStickerBuffer as Buffer<ArrayBuffer>)
 
@@ -278,8 +306,8 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
         return attachBuffer;
     }))).reduce<AttachmentBuilder[]>((acc, item) => {
         if (item.status !== 'fulfilled') {
-            logger.warn(`Could not create downloaded sticker. Status: ${item.status}`)
-            return acc;
+            logger.error(`Could not create downloaded sticker.`, new Error(item.reason));
+            throw new Error(item.reason);
         }
         if (!item.value) return acc;
         acc.push(item.value);

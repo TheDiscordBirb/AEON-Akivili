@@ -55,6 +55,12 @@ export default new Event("clientReady", async (client: Client) => {
                 infoOrBanshareBroadcastGuilds.push(guild);
             }
         }
+        if(guildChatBroadcasts.length) {
+            const stickerStatus = await databaseManager.getServerStickerStatus(guild.id);
+            if(stickerStatus === null) {
+                await databaseManager.saveServerStickerStatus(guild.id, true, clientId);
+            }
+        }
         guildCount++;
         let networkServer = false;
         logger.info(`Trying to load guild "${guild.name}" (id: ${guild.id})`, clientId);

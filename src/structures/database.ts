@@ -23,6 +23,7 @@ import { FilteredWords } from './entities/filtered-words';
 import { Regions } from '../types/command';
 import { CatCakes } from './entities/cat-cakes';
 import { NetworkStickerStatus } from './entities/network-sticker-status';
+import { ExtendedClient } from './client';
 
 const logger = new Logger('Database');
 
@@ -59,6 +60,17 @@ class DatabaseManager {
         await this._db.initialize();
         await this._db.synchronize();
         logger.info(`Database connected.`);
+        
+        // Ensures previously disabled servers stay disabled
+        config.disabledStickerNetworkServerIds.map(async (guildId) => {
+            const status = await this.getServerStickerStatus(guildId);
+            if(status === null) {
+                await this.saveServerStickerStatus(guildId, false);
+            } else if (status === true) {
+                await this.modifyServerStickerStatus(guildId, false);
+            }
+        });
+
         return this._db;
     }
 
@@ -431,10 +443,10 @@ class DatabaseManager {
 
     public async getServerStickerStatus(serverId: string) {
         const allServerStickerStatus = await this.getAllServerStickerStatus();
-        return allServerStickerStatus.find((guild) => guild.serverId === serverId)?.status;
+        return allServerStickerStatus.find((guild) => guild.serverId === serverId)?.status ?? null;
     }
 
-    public async insertServerStickerStatus(serverId: string, status: boolean) {
+    public async saveServerStickerStatus(serverId: string, status: boolean, clientId?: string) {
         const statusInDb = await this.getServerStickerStatus(serverId);
         if(statusInDb) throw new Error(ErrorNames.DB_ENTRY_ALREADY_EXISTS);
         const db = await this.db();
@@ -443,9 +455,10 @@ class DatabaseManager {
             .values([{serverId, status}])
             .execute();
         this._networkServerStickerStatusCache.push({serverId, status});
+        logger.info(`${status ? "Enabled" : "Disabled"} stickers from ${serverId}`, clientId);
     }
 
-    public async modifyServerStickerStatus(serverId: string, status: boolean) {
+    public async modifyServerStickerStatus(serverId: string, status: boolean, clientId?: string) {
         const statusInDb = await this.getServerStickerStatus(serverId);
         if(!statusInDb) throw new Error(ErrorNames.NO_DB_ENTRY);
         if(statusInDb === status) throw new Error(ErrorNames.DID_NOT_MODIFY_DB_DATA);
@@ -460,6 +473,7 @@ class DatabaseManager {
             1,
             {serverId, status}
         )
+        logger.info(`${status ? "Enabled" : "Disabled"} stickers from ${serverId}`, clientId);
     }
 }
 
