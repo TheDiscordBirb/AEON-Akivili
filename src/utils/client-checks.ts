@@ -1,17 +1,14 @@
-import { Logger } from "../logger";
 import { clients } from "../structures/client";
 
-const logger = new Logger("ClientChecks");
-
-// TODO: ?
+// TODO: Think of error names
 export const whoIs = async (guildId: string | null | undefined) => {
     if(!guildId) throw new Error("No guild id.");
     const clientsInGuild = clients.filter((client) => client.guilds.cache.has(guildId));
     const guild = clientsInGuild[0].guilds.cache.get(guildId);
     if(!guild) throw new Error("No guild.");
     if(!clientsInGuild.length) throw new Error(`Could not get bot client for ${guildId}`);
-    if(clientsInGuild.length === 1) return clientsInGuild[0];
     if(!clientsInGuild[0].user) throw new Error(`No user for client.`);
+    if(clientsInGuild.length === 1) return clientsInGuild[0];
     const firstClientInGuild = await guild.members.fetch(clientsInGuild[0].user.id);
     if(!firstClientInGuild) throw new Error("Could not get first client from guild.");
     let oldestJoinedClient = firstClientInGuild;

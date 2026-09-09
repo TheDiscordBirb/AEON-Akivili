@@ -18,7 +18,10 @@ export interface configType {
     currentLogFileName: string,
     debugMode: boolean,
     devIds: string[],
-    disabledStickerNetworkServerIds: string[], //This will be put into the db soon, im just lazy
+    /* disabledStickerNetworkServerIds is depricated and will be removed in 2 patches
+        use DatabaseManager.getAllServerStickerStatus();
+    */
+    disabledStickerNetworkServerIds: string[],
     embedFieldLimit: number,
     emojiServerIds: string[],
     enableStickers: boolean,

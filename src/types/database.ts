@@ -11,6 +11,11 @@ export interface BroadcastRecord {
     serviceClientId: string
 }
 
+export interface NetworkStickerStatus {
+    guildId: string,
+    status: boolean
+}
+
 export interface MessagesRecord {
     channelId: string,
     channelMessageId: string,

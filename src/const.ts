@@ -27,7 +27,10 @@ if(!unitTest) {
         databaseUsername: getEnvVar<string>("DATABASE_USERNAME"),  
         debugMode: true,
         devIds: getEnvVar<string>("DEV_IDS").split(' '),
-        disabledStickerNetworkServerIds: ["1068066545344970783"] as string[], //This will be put into the db soon, im just lazy
+        /* disabledStickerNetworkServerIds is depricated and will be removed in 2 patches
+           use DatabaseManager.getAllServerStickerStatus();
+        */
+        disabledStickerNetworkServerIds: ["1068066545344970783"] as string[],
         embedFieldLimit: 25,
         emojiServerIds: getEnvVar<string>("EMOJI_SERVER_IDS").split(' '),
         enableStickers: true,

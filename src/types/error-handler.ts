@@ -73,4 +73,7 @@ export const ErrorNames = {
     USER_IS_MUTED: "User is muted.",
     WRONG_BUTTON_TYPE: "Got wrong button type.",
     WRONG_CHANNEL_TYPE: "Wrong channel type.",
+    DB_ENTRY_ALREADY_EXISTS: "There is already an entry in the db with that primary key.",
+    NO_DB_ENTRY: "No entry exists in the db with that primary key.",
+    DID_NOT_MODIFY_DB_DATA: "Could not modify db entry."
 } as const;

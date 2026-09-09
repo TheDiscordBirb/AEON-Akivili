@@ -22,11 +22,13 @@ import { Time } from '../utils/time';
 import { FilteredWords } from './entities/filtered-words';
 import { Regions } from '../types/command';
 import { CatCakes } from './entities/cat-cakes';
+import { NetworkStickerStatus } from './entities/network-sticker-status';
 
 const logger = new Logger('Database');
 
 class DatabaseManager {
     protected _db: DataSource | null = null;
+    protected _networkServerStickerStatusCache: NetworkStickerStatus[] = [];
     protected _broadcastCache: BroadcastRecord[] = [];
 
     constructor() {
@@ -50,7 +52,8 @@ class DatabaseManager {
                 Modmails,
                 Banshares,
                 FilteredWords,
-                CatCakes
+                CatCakes,
+                NetworkStickerStatus
             ]
         });
         await this._db.initialize();
@@ -89,16 +92,12 @@ class DatabaseManager {
         this._broadcastCache.push(broadcastRecord);
     }
 
-    private getBroadcastsFromDb = async (): Promise<BroadcastRecord[]> => {
-        const db = await this.db();
-        return await db.createQueryBuilder(Broadcasts, "broadcasts")
-            .select()
-            .getMany();
-    }
-
     public async getBroadcasts(): Promise<BroadcastRecord[]> {
         if(this._broadcastCache.length) return this._broadcastCache;
-        this._broadcastCache = await this.getBroadcastsFromDb();
+        const db = await this.db();
+        this._broadcastCache = await db.createQueryBuilder(Broadcasts, "broadcasts")
+            .select()
+            .getMany();
         return this._broadcastCache;
     }
 
@@ -418,6 +417,49 @@ class DatabaseManager {
         await db.createQueryBuilder(CatCakes, "cat_cakes")
             .delete()
             .execute();
+    }
+
+    public async getAllServerStickerStatus() {
+        if(this._networkServerStickerStatusCache.length) return this._networkServerStickerStatusCache;
+        const db = await this.db();
+        this._networkServerStickerStatusCache = 
+            await db.createQueryBuilder(NetworkStickerStatus, "network_sticker_status")
+                .select()
+                .getMany();
+        return this._networkServerStickerStatusCache;
+    }
+
+    public async getServerStickerStatus(serverId: string) {
+        const allServerStickerStatus = await this.getAllServerStickerStatus();
+        return allServerStickerStatus.find((guild) => guild.serverId === serverId)?.status;
+    }
+
+    public async insertServerStickerStatus(serverId: string, status: boolean) {
+        const statusInDb = await this.getServerStickerStatus(serverId);
+        if(statusInDb) throw new Error(ErrorNames.DB_ENTRY_ALREADY_EXISTS);
+        const db = await this.db();
+        await db.createQueryBuilder(NetworkStickerStatus, "network_sticker_status")
+            .insert()
+            .values([{serverId, status}])
+            .execute();
+        this._networkServerStickerStatusCache.push({serverId, status});
+    }
+
+    public async modifyServerStickerStatus(serverId: string, status: boolean) {
+        const statusInDb = await this.getServerStickerStatus(serverId);
+        if(!statusInDb) throw new Error(ErrorNames.NO_DB_ENTRY);
+        if(statusInDb === status) throw new Error(ErrorNames.DID_NOT_MODIFY_DB_DATA);
+        const db = await this.db();
+        await db.createQueryBuilder(NetworkStickerStatus, "network_sticker_status")
+            .update()
+            .where('"serverId" = :serverId', { serverId })
+            .set({ serverId, status })
+            .execute();
+        this._networkServerStickerStatusCache.splice(
+            this._networkServerStickerStatusCache.indexOf({serverId, status: !status}),
+            1,
+            {serverId, status}
+        )
     }
 }
 
