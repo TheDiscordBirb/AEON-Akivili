@@ -314,13 +314,12 @@ class DatabaseManager {
         return result;
     }
 
-    public async getModmailByUserId(userId: string): Promise<ModmailRecord> {
+    public async getModmailByUserId(userId: string): Promise<ModmailRecord | null> {
         const db = await this.db();
         const result = await db.createQueryBuilder(Modmails, "modmails")
             .select()
             .where('"userId" = :userId', { userId })
             .getOne();
-        if(!result) throw new Error(ErrorNames.NO_MODMAIL_IN_DB);
         return result;
     }
     

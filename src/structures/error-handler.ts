@@ -71,6 +71,7 @@ class ErrorHandler {
     }
 
     async errorContainerGenerator(errorData: ErrorData): Promise<ContainerBuilder> {
+        const errorMessage = typeof(errorData.error) === "string" ? errorData.error : errorData.error.message;
         const sendToBirbButton = new ButtonBuilder()
             .setStyle(ButtonStyle.Danger)
             .setLabel("Send to Birb")
@@ -91,7 +92,7 @@ class ErrorHandler {
             .addTextDisplayComponents(
                 (textDisplay) => textDisplay
                     .setContent(`Akivili ran into an error during the execution of "${errorData.interactionType}"`),
-                (textDisplay) => textDisplay.setContent(`-# Error message:   ${errorData.error.message}`)
+                (textDisplay) => textDisplay.setContent(`-# Error message:   ${errorMessage}`)
             );
         return errorContainer;
     }

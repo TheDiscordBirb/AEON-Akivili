@@ -1,4 +1,3 @@
-import { Guild } from "discord.js";
 import { Logger } from "../logger";
 import { clients } from "../structures/client";
 

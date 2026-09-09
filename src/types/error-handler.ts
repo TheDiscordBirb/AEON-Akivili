@@ -1,7 +1,7 @@
 import { User } from "discord.js";
 
 export interface ErrorData {
-    error: Error,
+    error: Error | string,
     user: User,
     interactionType: InteractionTypes
 }
@@ -39,6 +39,11 @@ export enum InteractionTypes {
 }
 
 export const ErrorNames = {
+    NO_REPLY_ARROW_EMOJI: "Could not get reply arrow emoji.",
+    NO_REPLY_PICTURE_EMOJI: "Could not get reply picture emoji.",
+    NO_REFERENCE_MESSAGE: "Could not get referenced message.",
+    DID_NOT_GET_STICKER: "This sticker is disabled on this channel.",
+    MESSAGE_FILTER: "Message contained filtered content.",
     DID_NOT_FIND_WEBHOOK: "Could not find webhook.",
     DID_NOT_FIND_WEBHOOK_IN_CACHE: "Could not find webhook in cached webhooks.",
     DID_NOT_SEND_MESSAGE: "Did not send message.",

@@ -3,7 +3,6 @@ import {
     ButtonBuilder,
     ButtonInteraction,
     ButtonStyle,
-    Client,
     Colors,
     ComponentType,
     EmbedBuilder,
@@ -15,76 +14,77 @@ import { CrowdControlArg, EmojiReplacementData } from "../types/event";
 import { config } from "../const";
 import { Logger } from "../logger";
 import { clients } from "../structures/client";
+import { ErrorNames } from "../types/error-handler";
 
 const logger = new Logger("CrowdControlHandler")
 
-// TODO: rework, test
+// TODO: test
 class CrowdControlHander {
-    constructor(protected client: Client) {
-        this.client = client;
-    }
-    public async crowdControl(webhookChannelType: string,
+    public async crowdControl(
         interaction: Message<boolean>,
         interactionMember: GuildMember,
-        emojiReplacement: EmojiReplacementData): Promise<boolean> {
-            if(!config.crowdControlActive) {
-                return false;
-            }
-            let interactionContent = emojiReplacement.content;
-            if(!interactionContent) {
-                interactionContent = `"No message content"`;
-            }
-            const confirmationEmbed = new EmbedBuilder()
-                .setAuthor({name: `${interactionMember.displayName} | ${interactionMember.id} | ${interaction.guild?.name}`, iconURL: interactionMember.user.avatarURL() ?? undefined})
-                .setDescription(interactionContent)
-                .setFooter({text: `Aeon ${webhookChannelType} | ${new Date(Date.now()).toLocaleString('en-US',{ hourCycle: "h12" })}`})
+        emojiReplacement: EmojiReplacementData
+    ): Promise<boolean> {
+        if(!config.crowdControlActive) {
+            return false;
+        }
+        let interactionContent = emojiReplacement.content;
+        if(!interactionContent) {
+            interactionContent = `"No message content"`;
+        }
+        const confirmationEmbed = new EmbedBuilder()
+            .setAuthor({name: `${interactionMember.displayName} | ${interactionMember.id} | ${interaction.guild?.name}`, iconURL: interactionMember.user.avatarURL() ?? undefined})
+            .setDescription(interactionContent)
+            .setFooter({text: `Aeon General | ${new Date(Date.now()).toLocaleString('en-US',{ hourCycle: "h12" })}`})
 
-            let attachments = "";
-            interaction.attachments.forEach((attachment) => {
-                attachments += `${attachment.url}\n`
+        let attachments = "";
+        interaction.attachments.forEach((attachment) => {
+            attachments += `${attachment.url}\n`
+        })
+        if(attachments) {
+            confirmationEmbed.addFields({name: "Files:", value: attachments});
+        }
+
+        const crowdControlActionRow = new ActionRowBuilder<ButtonBuilder>();
+        const crowdControlAllowButton = new ButtonBuilder()
+            .setCustomId(CrowdControlArg.ALLOW)
+            .setStyle(ButtonStyle.Success)
+            .setLabel("Allow")
+
+        const crowdControlRejectButton = new ButtonBuilder()
+            .setCustomId(CrowdControlArg.REJECT)
+            .setStyle(ButtonStyle.Danger)
+            .setLabel("Reject")
+
+        crowdControlActionRow.addComponents(crowdControlAllowButton, crowdControlRejectButton);
+
+        const client = clients.find((client) => client.channels.cache.get(config.crowdControlChannelId));
+        if(!client) throw new Error(ErrorNames.NO_MAIN_GUILD_CLIENT);
+
+        const channel = client.channels.cache.get(config.crowdControlChannelId) as GuildTextBasedChannel;
+        if(!channel) throw new Error(ErrorNames.NO_CHANNEL);
+
+        const response = (await channel.send({embeds: [confirmationEmbed], components: [crowdControlActionRow]})).awaitMessageComponent({componentType: ComponentType.Button})
+            .then(async (buttonClick) => {
+                switch(buttonClick.customId) {
+                    case CrowdControlArg.ALLOW: 
+                        this.embedBuilder(true, buttonClick);
+                        return false;
+                    case CrowdControlArg.REJECT:
+                        this.embedBuilder(false, buttonClick);
+                        return true;
+                    default:
+                        this.embedBuilder(true, buttonClick);
+                        return false
+                }
             })
-            if(attachments) {
-                confirmationEmbed.addFields({name: "Files:", value: attachments});
-            }
-
-            const crowdControlActionRow = new ActionRowBuilder<ButtonBuilder>();
-            const crowdControlAllowButton = new ButtonBuilder()
-                .setCustomId(CrowdControlArg.ALLOW)
-                .setStyle(ButtonStyle.Success)
-                .setLabel("Allow")
-
-            const crowdControlRejectButton = new ButtonBuilder()
-                .setCustomId(CrowdControlArg.REJECT)
-                .setStyle(ButtonStyle.Danger)
-                .setLabel("Reject")
-
-            crowdControlActionRow.addComponents(crowdControlAllowButton, crowdControlRejectButton);
-
-            const channel = this.client.channels.cache.get(config.crowdControlChannelId) as GuildTextBasedChannel;
-            if(!channel) {
-                // TODO: write log
+            .catch(async (exception) => {
+                logger.warn(exception);
                 return false;
-            }
-            const response = (await channel.send({embeds: [confirmationEmbed], components: [crowdControlActionRow]})).awaitMessageComponent({componentType: ComponentType.Button})
-                .then(async (buttonClick) => {
-                    switch(buttonClick.customId) {
-                        case CrowdControlArg.ALLOW: 
-                            this.embedBuilder(true, buttonClick);
-                            return false;
-                        case CrowdControlArg.REJECT:
-                            this.embedBuilder(false, buttonClick);
-                            return true;
-                        default:
-                            this.embedBuilder(true, buttonClick);
-                            return false
-                    }
-                })
-                .catch(async (exception) => {
-                    logger.warn(exception);
-                    return false;
-                })
-            return await response;
+            })
+        return await response;
     }
+
     private async embedBuilder(allow: boolean, interaction: ButtonInteraction<"cached">): Promise<void> {
         const message = interaction.message;
         const firstEmbed = message.embeds[0]
@@ -113,4 +113,4 @@ class CrowdControlHander {
     }
 }
 
-export const crowdControl = new CrowdControlHander(clients[0]);
+export const crowdControl = new CrowdControlHander();

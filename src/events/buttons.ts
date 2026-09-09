@@ -28,6 +28,7 @@ import { MessagesRecord } from "../types/database";
 import { modmailHandler } from "../functions/modmail";
 import { permissionHandler } from "../functions/permission-handler";
 import { clients } from "../structures/client";
+import { ErrorNames } from "../types/error-handler";
 
 const logger = new Logger("Buttons");
 
@@ -125,6 +126,7 @@ const dmButtonFunction = async (interaction: ButtonInteraction<CacheType>): Prom
 
         case DmMessageButtonArg.CLOSE_MODMAIL: {
             const modmail = await databaseManager.getModmailByUserId(interaction.user.id);
+            if(!modmail) throw new Error(ErrorNames.NO_MODMAIL_IN_DB);
             await modmailHandler.closeModmail(modmail.channelId);
             break;
         }

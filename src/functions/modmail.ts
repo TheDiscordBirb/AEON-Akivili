@@ -21,6 +21,7 @@ import { databaseManager } from "../structures/database";
 import { config } from "../const";
 import { Time } from "../utils/time";
 import { clients } from "../structures/client";
+import { ErrorNames } from "../types/error-handler";
 
 const logger = new Logger("ModmailHandler");
 
@@ -77,6 +78,7 @@ class ModmailHandler {
             messageEmbed.setFooter({text: `${interaction.author.id} | ${new Date(Date.now()).toLocaleString('en-US',{ hourCycle: "h12" })}`});
             try {
                 const modmail = await databaseManager.getModmailByUserId(interaction.author.id);
+                if(!modmail) throw new Error(ErrorNames.NO_MODMAIL_IN_DB);
                 const modmailChannel = this.client.channels.cache.get(modmail.channelId);
                 if(!modmailChannel) {
                     await interaction.reply("Could not locate modmail channel, please contact Birb directly.");
