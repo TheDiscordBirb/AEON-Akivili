@@ -27,7 +27,7 @@ if(!unitTest) {
         databaseUsername: getEnvVar<string>("DATABASE_USERNAME"),  
         debugMode: true,
         devIds: getEnvVar<string>("DEV_IDS").split(' '),
-        /* disabledStickerNetworkServerIds is depricated and will be removed in 2 patches
+        /* disabledStickerNetworkServerIds is depricated
            use DatabaseManager.getAllServerStickerStatus();
         */
         disabledStickerNetworkServerIds: ["1068066545344970783"] as string[],

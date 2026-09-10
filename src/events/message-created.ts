@@ -14,8 +14,7 @@ import {
     MessageType,
     OmitPartialGroupDMChannel,
     PermissionFlagsBits,
-    Sticker,
-    User,
+    Sticker
 } from "discord.js";
 import { Event } from "../structures/event";
 import axios from "axios";
@@ -49,7 +48,7 @@ import { databaseManager } from "../structures/database";
 
 const logger = new Logger('MessageCreated');
 
-// TODO: rework, test
+// TODO: test
 const messageCreatedEvent = async (
     client: Client,
     interaction: Message<boolean>,
@@ -538,7 +537,12 @@ const createWebhookMessages = async (
             return;
         }
 
-        let avatarURL = (interactionMember.avatarURL() ? interactionMember.avatarURL() : interactionMember.displayAvatarURL()) ?? undefined;
+        let avatarURL = (
+            interactionMember.avatarURL() ?
+            interactionMember.avatarURL() :
+            interactionMember.displayAvatarURL()) ??
+            undefined;
+
         let username = `${interactionMember.nickname ? interactionMember.nickname : interactionMember.displayName}`;
         username = username
             .replaceAll("💵", "")
@@ -657,12 +661,13 @@ const sendNotification = async (client: Client, interaction: Message<boolean>, i
     if (interaction.mentions.users) {
         uniqueInteractionMentions.forEach(async (pingedUser) => {
             if (client.users.cache.has(pingedUser[0])) {
-                let pingMessageContent;
-                try {
-                    pingMessageContent = await networkChannelPingNotificationEmbedBuilder(pingedUser[0], interaction, sentMessage, interactionMember.user);
-                } catch (error) {
-                    throw new Error()
-                }
+                const pingMessageContent = await networkChannelPingNotificationEmbedBuilder(
+                    pingedUser[0], 
+                    interaction, 
+                    sentMessage, 
+                    interactionMember.user
+                );
+
                 if (pingMessageContent) {
                     if (!pingedUser[1].dmChannel) {
                         await pingedUser[1].createDM();

@@ -43,6 +43,7 @@ if(!config.debugMode) {
     })
 }
 
+
 for(const client of clients) {
     client.start();
 }

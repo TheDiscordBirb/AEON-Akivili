@@ -13,7 +13,7 @@ import {
     TextChannel,
     User,
 } from "discord.js";
-import { BanshareRecord } from "../types/database";
+import { BanshareRecord } from "../types/event";
 import { config } from "../const";
 import { databaseManager } from "../structures/database";
 import { BanShareButtonArg, BanshareStatus, DmMessageButtonArg } from "../types/event";

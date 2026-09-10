@@ -1,12 +1,20 @@
-import { Guild, TextChannel, User } from "discord.js"
 import { CatCakeTypes, Regions } from "./command"
+
+export type DatabaseTypes = BroadcastRecord |
+    NetworkStickerStatus |
+    MessagesRecord |
+    ModmailRecord |
+    UserReactionRecord |
+    BanshareListRecord |
+    FilteredWordRecord |
+    CatCakeRecord
 
 export interface BroadcastRecord {
     channelId: string,
     channelType: string,
     guildId: string,
     webhookId: string,
-    importantBanshareRoleId: string | null,
+    importantBanshareRoleId: string,
     autoBanLevel: number,
     serviceClientId: string
 }
@@ -37,19 +45,6 @@ export interface UserReactionRecord {
     uniqueMessageId: string,
     userId: string,
     reactionIdentifier: string
-}
-
-export interface BanshareRecord {
-    user: User | string,
-    reason: string,
-    proof: string[],
-}
-
-export interface JoinData {
-    guild: Guild,
-    channel: TextChannel,
-    type: string,
-    user: User
 }
 
 export interface BanshareListRecord {

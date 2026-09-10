@@ -15,7 +15,6 @@ import {
     MessageActionRowComponent,
     MessageActionRowComponentBuilder,
     MessageFlags,
-    OAuth2Guild,
     StringSelectMenuBuilder
 } from 'discord.js'
 import { Logger } from '../../logger';

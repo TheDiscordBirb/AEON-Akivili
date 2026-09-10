@@ -292,7 +292,7 @@ export const catcakeTradingCommand = async (options: RunOptions, region: Regions
             if(!uid) return;
             for(const catCake of sharedCats) {
                 try {
-                    await databaseManager.insertIntoCatCakes(uid, region, catCake as CatCakeTypes);
+                    await databaseManager.insertIntoCatCakes({uid, region, catType: catCake as CatCakeTypes });
                 } catch(e) {
                     logger.error("Error during cat cake saving.", e as Error);
                     await clearContainer(container);

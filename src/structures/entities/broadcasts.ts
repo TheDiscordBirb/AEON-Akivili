@@ -11,7 +11,7 @@ export class Broadcasts {
     @Column({ type: "text" })
     guildId: string
     @Column({ type: "text" })
-    importantBanshareRoleId: string | null
+    importantBanshareRoleId: string
     @Column({ type: "numeric" })
     autoBanLevel: number
     @Column({ type: "text" })

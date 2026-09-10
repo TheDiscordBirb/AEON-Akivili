@@ -18,7 +18,7 @@ export interface configType {
     currentLogFileName: string,
     debugMode: boolean,
     devIds: string[],
-    /* disabledStickerNetworkServerIds is depricated and will be removed in 2 patches
+    /* disabledStickerNetworkServerIds is depricated
         use DatabaseManager.getAllServerStickerStatus();
     */
     disabledStickerNetworkServerIds: string[],

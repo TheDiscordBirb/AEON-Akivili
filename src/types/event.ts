@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, GuildEmoji } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, Guild, GuildEmoji, TextChannel, User } from "discord.js";
 import { ServerCooldowns } from "./utils";
 
 export enum JoinRequestButtonArg {
@@ -60,4 +60,17 @@ export enum BanshareStatus {
     REJECTED = 'rejected',
     ENFORCED = 'enforced',
     OVERTURNED = 'overturned'
+}
+
+export interface BanshareRecord {
+    user: User | string
+    reason: string
+    proof: string[]
+}
+
+export interface JoinData {
+    guild: Guild
+    channel: TextChannel
+    type: string
+    user: User
 }

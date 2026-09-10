@@ -6,7 +6,7 @@ import {
     TextChannel,
     GuildTextBasedChannel
 } from "discord.js";
-import { JoinData } from "../types/database";
+import { JoinData } from "../types/event";
 import { config } from "../const";
 import { databaseManager } from "../structures/database";
 import { JoinRequestButtonArg } from "../types/event";

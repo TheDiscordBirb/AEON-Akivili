@@ -19,7 +19,7 @@ import { clients } from "../structures/client";
 import { joinHandler } from "./join-handler";
 import { errorButtonFunction } from "../events/buttons";
 import { ButtonTypes, RunOptions } from "../types/command";
-import { BanshareListRecord, BroadcastRecord } from "../types/database";
+import { BanshareListRecord } from "../types/database";
 import { config } from "../const";
 import { buildList, buildServerRemovalUi, buildServerSelectionMessage, deleteWebhookButtonHandler } from "../commands/navigator/remove-server";
 import { databaseManager } from "../structures/database";

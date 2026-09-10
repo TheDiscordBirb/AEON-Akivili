@@ -1,4 +1,3 @@
-
 import process from 'node:process';
 
 export const getEnvVar = <T>(id: string): T => {
