@@ -4,6 +4,7 @@ import {
     BanshareListRecord, 
     BroadcastRecord, 
     CatCakeRecord, 
+    DatabaseTypesEnum, 
     FilteredWordRecord, 
     MessagesRecord, 
     ModmailRecord, 
@@ -94,7 +95,7 @@ class DatabaseManager {
         }      
         this._broadcastCache.push(broadcastRecord);
 
-        const encryptedData = encryptionManager.databaseValueCryptoOperations(broadcastRecord, 'BroadcastRecord', 'encrypt');
+        const encryptedData = encryptionManager.encryptComplexDataType(broadcastRecord);
         broadcastRecord = encryptedData as BroadcastRecord;
 
         await db.createQueryBuilder()
@@ -114,10 +115,8 @@ class DatabaseManager {
             .getMany();
         const decryptedBroadcastRecords: BroadcastRecord[] = [];
         for(let encryptedBroadcastRecord of encryptedBroadcastRecords) {
-            const decryptedData = encryptionManager.databaseValueCryptoOperations(
-                encryptedBroadcastRecord, 
-                'BroadcastRecord', 
-                'decrypt'
+            const decryptedData = encryptionManager.decryptComplexDataType(
+                { type: DatabaseTypesEnum.BROADCAST_RECORD, ...encryptedBroadcastRecord}
             );
             decryptedBroadcastRecords.push(decryptedData as BroadcastRecord);
         }
@@ -152,7 +151,7 @@ class DatabaseManager {
 
     public async logMessage(messagesRecord: MessagesRecord): Promise<void> {
         const db = await this.db();
-        const encryptedData = encryptionManager.databaseValueCryptoOperations(messagesRecord, 'MessagesRecord', 'encrypt');
+        const encryptedData = encryptionManager.encryptComplexDataType(messagesRecord);
         messagesRecord = encryptedData as MessagesRecord;
 
         await db.createQueryBuilder()
@@ -178,15 +177,23 @@ class DatabaseManager {
             .getOne();
         if(!message) throw new Error('Could not find message.');
 
-        const encryptedData = encryptionManager.databaseValueCryptoOperations(message, 'MessagesRecord', 'encrypt');
+        const encryptedData = encryptionManager.encryptComplexDataType(
+            { type: DatabaseTypesEnum.MESSAGES_RECORD, ...message }
+        );
         message = encryptedData as MessagesRecord;
 
-        return await db.createQueryBuilder(Messages, 'messages')
+        const dbMessages = await db.createQueryBuilder(Messages, 'messages')
             .select()
             .where('"userId" = :userId AND "uniqueMessageId" = :uniqueMessageId', 
                 {userId: message.userId, uniqueMessageId: message.uniqueMessageId}
             )
             .getMany();
+        
+        const typedMessages: MessagesRecord[] = [];
+        for(const dbMessage of dbMessages) {
+            typedMessages.push({ type: DatabaseTypesEnum.MESSAGES_RECORD, ...dbMessage});
+        }
+        return typedMessages;
     }
 
     public async deleteMessages(uniqueMessageId: string): Promise<void> {
@@ -217,17 +224,23 @@ class DatabaseManager {
         const db = await this.db();
         const encryptedUniqueMessageId = encryptionManager.encrypt(uniqueMessageId);
 
-        return await db.createQueryBuilder(Messages, "messages")
+        const dbMessages = await db.createQueryBuilder(Messages, "messages")
             .select()
             .where('"uniqueMessageId" = :uniqueMessageId', { uniqueMessageId: encryptedUniqueMessageId })
             .getMany();
+
+        const typedMessages: MessagesRecord[] = [];
+        for(const dbMessage of dbMessages) {
+            typedMessages.push({ type: DatabaseTypesEnum.MESSAGES_RECORD, ...dbMessage});
+        }
+        return typedMessages;
     }
 
     public async getUniqueUserMessageCount(userId: string): Promise<number> {
         const db = await this.db();
         const encryptedUserId = encryptionManager.encrypt(userId);
 
-        return await db.createQueryBuilder(Messages, "messages")
+        return db.createQueryBuilder(Messages, "messages")
             .select()
             .where('"userId" = :userId AND "messageOrigin" = true', { userId: encryptedUserId })
             .getCount();
@@ -238,13 +251,19 @@ class DatabaseManager {
         const count = await this.getUniqueUserMessageCount(userId);
         const encryptedUserId = encryptionManager.encrypt(userId);
         if(count < offset) throw new Error(ErrorNames.NOT_ENOUGH_MESSAGES);
-        return await db.createQueryBuilder(Messages, "messages")
+        const dbMessages = await db.createQueryBuilder(Messages, "messages")
             .select()
             .where('"userId" = :userId AND "messageOrigin" = true', { userId: encryptedUserId })
             .orderBy('"timestamp" DESC')
             .limit(amount)
             .offset(offset)
             .getMany()
+
+        const typedMessages: MessagesRecord[] = [];
+        for(const dbMessage of dbMessages) {
+            typedMessages.push({ type: DatabaseTypesEnum.MESSAGES_RECORD, ...dbMessage});
+        }
+        return typedMessages;
     }
 
     public async totalMessageLogs(): Promise<number> {
@@ -284,7 +303,7 @@ class DatabaseManager {
     public async toggleUserReaction(userReactionRecord: UserReactionRecord, onlyDelete = false): Promise<void> {
         const db = await this.db();
 
-        const encryptedData = encryptionManager.databaseValueCryptoOperations(userReactionRecord, 'UserReactionRecord', 'encrypt')
+        const encryptedData = encryptionManager.encryptComplexDataType(userReactionRecord)
         userReactionRecord = encryptedData as UserReactionRecord;
         
         const current = await this.hasUserReactedToMessage(userReactionRecord);
@@ -379,7 +398,7 @@ class DatabaseManager {
             .where('"channelId" = :channelId', { channelId: encryptedChannelId })
             .getOne();
         if(!result) throw new Error(ErrorNames.NO_MODMAIL_IN_DB);
-        return result;
+        return { type: DatabaseTypesEnum.MODMAIL_RECORD, ...result };
     }
 
     public async getModmailByUserId(userId: string): Promise<ModmailRecord | null> {
@@ -390,7 +409,7 @@ class DatabaseManager {
             .select()
             .where('"userId" = :userId', { userId: encryptedUserId })
             .getOne();
-        return result;
+        return result ? { type: DatabaseTypesEnum.MODMAIL_RECORD, ...result } : null;
     }
     
     public async createModmail(userId: string, channelId: string): Promise<void> {
@@ -409,7 +428,7 @@ class DatabaseManager {
         const db = await this.db();
         let modmail = await this.getModmail(channelId);
 
-        const encryptedData = encryptionManager.databaseValueCryptoOperations(modmail, 'ModmailRecord', 'encrypt');
+        const encryptedData = encryptionManager.encryptComplexDataType(modmail);
         modmail = encryptedData as ModmailRecord;
 
         await db.createQueryBuilder(Modmails, "modmails")
@@ -425,16 +444,22 @@ class DatabaseManager {
         const db = await this.db();
         const encryptedServerId = encryptionManager.encrypt(serverId);
 
-        return await db.createQueryBuilder(Banshares, "banshares")
+        const dbBanshares = await db.createQueryBuilder(Banshares, "banshares")
             .select()
             .where('"serverId" = :serverId', { serverId: encryptedServerId })
             .getMany();
+
+        const typedBanshares: BanshareListRecord[] = [];
+        for(const dbBanshare of dbBanshares) {
+            typedBanshares.push({ type: DatabaseTypesEnum.BANSHARE_LIST_RECORD, ...dbBanshare});
+        }
+        return typedBanshares;
     }
 
     public async registerBanshare(banshareListRecord: BanshareListRecord) {
         const db = await this.db();
 
-        const encryptedData = encryptionManager.databaseValueCryptoOperations(banshareListRecord, 'BanshareListRecord', 'encrypt');
+        const encryptedData = encryptionManager.encryptComplexDataType(banshareListRecord);
         banshareListRecord = encryptedData as BanshareListRecord;
 
         await db.createQueryBuilder(Banshares, "banshares")
@@ -469,10 +494,8 @@ class DatabaseManager {
 
         const decryptedFilteredWords: FilteredWordRecord[] = [];
         for(let encryptedFilteredWordRecord of encryptedFilteredWordRecords) {
-            const decryptedData = encryptionManager.databaseValueCryptoOperations(
-                encryptedFilteredWordRecord, 
-                'FilteredWordRecord', 
-                'decrypt'
+            const decryptedData = encryptionManager.decryptComplexDataType(
+                { type: DatabaseTypesEnum.FILTERED_WORD_RECORD, ...encryptedFilteredWordRecord }
             );
             decryptedFilteredWords.push(decryptedData as FilteredWordRecord);
         }
@@ -482,7 +505,7 @@ class DatabaseManager {
 
     public async addToFilteredWords(word: string): Promise<void> {
         const db = await this.db();    
-        if((await this.getFilteredWords()).includes({ word })) return;
+        if((await this.getFilteredWords()).includes({ type: DatabaseTypesEnum.FILTERED_WORD_RECORD, word })) return;
         const encryptedWord = encryptionManager.encrypt(word);
         
         await db.createQueryBuilder(FilteredWords, "filtered_words") 
@@ -495,7 +518,7 @@ class DatabaseManager {
     public async insertIntoCatCakes(catCakeRecord: CatCakeRecord):Promise<void> {
         const db = await this.db();
 
-        const encryptedData = encryptionManager.databaseValueCryptoOperations(catCakeRecord, 'CatCakeRecord', 'encrypt');
+        const encryptedData = encryptionManager.encryptComplexDataType(catCakeRecord);
         catCakeRecord = encryptedData as CatCakeRecord;
 
         await db.createQueryBuilder(CatCakes, "cat_cakes")
@@ -518,10 +541,8 @@ class DatabaseManager {
 
         const decryptedCatCakeRecords: CatCakeRecord[] = [];
         for(let encryptedCatCakeRecord of encryptedCatCakeRecords) {
-            const decryptedData = encryptionManager.databaseValueCryptoOperations(
-                encryptedCatCakeRecord, 
-                'CatCakeRecord', 
-                'decrypt'
+            const decryptedData = encryptionManager.decryptComplexDataType(
+                { type: DatabaseTypesEnum.CAT_CAKE_RECORD, ...encryptedCatCakeRecord }
             );
             decryptedCatCakeRecords.push(decryptedData as CatCakeRecord);
         }
@@ -545,10 +566,8 @@ class DatabaseManager {
         
         const decryptedAllServerStickerStatus: NetworkStickerStatus[] = [];
         for(let encryptedServerStickerStatus of encryptedAllServerStickerStatus) {
-            const decryptedData = encryptionManager.databaseValueCryptoOperations(
-                encryptedServerStickerStatus,
-                'NetworkStickerStatus',
-                'decrypt'
+            const decryptedData = encryptionManager.decryptComplexDataType(
+                { type: DatabaseTypesEnum.NETWORK_STICKER_STATUS, ...encryptedServerStickerStatus }
             )
             decryptedAllServerStickerStatus.push(decryptedData as NetworkStickerStatus);
         }

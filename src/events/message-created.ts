@@ -23,7 +23,7 @@ import { config } from "../const";
 import { Logger } from "../logger";
 import { clients } from "../structures/client";
 import { CustomId, DmMessageButtonArg, EmojiReplacementData, NotificationType } from "../types/event";
-import { BroadcastRecord, MessagesRecord } from "../types/database";
+import { BroadcastRecord, DatabaseTypesEnum, MessagesRecord } from "../types/database";
 import { metrics } from "../structures/metrics";
 import { TimeSpanMetricLabel } from "../types/metrics";
 import { NetworkJoinOptions } from "../types/command";
@@ -615,9 +615,10 @@ const createWebhookMessages = async (
             messageOrigin
         }
 
-        await databaseManager.logMessage(messageData);
+        await databaseManager.logMessage({ type: DatabaseTypesEnum.MESSAGES_RECORD, ...messageData });
         if (messageOrigin) {
-            sentMessage = { MessagesRecord: messageData, notify: (interaction.reference || interaction.mentions.members?.size) ? true : false};
+            sentMessage = { MessagesRecord: { type: DatabaseTypesEnum.MESSAGES_RECORD, ...messageData }, 
+            notify: (interaction.reference || interaction.mentions.members?.size) ? true : false};
         }
     }))
     .catch(async (reason) => {

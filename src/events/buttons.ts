@@ -24,7 +24,7 @@ import { BanShareButtonArg, BanshareStatus, DmMessageButtonArg } from "../types/
 import { config } from "../const";
 import { databaseManager } from "../structures/database";
 import { ChannelType } from "discord.js";
-import { MessagesRecord } from "../types/database";
+import { DatabaseTypesEnum, MessagesRecord } from "../types/database";
 import { modmailHandler } from "../functions/modmail";
 import { permissionHandler } from "../functions/permission-handler";
 import { clients } from "../structures/client";
@@ -193,7 +193,12 @@ const emojiButtonFunction = async (client: Client, interaction: ButtonInteractio
     const webhookNameParts = webhook.name.split(' ');
     const webhookChannelType = webhookNameParts[webhookNameParts.length - 1];
     const matchingBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === webhookChannelType);
-    const newActionRows = await rebuildMessageComponentAfterUserInteraction(interaction.message, interaction.message.components as ActionRow<MessageActionRowComponent>[], { userId, uniqueMessageId, reactionIdentifier }, (interaction.user.id === client.user?.id ? true : false));
+    const newActionRows = await rebuildMessageComponentAfterUserInteraction(
+        interaction.message, 
+        interaction.message.components as ActionRow<MessageActionRowComponent>[],
+        { type: DatabaseTypesEnum.USER_REACTION_RECORD, userId, uniqueMessageId, reactionIdentifier }, 
+        (interaction.user.id === client.user?.id ? true : false)
+    );
     const emojiReplacement = await replaceEmojis(interaction.message.content, client);
 
 

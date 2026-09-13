@@ -11,7 +11,7 @@ import { databaseManager } from "../structures/database";
 import { config } from "../const";
 import { deleteEmojis, replaceEmojis } from "../utils/emoji";
 import { rebuildMessageComponentAfterUserInteraction } from "../utils/rebuild-comps"
-import { MessagesRecord } from "../types/database";
+import { DatabaseTypesEnum, MessagesRecord } from "../types/database";
 import { EmojiReplacementData } from "../types/event";
 import { clients, ExtendedClient } from "../structures/client";
 import { whoIs } from "../utils/client-checks";
@@ -69,7 +69,11 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
         logger.error(`Could not get messages. Error: `, error as Error);
         return;
     }
-    const newActionRows = await rebuildMessageComponentAfterUserInteraction(interaction.message as Message<boolean>, actionRows as ActionRow<MessageActionRowComponent>[], { userId: user.id, uniqueMessageId: messageUidInDb, reactionIdentifier: interaction.emoji.identifier });
+    const newActionRows = await rebuildMessageComponentAfterUserInteraction(
+        interaction.message as Message<boolean>, 
+        actionRows as ActionRow<MessageActionRowComponent>[], 
+        { type: DatabaseTypesEnum.USER_REACTION_RECORD, userId: user.id, uniqueMessageId: messageUidInDb, reactionIdentifier: interaction.emoji.identifier }
+    );
     let messageContent = interaction.message.content;
     let emojiReplacement : EmojiReplacementData | undefined;
     if(messageContent) {

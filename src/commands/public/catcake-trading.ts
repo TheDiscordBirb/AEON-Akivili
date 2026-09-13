@@ -15,6 +15,7 @@ import { ActionRowBuilder } from "@discordjs/builders";
 import { databaseManager } from "../../structures/database";
 import { ErrorNames, InteractionTypes } from "../../types/error-handler";
 import { errorHandler } from "../../structures/error-handler";
+import { DatabaseTypesEnum } from "../../types/database";
 
 const logger = new Logger("CatCakes");
 
@@ -292,7 +293,7 @@ export const catcakeTradingCommand = async (options: RunOptions, region: Regions
             if(!uid) return;
             for(const catCake of sharedCats) {
                 try {
-                    await databaseManager.insertIntoCatCakes({uid, region, catType: catCake as CatCakeTypes });
+                    await databaseManager.insertIntoCatCakes({type: DatabaseTypesEnum.CAT_CAKE_RECORD, uid, region, catType: catCake as CatCakeTypes });
                 } catch(e) {
                     logger.error("Error during cat cake saving.", e as Error);
                     await clearContainer(container);

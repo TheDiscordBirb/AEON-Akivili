@@ -14,6 +14,7 @@ import { Logger } from "../logger";
 import { NetworkJoinOptions } from "../types/command";
 import { rebuildNetworkInfoEmbeds } from "../utils/rebuild-comps";
 import { clients } from "../structures/client";
+import { DatabaseTypesEnum } from "../types/database";
 
 const logger = new Logger('JoinHandler');
 
@@ -81,16 +82,16 @@ class JoinHandler {
                     await webhook.send({embeds: await rebuildNetworkInfoEmbeds(infoMessage, true)})
                 }
                 try {
-                    await databaseManager.saveBroadcast(
-                        {
-                            guildId: webhook.guildId, 
-                            channelId: data.channel.id, 
-                            channelType: data.type, 
-                            webhookId: webhook.id,
-                            importantBanshareRoleId: '', 
-                            autoBanLevel: 0, 
-                            serviceClientId: client.user.id
-                            });
+                    await databaseManager.saveBroadcast({
+                        type: DatabaseTypesEnum.BROADCAST_RECORD,
+                        guildId: webhook.guildId, 
+                        channelId: data.channel.id, 
+                        channelType: data.type, 
+                        webhookId: webhook.id,
+                        importantBanshareRoleId: '', 
+                        autoBanLevel: 0, 
+                        serviceClientId: client.user.id
+                    });
                     await data.guild.members.fetch();
                     if (config.nonChatWebhooks.includes(webhook.name)) return;
                     const broadcastRecords = await databaseManager.getBroadcasts();

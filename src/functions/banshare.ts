@@ -21,6 +21,7 @@ import { Logger } from "../logger";
 import { AutoBanLevelOptions, RunOptions } from "../types/command";
 import { Time } from "../utils/time";
 import { clients } from "../structures/client";
+import { DatabaseTypesEnum } from "../types/database";
 
 const logger = new Logger("Banshare");
 
@@ -160,7 +161,16 @@ class BanshareManager {
                 }
             }
 
-            await databaseManager.registerBanshare({serverId: broadcast.guildId, status: BanshareStatus.PENDING, userId: dataUserId, reason: data.reason, proof: proofMessage, timestamp: Date.now()});
+            await databaseManager.registerBanshare({ 
+                type: DatabaseTypesEnum.BANSHARE_LIST_RECORD,
+                serverId: broadcast.guildId, 
+                status: BanshareStatus.PENDING, 
+                userId: dataUserId, 
+                reason: data.reason, 
+                proof: proofMessage, 
+                timestamp: Date.now()
+            });
+            
             const webhook = config.activeWebhooks.find((webhook) => webhook.id === broadcast.webhookId);
             if(!webhook) {
                 logger.warn(`Could not find webhook ${broadcast.webhookId}`);

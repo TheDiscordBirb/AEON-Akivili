@@ -17,7 +17,12 @@ import { config } from '../const';
 
 const logger = new Logger("rebuildUtils");
 
-export const rebuildMessageComponentAfterUserInteraction = async (message: Message<boolean>, component: ActionRow<MessageActionRowComponent>[], userReactionRecord: UserReactionRecord, deleteAll = false): Promise<ActionRowComponentReconstructionData[]> => {
+export const rebuildMessageComponentAfterUserInteraction = async (
+    message: Message<boolean>, 
+    component: ActionRow<MessageActionRowComponent>[], 
+    userReactionRecord: UserReactionRecord, 
+    deleteAll = false
+): Promise<ActionRowComponentReconstructionData[]> => {
     const hasUserReactedToMessage = await databaseManager.hasUserReactedToMessage(userReactionRecord);
     const hasReplyRow = component[0]?.components[0].customId === CustomId.REPLY;
     const firstEmojiRow = hasReplyRow ? 1 : 0;
