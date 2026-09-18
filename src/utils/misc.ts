@@ -56,6 +56,7 @@ export const statusUpdate = async (): Promise<void> => {
 }
 
 export const watermarkSize = async (metadata: sharp.Metadata, serverName: string): Promise<number> => {
+    console.log(metadata)
     //Do not ask, it works, not gonna fuck around anymore -Birb
     //If ur wondering what this is this calculates the font size of the watermark 'dynamically' with sticker size -Light
     //yoo junghyuk level regression, probably max optimized -Light

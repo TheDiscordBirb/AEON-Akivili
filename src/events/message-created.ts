@@ -23,7 +23,7 @@ import { config } from "../const";
 import { Logger } from "../logger";
 import { clients } from "../structures/client";
 import { CustomId, DmMessageButtonArg, EmojiReplacementData, NotificationType } from "../types/event";
-import { BroadcastRecord, DatabaseTypesEnum, MessagesRecord } from "../types/database";
+import { BroadcastRecord, MessagesRecord } from "../types/database";
 import { metrics } from "../structures/metrics";
 import { TimeSpanMetricLabel } from "../types/metrics";
 import { NetworkJoinOptions } from "../types/command";
@@ -234,7 +234,6 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
             await Promise.reject(ErrorNames.NO_GUILD_ID);
             return;
         }
-        console.log(guildId);
         const client = clients.find((c) => c.guilds.cache.get(guildId));
         if(!client) {
             await Promise.reject(ErrorNames.NO_CLIENT_IN_SERVER);
@@ -258,15 +257,23 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
             .replaceAll(/</g, "&lt;")
             .replaceAll(/>/g, "&gt;")
             .replaceAll(/"/g, "&quot;");
-        const isGif = isApng(Buffer.from(stickerBuffer.data, 'utf-8'));
+        let isAnimated = false;
+        const isGif = stickerBuffer.config.url?.endsWith(".gif");
         let sharpAttachment;
         if (isGif) {
-            const image = await apng.sharpFromApng(Buffer.from(stickerBuffer.data, 'utf-8'), { transparent: true, format: "rgba4444" });
-            const attachment = await (image as sharp.Sharp).toBuffer()
-            sharpAttachment = sharp.default(attachment, {animated: true});
-        } else {
             const attachment = Buffer.from(stickerBuffer.data)
-            sharpAttachment = sharp.default(attachment);
+            sharpAttachment = sharp.default(attachment, { animated: true });
+            isAnimated = true
+        } else {
+            if(isApng(Buffer.from(stickerBuffer.data, 'utf-8'))) {
+                const image = await apng.sharpFromApng(Buffer.from(stickerBuffer.data, 'utf-8'), { transparent: true, format: "rgba4444" });
+                const attachment = await (image as sharp.Sharp).toBuffer()
+                sharpAttachment = sharp.default(attachment, { animated: true });
+                isAnimated = true
+            } else {
+                const attachment = Buffer.from(stickerBuffer.data)
+                sharpAttachment = sharp.default(attachment);
+            }
         }
         const metadata = await sharpAttachment.metadata();
         let pages = metadata.pages ?? 1;
@@ -288,6 +295,7 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
             style="fill:#FFFFFF;paint-order:stroke;stroke:#000000;font-style:normal;font-size:${await watermarkSize(metadata, watermarkText)}px;font-family:'Source Code Pro'">${sticker.name}</text>
         </svg>
         `;
+        console.log(watermark);
         const watermarkBuffer = Buffer.from(watermark);
         const watermarked = sharpAttachment.composite([{input: watermarkBuffer, gravity: 'northeast', 'tile': true}]);
         let watermarkedStickerBuffer: Buffer<ArrayBufferLike>;
@@ -300,7 +308,7 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
         }
         await cacheManager.saveCache('sticker', sticker.id, watermarkedStickerBuffer as Buffer<ArrayBuffer>)
 
-        const attachBuffer = new AttachmentBuilder(watermarkedStickerBuffer, { name: `${sticker.name}${isGif ? ".gif" : ".png"}` });
+        const attachBuffer = new AttachmentBuilder(watermarkedStickerBuffer, { name: `${sticker.name}${isAnimated ? ".gif" : ".png"}` });
         
         return attachBuffer;
     }))).reduce<AttachmentBuilder[]>((acc, item) => {
@@ -615,10 +623,10 @@ const createWebhookMessages = async (
             messageOrigin
         }
 
-        await databaseManager.logMessage({ type: DatabaseTypesEnum.MESSAGES_RECORD, ...messageData });
+        await databaseManager.logMessage(messageData);
         if (messageOrigin) {
-            sentMessage = { MessagesRecord: { type: DatabaseTypesEnum.MESSAGES_RECORD, ...messageData }, 
-            notify: (interaction.reference || interaction.mentions.members?.size) ? true : false};
+            sentMessage = { MessagesRecord: messageData,
+            notify: (interaction.reference || interaction.mentions.members?.size) ? true : false };
         }
     }))
     .catch(async (reason) => {

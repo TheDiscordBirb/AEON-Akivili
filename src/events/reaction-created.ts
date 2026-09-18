@@ -11,9 +11,9 @@ import { databaseManager } from "../structures/database";
 import { config } from "../const";
 import { deleteEmojis, replaceEmojis } from "../utils/emoji";
 import { rebuildMessageComponentAfterUserInteraction } from "../utils/rebuild-comps"
-import { DatabaseTypesEnum, MessagesRecord } from "../types/database";
+import { MessagesRecord } from "../types/database";
 import { EmojiReplacementData } from "../types/event";
-import { clients, ExtendedClient } from "../structures/client";
+import { ExtendedClient } from "../structures/client";
 import { whoIs } from "../utils/client-checks";
 
 const logger = new Logger("ReactionCreated");
@@ -72,7 +72,7 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
     const newActionRows = await rebuildMessageComponentAfterUserInteraction(
         interaction.message as Message<boolean>, 
         actionRows as ActionRow<MessageActionRowComponent>[], 
-        { type: DatabaseTypesEnum.USER_REACTION_RECORD, userId: user.id, uniqueMessageId: messageUidInDb, reactionIdentifier: interaction.emoji.identifier }
+        { userId: user.id, uniqueMessageId: messageUidInDb, reactionIdentifier: interaction.emoji.identifier }
     );
     let messageContent = interaction.message.content;
     let emojiReplacement : EmojiReplacementData | undefined;

@@ -4,7 +4,6 @@ import {
     BanshareListRecord, 
     BroadcastRecord, 
     CatCakeRecord, 
-    DatabaseTypesEnum, 
     FilteredWordRecord, 
     MessagesRecord, 
     ModmailRecord, 
@@ -46,6 +45,8 @@ class DatabaseManager {
             port: config.databasePort,  
             database: config.databaseName,  
             logging: false,
+            schema: 'AkiDb',
+            extensions: ["pgcrypto"],
             entities: [
                 Messages,
                 Broadcasts,
@@ -63,14 +64,14 @@ class DatabaseManager {
         logger.info(`Database connected.`);
         
         // Ensures previously disabled servers stay disabled
-        config.disabledStickerNetworkServerIds.map(async (guildId) => {
+        await Promise.allSettled(config.disabledStickerNetworkServerIds.map(async (guildId) => {
             const status = await this.getServerStickerStatus(guildId);
             if(status === null) {
                 await this.saveServerStickerStatus(guildId, false);
             } else if (status === true) {
                 await this.modifyServerStickerStatus(guildId, false);
             }
-        });
+        }));
 
         return this._db;
     }
@@ -95,9 +96,6 @@ class DatabaseManager {
         }      
         this._broadcastCache.push(broadcastRecord);
 
-        const encryptedData = encryptionManager.encryptComplexDataType(broadcastRecord);
-        broadcastRecord = encryptedData as BroadcastRecord;
-
         await db.createQueryBuilder()
             .insert()
             .into(Broadcasts)
@@ -110,18 +108,10 @@ class DatabaseManager {
     public async getBroadcasts(): Promise<BroadcastRecord[]> {
         if(this._broadcastCache.length) return this._broadcastCache;
         const db = await this.db();
-        const encryptedBroadcastRecords = await db.createQueryBuilder(Broadcasts, "broadcasts")
+        this._broadcastCache = await db.createQueryBuilder(Broadcasts, "broadcasts")
             .select()
             .getMany();
-        const decryptedBroadcastRecords: BroadcastRecord[] = [];
-        for(let encryptedBroadcastRecord of encryptedBroadcastRecords) {
-            const decryptedData = encryptionManager.decryptComplexDataType(
-                { type: DatabaseTypesEnum.BROADCAST_RECORD, ...encryptedBroadcastRecord}
-            );
-            decryptedBroadcastRecords.push(decryptedData as BroadcastRecord);
-        }
-        console.log(decryptedBroadcastRecords);
-        this._broadcastCache = decryptedBroadcastRecords;
+
         return this._broadcastCache;
     }
 
@@ -137,10 +127,9 @@ class DatabaseManager {
 
     public async deleteBroadcastByWebhookId(webhookId: string): Promise<void> {
         const db = await this.db();
-        const encryptedWebhookId = encryptionManager.encrypt(webhookId);
         await db.createQueryBuilder(Broadcasts, "broadcasts")
             .delete()
-            .where('"webhookId" = :webhookId', { webhookId: encryptedWebhookId })
+            .where('"webhookId" = :webhookId', { webhookId })
             .execute();
 
         const idx = this._broadcastCache.findIndex((cacheElement) => cacheElement.webhookId === webhookId);
@@ -151,9 +140,6 @@ class DatabaseManager {
 
     public async logMessage(messagesRecord: MessagesRecord): Promise<void> {
         const db = await this.db();
-        const encryptedData = encryptionManager.encryptComplexDataType(messagesRecord);
-        messagesRecord = encryptedData as MessagesRecord;
-
         await db.createQueryBuilder()
             .insert()
             .into(Messages)
@@ -166,39 +152,16 @@ class DatabaseManager {
     
     public async getMessages(channelId: string, channelMessageId: string): Promise<MessagesRecord[]> {
         const db = await this.db();
-        const encryptedChannelId = encryptionManager.encrypt(channelId);
-        const encryptedChannelMessageId = encryptionManager.encrypt(channelMessageId);
-
-        let message = await db.createQueryBuilder(Messages, "messages")
+        return await db.createQueryBuilder(Messages, 'messages')
             .select()
             .where('"channelId" = :channelId AND "channelMessageId" = :channelMessageId', 
-                { channelId: encryptedChannelId, channelMessageId: encryptedChannelMessageId}
-            )
-            .getOne();
-        if(!message) throw new Error('Could not find message.');
-
-        const encryptedData = encryptionManager.encryptComplexDataType(
-            { type: DatabaseTypesEnum.MESSAGES_RECORD, ...message }
-        );
-        message = encryptedData as MessagesRecord;
-
-        const dbMessages = await db.createQueryBuilder(Messages, 'messages')
-            .select()
-            .where('"userId" = :userId AND "uniqueMessageId" = :uniqueMessageId', 
-                {userId: message.userId, uniqueMessageId: message.uniqueMessageId}
+                { channelId, channelMessageId }
             )
             .getMany();
-        
-        const typedMessages: MessagesRecord[] = [];
-        for(const dbMessage of dbMessages) {
-            typedMessages.push({ type: DatabaseTypesEnum.MESSAGES_RECORD, ...dbMessage});
-        }
-        return typedMessages;
     }
 
     public async deleteMessages(uniqueMessageId: string): Promise<void> {
         const db = await this.db();
-        
         await db.createQueryBuilder(Messages, "messages")
             .delete()
             .where('"uniqueMessageId" = :uniqueMessageId', { uniqueMessageId })
@@ -207,13 +170,10 @@ class DatabaseManager {
 
     public async getMessageUid(channelId: string, channelMessageId: string): Promise<string> {
         const db = await this.db();
-        const encryptedChannelId = encryptionManager.encrypt(channelId);
-        const encryptedChannelMessageId = encryptionManager.encrypt(channelMessageId);
-
         const message = await db.createQueryBuilder(Messages, "messages")
             .select()
             .where('"channelId" = :channelId AND "channelMessageId" = :channelMessageId', 
-                { channelId: encryptedChannelId, channelMessageId: encryptedChannelMessageId}
+                { channelId, channelMessageId }
             )
             .getOne();
         if(!message) throw new Error(ErrorNames.NO_MESSAGE_IN_DB);
@@ -222,48 +182,31 @@ class DatabaseManager {
     
     public async getMessagesByUid(uniqueMessageId: string): Promise<MessagesRecord[]> {
         const db = await this.db();
-        const encryptedUniqueMessageId = encryptionManager.encrypt(uniqueMessageId);
-
-        const dbMessages = await db.createQueryBuilder(Messages, "messages")
+        return await db.createQueryBuilder(Messages, "messages")
             .select()
-            .where('"uniqueMessageId" = :uniqueMessageId', { uniqueMessageId: encryptedUniqueMessageId })
+            .where('"uniqueMessageId" = :uniqueMessageId', { uniqueMessageId })
             .getMany();
-
-        const typedMessages: MessagesRecord[] = [];
-        for(const dbMessage of dbMessages) {
-            typedMessages.push({ type: DatabaseTypesEnum.MESSAGES_RECORD, ...dbMessage});
-        }
-        return typedMessages;
     }
 
     public async getUniqueUserMessageCount(userId: string): Promise<number> {
         const db = await this.db();
-        const encryptedUserId = encryptionManager.encrypt(userId);
-
         return db.createQueryBuilder(Messages, "messages")
             .select()
-            .where('"userId" = :userId AND "messageOrigin" = true', { userId: encryptedUserId })
+            .where('"userId" = :userId AND "messageOrigin" = true', { userId })
             .getCount();
     }
 
     public async getUniqueUserMessages(userId: string, amount: number, offset = 0): Promise<MessagesRecord[]> {
         const db = await this.db();
         const count = await this.getUniqueUserMessageCount(userId);
-        const encryptedUserId = encryptionManager.encrypt(userId);
         if(count < offset) throw new Error(ErrorNames.NOT_ENOUGH_MESSAGES);
-        const dbMessages = await db.createQueryBuilder(Messages, "messages")
+        return await db.createQueryBuilder(Messages, "messages")
             .select()
-            .where('"userId" = :userId AND "messageOrigin" = true', { userId: encryptedUserId })
+            .where('"userId" = :userId AND "messageOrigin" = true', { userId })
             .orderBy('"timestamp" DESC')
             .limit(amount)
             .offset(offset)
-            .getMany()
-
-        const typedMessages: MessagesRecord[] = [];
-        for(const dbMessage of dbMessages) {
-            typedMessages.push({ type: DatabaseTypesEnum.MESSAGES_RECORD, ...dbMessage});
-        }
-        return typedMessages;
+            .getMany();
     }
 
     public async totalMessageLogs(): Promise<number> {
@@ -287,13 +230,10 @@ class DatabaseManager {
     
     public async getUserId(channelId: string, channelMessageId: string): Promise<string> {
         const db = await this.db();
-        const encryptedChannelId = encryptionManager.encrypt(channelId);
-        const encryptedChannelMessageId = encryptionManager.encrypt(channelMessageId);
-
         const message = await db.createQueryBuilder(Messages, "messages")
             .select()
             .where('"channelId" = :channelId AND "channelMessageId" = :channelMessageId and "messageOrigin" = true',
-                { channelId: encryptedChannelId, channelMessageId: encryptedChannelMessageId }
+                { channelId, channelMessageId }
             )
             .getOne()
         if(!message) throw new Error(ErrorNames.NO_MESSAGE_IN_DB);
@@ -302,10 +242,6 @@ class DatabaseManager {
     
     public async toggleUserReaction(userReactionRecord: UserReactionRecord, onlyDelete = false): Promise<void> {
         const db = await this.db();
-
-        const encryptedData = encryptionManager.encryptComplexDataType(userReactionRecord)
-        userReactionRecord = encryptedData as UserReactionRecord;
-        
         const current = await this.hasUserReactedToMessage(userReactionRecord);
         if(current) {
             if(!onlyDelete) return;
@@ -337,31 +273,25 @@ class DatabaseManager {
 
     public async getReactionCountForMessage(uniqueMessageId: string): Promise<number> {
         const db = await this.db();
-        const encryptedUniqueMessageId = encryptionManager.encrypt(uniqueMessageId);
-
         return await db.createQueryBuilder(UserReactions, "user_reactions")
             .select()
-            .where('"uniqueMessageId" = :uniqueMessageId', { uniqueMessageId: encryptedUniqueMessageId })
+            .where('"uniqueMessageId" = :uniqueMessageId', { uniqueMessageId })
             .getCount();
     }
 
     public async hasUserBeenMutedOnNetworkChat(userId: string): Promise<boolean> {
         const db = await this.db();
-        const encryptedUserId = encryptionManager.encrypt(userId);
-
         return !!await db.createQueryBuilder(NetworkChatMutedUsers, "network_chat_muted_users")
             .select()
-            .where('"userId" = :userId', { userId: encryptedUserId })
+            .where('"userId" = :userId', { userId })
             .getCount();
     }
 
     public async whoMutedUser(userId: string): Promise<string> {
         const db = await this.db();
-        const encryptedUserId = encryptionManager.encrypt(userId);
-
         const entry = await db.createQueryBuilder(NetworkChatMutedUsers, "network_chat_muted_users")
             .select()
-            .where('"userId" = :userId', { userId: encryptedUserId })
+            .where('"userId" = :userId', { userId })
             .getOne();
         if(!entry) throw new Error(ErrorNames.NO_MUTE_INFO);
         return entry.staffId;
@@ -369,57 +299,48 @@ class DatabaseManager {
 
     public async toggleNetworkChatMute(userId: string, staffId: string): Promise<void> {
         const db = await this.db();
-        const encryptedUserId = encryptionManager.encrypt(userId);
-        const encrypteStaffId = encryptionManager.encrypt(staffId);
-
         const current = await db.createQueryBuilder(NetworkChatMutedUsers, "network_chat_muted_users")
             .select()
-            .where('"userId" = :userId', { userId: encryptedUserId })
+            .where('"userId" = :userId', { userId })
             .getCount();
         if(current) {
             await db.createQueryBuilder(NetworkChatMutedUsers, "network_chat_muted_users")
                 .delete()
-                .where('"userId" = :userId', { userId: encryptedUserId })
+                .where('"userId" = :userId', { userId })
                 .execute();
         } else {
             await db.createQueryBuilder(NetworkChatMutedUsers, "network_chat_muted_users")
                 .insert()
-                .values([{ userId: encryptedUserId, staffId: encrypteStaffId }])
+                .values([{ userId, staffId }])
                 .execute();
         }
     }
 
     public async getModmail(channelId: string): Promise<ModmailRecord> {
         const db = await this.db();
-        const encryptedChannelId = encryptionManager.encrypt(channelId);
-
         const result = await db.createQueryBuilder(Modmails, "modmails")
             .select()
-            .where('"channelId" = :channelId', { channelId: encryptedChannelId })
+            .where('"channelId" = :channelId', { channelId })
             .getOne();
         if(!result) throw new Error(ErrorNames.NO_MODMAIL_IN_DB);
-        return { type: DatabaseTypesEnum.MODMAIL_RECORD, ...result };
+        return result;
     }
 
     public async getModmailByUserId(userId: string): Promise<ModmailRecord | null> {
         const db = await this.db();
-        const encryptedUserId = encryptionManager.encrypt(userId);
 
-        const result = await db.createQueryBuilder(Modmails, "modmails")
+        return await db.createQueryBuilder(Modmails, "modmails")
             .select()
-            .where('"userId" = :userId', { userId: encryptedUserId })
+            .where('"userId" = :userId', { userId })
             .getOne();
-        return result ? { type: DatabaseTypesEnum.MODMAIL_RECORD, ...result } : null;
     }
     
     public async createModmail(userId: string, channelId: string): Promise<void> {
         const db = await this.db();
-        const encryptedUserId = encryptionManager.encrypt(userId);
-        const encryptedChannelId = encryptionManager.encrypt(channelId);
 
         await db.createQueryBuilder(Modmails, "modmails")
             .insert()
-            .values([{ userId: encryptedUserId, channelId: encryptedChannelId, active: true }])
+            .values([{ userId, channelId, active: true }])
             .execute();
     }
 
@@ -427,10 +348,6 @@ class DatabaseManager {
     public async closeModmail(channelId: string) {
         const db = await this.db();
         let modmail = await this.getModmail(channelId);
-
-        const encryptedData = encryptionManager.encryptComplexDataType(modmail);
-        modmail = encryptedData as ModmailRecord;
-
         await db.createQueryBuilder(Modmails, "modmails")
             .update()
             .where('"userId" = :userId AND "channelId" = :channelId AND "active" = true', 
@@ -442,26 +359,15 @@ class DatabaseManager {
 
     public async getBanshareList(serverId: string): Promise<BanshareListRecord[]> {
         const db = await this.db();
-        const encryptedServerId = encryptionManager.encrypt(serverId);
 
-        const dbBanshares = await db.createQueryBuilder(Banshares, "banshares")
+       return await db.createQueryBuilder(Banshares, "banshares")
             .select()
-            .where('"serverId" = :serverId', { serverId: encryptedServerId })
+            .where('"serverId" = :serverId', { serverId })
             .getMany();
-
-        const typedBanshares: BanshareListRecord[] = [];
-        for(const dbBanshare of dbBanshares) {
-            typedBanshares.push({ type: DatabaseTypesEnum.BANSHARE_LIST_RECORD, ...dbBanshare});
-        }
-        return typedBanshares;
     }
 
     public async registerBanshare(banshareListRecord: BanshareListRecord) {
         const db = await this.db();
-
-        const encryptedData = encryptionManager.encryptComplexDataType(banshareListRecord);
-        banshareListRecord = encryptedData as BanshareListRecord;
-
         await db.createQueryBuilder(Banshares, "banshares")
             .insert()
             .values([{ ...banshareListRecord }])
@@ -470,57 +376,38 @@ class DatabaseManager {
 
     public async updateBanshareStatus(serverId: string, userId: string, status: string): Promise<void> {
         const db = await this.db();
-        const encryptedServerId = encryptionManager.encrypt(serverId);
-        const encryptedUserId = encryptionManager.encrypt(userId);
-        const encryptedStatus = encryptionManager.encrypt(status);
-
         const banshare = await db.createQueryBuilder(Banshares, "banshares")
             .select()
-            .where('"serverId" = :serverId AND "userId" = :userId', { serverId: encryptedServerId, userId: encryptedUserId })
+            .where('"serverId" = :serverId AND "userId" = :userId', { serverId, userId })
             .getOne();
         if(!banshare) throw new Error(ErrorNames.NO_MODMAIL_IN_DB);
         await db.createQueryBuilder(Banshares, "banshares")
             .update()
-            .where('"serverId" = :serverId AND "userId" = :userId', { serverId: encryptedServerId, userId: encryptedUserId })
-            .set({ status: encryptedStatus })
+            .where('"serverId" = :serverId AND "userId" = :userId', { serverId, userId })
+            .set({ status })
             .execute();
     }
 
     public async getFilteredWords(): Promise<FilteredWordRecord[]> {
         const db = await this.db();
-        const encryptedFilteredWordRecords = await db.createQueryBuilder(FilteredWords, "filtered_words")
+        return await db.createQueryBuilder(FilteredWords, "filtered_words")
             .select()
             .getMany();
-
-        const decryptedFilteredWords: FilteredWordRecord[] = [];
-        for(let encryptedFilteredWordRecord of encryptedFilteredWordRecords) {
-            const decryptedData = encryptionManager.decryptComplexDataType(
-                { type: DatabaseTypesEnum.FILTERED_WORD_RECORD, ...encryptedFilteredWordRecord }
-            );
-            decryptedFilteredWords.push(decryptedData as FilteredWordRecord);
-        }
-        return decryptedFilteredWords;
     }
 
 
     public async addToFilteredWords(word: string): Promise<void> {
         const db = await this.db();    
-        if((await this.getFilteredWords()).includes({ type: DatabaseTypesEnum.FILTERED_WORD_RECORD, word })) return;
-        const encryptedWord = encryptionManager.encrypt(word);
-        
+        if((await this.getFilteredWords()).includes({ word })) return;
         await db.createQueryBuilder(FilteredWords, "filtered_words") 
             .insert()
-            .values([{ word: encryptedWord }])
+            .values([{ word }])
             .execute();
     }
 
     
     public async insertIntoCatCakes(catCakeRecord: CatCakeRecord):Promise<void> {
         const db = await this.db();
-
-        const encryptedData = encryptionManager.encryptComplexDataType(catCakeRecord);
-        catCakeRecord = encryptedData as CatCakeRecord;
-
         await db.createQueryBuilder(CatCakes, "cat_cakes")
             .insert()
             .values([ catCakeRecord ])
@@ -534,19 +421,10 @@ class DatabaseManager {
 
     public async allCatsInRegion(region: Regions): Promise<CatCakeRecord[]> {
         const db = await this.db();
-        const encryptedCatCakeRecords = await db.createQueryBuilder(CatCakes, "cat_cakes")
+        return await db.createQueryBuilder(CatCakes, "cat_cakes")
             .select()
             .where('"region" = :region', { region })
             .getMany();
-
-        const decryptedCatCakeRecords: CatCakeRecord[] = [];
-        for(let encryptedCatCakeRecord of encryptedCatCakeRecords) {
-            const decryptedData = encryptionManager.decryptComplexDataType(
-                { type: DatabaseTypesEnum.CAT_CAKE_RECORD, ...encryptedCatCakeRecord }
-            );
-            decryptedCatCakeRecords.push(decryptedData as CatCakeRecord);
-        }
-        return decryptedCatCakeRecords;
     }
 
     public async deleteCatCakeData() {
@@ -559,20 +437,9 @@ class DatabaseManager {
     public async getAllServerStickerStatus() {
         if(this._networkServerStickerStatusCache.length) return this._networkServerStickerStatusCache;
         const db = await this.db();
-        const encryptedAllServerStickerStatus =
-            await db.createQueryBuilder(NetworkStickerStatus, "network_sticker_status")
-                .select()
-                .getMany();
-        
-        const decryptedAllServerStickerStatus: NetworkStickerStatus[] = [];
-        for(let encryptedServerStickerStatus of encryptedAllServerStickerStatus) {
-            const decryptedData = encryptionManager.decryptComplexDataType(
-                { type: DatabaseTypesEnum.NETWORK_STICKER_STATUS, ...encryptedServerStickerStatus }
-            )
-            decryptedAllServerStickerStatus.push(decryptedData as NetworkStickerStatus);
-        }
-        this._networkServerStickerStatusCache = decryptedAllServerStickerStatus;
-        return this._networkServerStickerStatusCache;
+        return await db.createQueryBuilder(NetworkStickerStatus, "network_sticker_status")
+            .select()
+            .getMany();
     }
 
     public async getServerStickerStatus(serverId: string) {
@@ -584,11 +451,10 @@ class DatabaseManager {
         const statusInDb = await this.getServerStickerStatus(guildId);
         if(statusInDb) throw new Error(ErrorNames.DB_ENTRY_ALREADY_EXISTS);
         const db = await this.db();
-        const encryptedGuildId = encryptionManager.encrypt(guildId);
 
         await db.createQueryBuilder(NetworkStickerStatus, "network_sticker_status")
             .insert()
-            .values([{ guildId: encryptedGuildId, status }])
+            .values([{ guildId, status }])
             .execute();
         this._networkServerStickerStatusCache.push({ guildId, status });
         logger.info(`${status ? "Enabled" : "Disabled"} stickers from ${guildId}`, clientId);
@@ -599,12 +465,11 @@ class DatabaseManager {
         if(!statusInDb) throw new Error(ErrorNames.NO_DB_ENTRY);
         if(statusInDb === status) throw new Error(ErrorNames.DID_NOT_MODIFY_DB_DATA);
         const db = await this.db();
-        const encryptedGuildId = encryptionManager.encrypt(guildId);
 
         await db.createQueryBuilder(NetworkStickerStatus, "network_sticker_status")
             .update()
-            .where('"guildId" = :guildId', { guildId: encryptedGuildId })
-            .set({ guildId: encryptedGuildId, status })
+            .where('"guildId" = :guildId', { guildId })
+            .set({ guildId, status })
             .execute();
         this._networkServerStickerStatusCache.splice(
             this._networkServerStickerStatusCache.indexOf({ guildId, status: !status }),

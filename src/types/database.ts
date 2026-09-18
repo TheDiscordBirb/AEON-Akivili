@@ -1,20 +1,5 @@
 import { CatCakeTypes, Regions } from "./command"
 
-export interface DbBase {
-    type: DatabaseTypesEnum
-}
-
-export enum DatabaseTypesEnum {
-    BROADCAST_RECORD = "BroadcastRecord",
-    NETWORK_STICKER_STATUS = "NetworkStickerStatus",
-    MESSAGES_RECORD = "MessagesRecord",
-    MODMAIL_RECORD = "ModmailRecord",
-    USER_REACTION_RECORD = "UserReactionRecord",
-    BANSHARE_LIST_RECORD = "BanshareListRecord",
-    FILTERED_WORD_RECORD = "FilteredWordRecord",
-    CAT_CAKE_RECORD = "CatCakeRecord"
-}
-
 export type DatabaseTypes = BroadcastRecord |
     NetworkStickerStatus |
     MessagesRecord |
@@ -24,8 +9,7 @@ export type DatabaseTypes = BroadcastRecord |
     FilteredWordRecord |
     CatCakeRecord
 
-export interface BroadcastRecord extends DbBase {
-    type: DatabaseTypesEnum.BROADCAST_RECORD,
+export interface BroadcastRecord {
     channelId: string,
     channelType: string,
     guildId: string,
@@ -35,15 +19,13 @@ export interface BroadcastRecord extends DbBase {
     serviceClientId: string
 }
 
-export interface NetworkStickerStatus extends DbBase {
-    type: DatabaseTypesEnum.NETWORK_STICKER_STATUS,
+export interface NetworkStickerStatus {
     guildId: string,
     status: boolean
 }
 
-export interface MessagesRecord extends DbBase {
-    type: DatabaseTypesEnum.MESSAGES_RECORD,
-    channelId: string,
+export interface MessagesRecord {
+    channelId: string
     channelMessageId: string,
     guildId: string,
     timestamp: number,
@@ -53,22 +35,19 @@ export interface MessagesRecord extends DbBase {
     messageOrigin: boolean
 }
 
-export interface ModmailRecord extends DbBase {
-    type: DatabaseTypesEnum.MODMAIL_RECORD,
+export interface ModmailRecord {
     userId: string,
     channelId: string,
     active: boolean
 }
 
-export interface UserReactionRecord extends DbBase {
-    type: DatabaseTypesEnum.USER_REACTION_RECORD,
+export interface UserReactionRecord {
     uniqueMessageId: string,
     userId: string,
     reactionIdentifier: string
 }
 
-export interface BanshareListRecord extends DbBase {
-    type: DatabaseTypesEnum.BANSHARE_LIST_RECORD,
+export interface BanshareListRecord {
     serverId: string,
     status: string,
     userId: string,
@@ -77,13 +56,11 @@ export interface BanshareListRecord extends DbBase {
     timestamp: number
 }
 
-export interface FilteredWordRecord extends DbBase {
-    type: DatabaseTypesEnum.FILTERED_WORD_RECORD,
+export interface FilteredWordRecord {
     word: string
 }
 
-export interface CatCakeRecord extends DbBase {
-    type: DatabaseTypesEnum.CAT_CAKE_RECORD,
+export interface CatCakeRecord {
     uid: string,
     region: Regions,
     catType: CatCakeTypes
