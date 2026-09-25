@@ -3,6 +3,8 @@ import { DataSource } from 'typeorm';
 import { 
     BanshareListRecord, 
     BroadcastRecord, 
+    CachedClient, 
+    CachedMessage, 
     CatCakeRecord, 
     FilteredWordRecord, 
     MessagesRecord, 
@@ -23,7 +25,9 @@ import { FilteredWords } from './entities/filtered-words';
 import { Regions } from '../types/command';
 import { CatCakes } from './entities/cat-cakes';
 import { NetworkStickerStatus } from './entities/network-sticker-status';
-import { encryptionManager } from '../utils/data-encryption';
+import { Clients } from './entities/clients';
+import { ExtendedClientTypes } from '../types/client';
+import { ulid } from 'ulid';
 
 const logger = new Logger('Database');
 
@@ -31,6 +35,8 @@ class DatabaseManager {
     protected _db: DataSource | null = null;
     protected _networkServerStickerStatusCache: NetworkStickerStatus[] = [];
     protected _broadcastCache: BroadcastRecord[] = [];
+    protected _messageCache: CachedMessage[] = [];
+    protected _clientCache: CachedClient[] = [];
 
     constructor() {
         this.connect();
@@ -44,7 +50,7 @@ class DatabaseManager {
             host: config.databaseHost,  
             port: config.databasePort,  
             database: config.databaseName,  
-            logging: false,
+            logging: true,
             schema: 'AkiDb',
             extensions: ["pgcrypto"],
             entities: [
@@ -56,7 +62,8 @@ class DatabaseManager {
                 Banshares,
                 FilteredWords,
                 CatCakes,
-                NetworkStickerStatus
+                NetworkStickerStatus,
+                Clients
             ]
         });
         await this._db.initialize();
@@ -148,65 +155,93 @@ class DatabaseManager {
                 messageOrigin: !!messagesRecord.messageOrigin
             }])
             .execute();
-    }
-    
-    public async getMessages(channelId: string, channelMessageId: string): Promise<MessagesRecord[]> {
-        const db = await this.db();
-        return await db.createQueryBuilder(Messages, 'messages')
-            .select()
-            .where('"channelId" = :channelId AND "channelMessageId" = :channelMessageId', 
-                { channelId, channelMessageId }
-            )
-            .getMany();
+        
+        const cachedMessage = this._messageCache.find((cachedMessage) => cachedMessage.messageUid === messagesRecord.messageUid);
+        if(cachedMessage) {
+            if(!cachedMessage.messageIds.includes(messagesRecord.discordMessageId)) {
+                cachedMessage.messageIds.push(messagesRecord.discordMessageId);
+            }
+        } else {
+            if(this._messageCache.length >= config.numberOfMessagesToLoad) this._broadcastCache.pop();
+            this._messageCache.unshift({ messageUid: messagesRecord.messageUid, userId: messagesRecord.userId, messageIds: [messagesRecord.discordMessageId]});
+        }
     }
 
-    public async deleteMessages(uniqueMessageId: string): Promise<void> {
+    public async loadMessages(): Promise<void> {
+        const db = await this.db();
+        const messages = await db.createQueryBuilder(Messages, 'messages')
+            .select()
+            .limit(config.numberOfMessagesToLoad)
+            .getMany();
+        await Promise.allSettled(messages.map((message) => {
+            const cachedMessage = this._messageCache.find((cachedMessage) => cachedMessage.messageUid === message.messageUid);
+            if(cachedMessage) {
+                if(!cachedMessage.messageIds.includes(message.discordMessageId)) {
+                    cachedMessage.messageIds.push(message.discordMessageId);
+                }
+            } else {
+                this._messageCache.push({ messageUid: message.messageUid, userId: message.userId, messageIds: [message.discordMessageId]});
+            }
+        }));
+        await this.cleanDb();
+    }
+    
+    public async getMessages(discordMessageId: string): Promise<MessagesRecord[]> {
+        const messageUid = this.getMessageUid(discordMessageId);
+        return this.getMessagesByUid(messageUid);
+    }
+
+    public async deleteMessages(messageUid: string): Promise<void> {
         const db = await this.db();
         await db.createQueryBuilder(Messages, "messages")
             .delete()
-            .where('"uniqueMessageId" = :uniqueMessageId', { uniqueMessageId })
+            .where('"messageUid" = :messageUid', { messageUid })
             .execute();
     }
 
-    public async getMessageUid(channelId: string, channelMessageId: string): Promise<string> {
-        const db = await this.db();
-        const message = await db.createQueryBuilder(Messages, "messages")
-            .select()
-            .where('"channelId" = :channelId AND "channelMessageId" = :channelMessageId', 
-                { channelId, channelMessageId }
-            )
-            .getOne();
-        if(!message) throw new Error(ErrorNames.NO_MESSAGE_IN_DB);
-        return message.uniqueMessageId;
+    public getMessageUid(discordMessageId: string): string {
+        const cachedMessage = this._messageCache.find((cachedMessage) => cachedMessage.messageIds.includes(discordMessageId));
+        if(!cachedMessage) throw new Error(ErrorNames.NO_MESSAGE);
+        return cachedMessage.messageUid;
     }
     
-    public async getMessagesByUid(uniqueMessageId: string): Promise<MessagesRecord[]> {
+    public async getMessagesByUid(messageUid: string): Promise<MessagesRecord[]> {
         const db = await this.db();
         return await db.createQueryBuilder(Messages, "messages")
             .select()
-            .where('"uniqueMessageId" = :uniqueMessageId', { uniqueMessageId })
+            .where('"messageUid" = :messageUid', { messageUid })
             .getMany();
     }
 
-    public async getUniqueUserMessageCount(userId: string): Promise<number> {
-        const db = await this.db();
-        return db.createQueryBuilder(Messages, "messages")
-            .select()
-            .where('"userId" = :userId AND "messageOrigin" = true', { userId })
-            .getCount();
+    public async getUniqueUserMessageCountInCache(userId: string): Promise<number> {
+        return this._messageCache.filter((message) => message.userId === userId).length;
     }
 
-    public async getUniqueUserMessages(userId: string, amount: number, offset = 0): Promise<MessagesRecord[]> {
+    public async deleteAllUserMessages(userId: string): Promise<void> {
         const db = await this.db();
-        const count = await this.getUniqueUserMessageCount(userId);
-        if(count < offset) throw new Error(ErrorNames.NOT_ENOUGH_MESSAGES);
-        return await db.createQueryBuilder(Messages, "messages")
+        const userCachedMessages = this._messageCache.filter((message) => message.userId === userId)
+        for(const userCachedMessage of userCachedMessages) {
+            await db.createQueryBuilder(Messages, "messages")
+                .delete()
+                .where('"messageUid" = :messageUid', { messageUid: userCachedMessage.messageUid })
+                .execute();
+            await db.createQueryBuilder(UserReactions, "user_reactions")
+                .delete()
+                .where('"messageUid" = :messageUid', { messageUid: userCachedMessage.messageUid })
+                .execute();
+        }
+    }
+
+    public async getLastMessageForUser(userId: string): Promise<MessagesRecord> {
+        const db = await this.db();
+        const cachedMessage = this._messageCache.find((message) => message.userId === userId);
+        if(!cachedMessage) throw new Error(ErrorNames.NO_MESSAGE_IN_CACHE);
+        const dbMessage = await db.createQueryBuilder(Messages, "messages")
             .select()
-            .where('"userId" = :userId AND "messageOrigin" = true', { userId })
-            .orderBy('"timestamp" DESC')
-            .limit(amount)
-            .offset(offset)
-            .getMany();
+            .where('"messageUid" = :messageUid AND "messageOrigin" = true', { messageUid: cachedMessage.messageUid})
+            .getOne();
+        if(!dbMessage) throw new Error(ErrorNames.NO_MESSAGE_IN_DB);
+        return dbMessage;
     }
 
     public async totalMessageLogs(): Promise<number> {
@@ -216,24 +251,32 @@ class DatabaseManager {
             .getCount();
     }
 
-    public async cleanDb(date: number): Promise<void> {
+    public async cleanDb(): Promise<void> {
         const db = await this.db();
+        const cachedUids = this._messageCache.reduce<string[]>((acc, item) => {
+            if(!acc.includes(item.messageUid)) {
+                acc.push(item.messageUid)
+            }
+            return acc;
+        }, []);
         await db.createQueryBuilder(Messages, "messages")
             .delete()
-            .where('"timestamp" <= :timestamp', { timestamp: date-Time.hours(10)})
+            .where('"messageUid" NOT IN (:...messageUids)', { messageUids: cachedUids })
             .execute();
         await db.createQueryBuilder(UserReactions, "user_reactions")
             .delete()
+            .where('"messageUid" NOT IN (:...messageUids)', { messageUids: cachedUids })
             .execute();
         logger.info('Db was cleared.');
     }
     
-    public async getUserId(channelId: string, channelMessageId: string): Promise<string> {
+    public async getUserId(discordMessageId: string): Promise<string> {
         const db = await this.db();
+        const messageUid = this.getMessageUid(discordMessageId);
         const message = await db.createQueryBuilder(Messages, "messages")
             .select()
-            .where('"channelId" = :channelId AND "channelMessageId" = :channelMessageId and "messageOrigin" = true',
-                { channelId, channelMessageId }
+            .where('"messageUid" = :messageUid AND "messageOrigin" = true',
+                { messageUid }
             )
             .getOne()
         if(!message) throw new Error(ErrorNames.NO_MESSAGE_IN_DB);
@@ -247,7 +290,7 @@ class DatabaseManager {
             if(!onlyDelete) return;
             await db.createQueryBuilder(UserReactions, "user_reactions")
                 .delete()
-                .where('"userId" = :userId AND "uniqueMessageId" = :uniqueMessageId AND "reactionIdentifier" = :reactionIdentifier',
+                .where('"userId" = :userId AND "queMessageId" = :messageUid AND "reactionIdentifier" = :reactionIdentifier',
                     { ...userReactionRecord }
                 )
                 .execute();
@@ -265,17 +308,17 @@ class DatabaseManager {
         const db = await this.db();
         return !!await db.createQueryBuilder(UserReactions, "user_reactions")
             .select()
-            .where('"userId" = :userId AND "uniqueMessageId" = :uniqueMessageId AND "reactionIdentifier" = :reactionIdentifier',
+            .where('"userId" = :userId AND "messageUid" = :messageUid AND "reactionIdentifier" = :reactionIdentifier',
                 { ...userReactionRecord }
             )
             .getCount();
     }
 
-    public async getReactionCountForMessage(uniqueMessageId: string): Promise<number> {
+    public async getReactionCountForMessage(messageUid: string): Promise<number> {
         const db = await this.db();
         return await db.createQueryBuilder(UserReactions, "user_reactions")
             .select()
-            .where('"uniqueMessageId" = :uniqueMessageId', { uniqueMessageId })
+            .where('"messageUid" = :messageUid', { messageUid })
             .getCount();
     }
 
@@ -427,14 +470,14 @@ class DatabaseManager {
             .getMany();
     }
 
-    public async deleteCatCakeData() {
+    public async deleteCatCakeData(): Promise<void> {
         const db = await this.db();
         await db.createQueryBuilder(CatCakes, "cat_cakes")
             .delete()
             .execute();
     }
 
-    public async getAllServerStickerStatus() {
+    public async getAllServerStickerStatus(): Promise<NetworkStickerStatus[]> {
         if(this._networkServerStickerStatusCache.length) return this._networkServerStickerStatusCache;
         const db = await this.db();
         return await db.createQueryBuilder(NetworkStickerStatus, "network_sticker_status")
@@ -442,12 +485,14 @@ class DatabaseManager {
             .getMany();
     }
 
-    public async getServerStickerStatus(serverId: string) {
+    public async getServerStickerStatus(serverId: string): Promise<boolean> {
         const allServerStickerStatus = await this.getAllServerStickerStatus();
-        return allServerStickerStatus.find((guild) => guild.guildId === serverId)?.status ?? null;
+        const serverStickerStatus = allServerStickerStatus.find((guild) => guild.guildId === serverId)?.status;
+        if(serverStickerStatus === undefined) throw new Error(ErrorNames.NO_DB_ENTRY);
+        return serverStickerStatus;
     }
 
-    public async saveServerStickerStatus(guildId: string, status: boolean, clientId?: string) {
+    public async saveServerStickerStatus(guildId: string, status: boolean, clientId?: string): Promise<void> {
         const statusInDb = await this.getServerStickerStatus(guildId);
         if(statusInDb) throw new Error(ErrorNames.DB_ENTRY_ALREADY_EXISTS);
         const db = await this.db();
@@ -460,7 +505,7 @@ class DatabaseManager {
         logger.info(`${status ? "Enabled" : "Disabled"} stickers from ${guildId}`, clientId);
     }
 
-    public async modifyServerStickerStatus(guildId: string, status: boolean, clientId?: string) {
+    public async modifyServerStickerStatus(guildId: string, status: boolean, clientId?: string): Promise<void> {
         const statusInDb = await this.getServerStickerStatus(guildId);
         if(!statusInDb) throw new Error(ErrorNames.NO_DB_ENTRY);
         if(statusInDb === status) throw new Error(ErrorNames.DID_NOT_MODIFY_DB_DATA);
@@ -477,6 +522,44 @@ class DatabaseManager {
             { guildId, status }
         )
         logger.info(`${status ? "Enabled" : "Disabled"} stickers from ${guildId}`, clientId);
+    }
+
+    public async loadClientTypes(): Promise<CachedClient[]> {
+        const db = await this.db();
+        if(this._clientCache.length) return this._clientCache;
+        const clients = await db.createQueryBuilder(Clients, "clients")
+            .select()
+            .getMany();
+        this._clientCache = clients;
+        return this._clientCache;
+    }
+
+    public async saveClient(clientId: string) {
+        const db = await this.db();
+        const uid = ulid();
+        await db.createQueryBuilder(Clients, "clients")
+            .insert()
+            .into(Clients)
+            .values([{
+                uid,
+                clientId,
+                type: ExtendedClientTypes.ALPHA
+            }])
+            .execute();
+        this._clientCache.push({ uid, clientId, type: ExtendedClientTypes.ALPHA });
+    }
+
+    public async modifyClientType(clientId: string, type: ExtendedClientTypes) {
+        const db = await this.db();
+        const cachedClient = this._clientCache.find((client) => client.clientId === clientId);
+        if(!cachedClient) throw new Error(ErrorNames.NO_CLIENT_IN_CACHE);
+        await db.createQueryBuilder(Clients, "clients")
+            .update()
+            .where('"uid" = :uid', 
+                { uid: cachedClient.uid }
+            )
+            .set({ type })
+            .execute();
     }
 }
 

@@ -33,10 +33,10 @@ export const manageMuteChecks = async (options: RunOptions) => {
     const messageId = options.args.getString('message-id');
     if (!messageId) throw new Error(ErrorNames.NO_REQUIRED_FIELD);
     
-    const userId = await databaseManager.getUserId(options.interaction.channel.id, messageId);
-    const userMessages = await databaseManager.getUniqueUserMessages(userId, 1);
+    const userId = await databaseManager.getUserId(messageId);
+    const lastMessage = await databaseManager.getLastMessageForUser(userId);
     for(const client of clients) {
-        if(client.guilds.cache.get(userMessages[0].guildId)) {
+        if(client.guilds.cache.get(lastMessage.guildId)) {
             await manageMuteCommand(client.users.cache.get(userId), options);
             return;
         }

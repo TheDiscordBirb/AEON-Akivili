@@ -43,8 +43,8 @@ export default new Event("messageUpdate", async (oldMessage, newMessage) => {
     
     if (config.nonChatWebhooks.includes(webhook.name)) return;
     if (message.type !== 6) return;
-    const messageUid = await databaseManager.getMessageUid(message.channel.id, message.id);
-    const relatedMessageRecords = (await databaseManager.getMessages(newMessage.channel.id, newMessage.id)).filter((relatedMessageRecord) => relatedMessageRecord.uniqueMessageId === messageUid);
+    const messageUid = await databaseManager.getMessageUid(message.id);
+    const relatedMessageRecords = (await databaseManager.getMessages(newMessage.id)).filter((relatedMessageRecord) => relatedMessageRecord.messageUid === messageUid);
     
     await Promise.allSettled(relatedMessageRecords.map(async (relatedMessageRecord) => {
         const guild = client.guilds.cache.get(relatedMessageRecord.guildId);
@@ -57,7 +57,7 @@ export default new Event("messageUpdate", async (oldMessage, newMessage) => {
             // TODO: write log
             return;
         }
-        const message = (channel as GuildTextBasedChannel).messages.cache.get(relatedMessageRecord.channelMessageId);
+        const message = (channel as GuildTextBasedChannel).messages.cache.get(relatedMessageRecord.discordMessageId);
         if (!message) {
             // TODO: write log
             return;

@@ -310,8 +310,6 @@ export const fillUp = async (): Promise<void> => {
     await networkGuilds[0].addMember(navigatorUser.user, []);
     await networkGuilds[0].addMember(repUser.user, []);
     await networkGuilds[0].addMember(devUser.user, []);
-
-    console.log(networkGuilds[0].guild.members?.cache.get("6"));
 };
 
 networkGuilds

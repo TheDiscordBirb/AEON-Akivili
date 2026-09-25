@@ -56,7 +56,6 @@ export const statusUpdate = async (): Promise<void> => {
 }
 
 export const watermarkSize = async (metadata: sharp.Metadata, serverName: string): Promise<number> => {
-    console.log(metadata)
     //Do not ask, it works, not gonna fuck around anymore -Birb
     //If ur wondering what this is this calculates the font size of the watermark 'dynamically' with sticker size -Light
     //yoo junghyuk level regression, probably max optimized -Light
@@ -91,20 +90,7 @@ export const makeUid = (length: number): string => {
 }
 
 export const userActivityLevelCheck = async (userId: string): Promise<number> => {
-    try {
-        const coinTierMessage = (await databaseManager.getUniqueUserMessages(userId, 1, 100))[0];
-        const diamondTierMessage = (await databaseManager.getUniqueUserMessages(userId, 1, 200))[0];
-        const crownTierMessage = (await databaseManager.getUniqueUserMessages(userId, 1, 300))[0];
-        return (
-            Date.now() - coinTierMessage.timestamp <= Time.hours(48) ? (
-                Date.now() - diamondTierMessage.timestamp <= Time.hours(48) ? (
-                    Date.now() - crownTierMessage.timestamp <= Time.hours(48) ? 3 : 2) : 1) : 0);
-    } catch(error) {
-        if((error as Error).message !== ErrorNames.NOT_ENOUGH_MESSAGES) {
-            throw error;
-        }
-        return 0;
-    }
+    return 0;
 }
 
 export const getInvite = async(guildId: string): Promise<{invite: Invite, client: ExtendedClient}> => {

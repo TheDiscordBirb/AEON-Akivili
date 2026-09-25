@@ -31,6 +31,8 @@
     "glob": "^11.0.3",
     "is-apng": "^1.2.0",
     "jest": "^30.3.0",
+    "libsodium": "^0.8.4",
+    "libsodium-wrappers": "^0.8.4",
     "node-cron": "^3.0.3",
     "pg": "^8.22.0",
     "pg-hstore": "^2.3.4",

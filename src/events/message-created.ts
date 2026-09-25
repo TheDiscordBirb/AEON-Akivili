@@ -295,7 +295,6 @@ const convertStickersAndImagesToFiles = async (interaction: Message<boolean>): P
             style="fill:#FFFFFF;paint-order:stroke;stroke:#000000;font-style:normal;font-size:${await watermarkSize(metadata, watermarkText)}px;font-family:'Source Code Pro'">${sticker.name}</text>
         </svg>
         `;
-        console.log(watermark);
         const watermarkBuffer = Buffer.from(watermark);
         const watermarked = sharpAttachment.composite([{input: watermarkBuffer, gravity: 'northeast', 'tile': true}]);
         let watermarkedStickerBuffer: Buffer<ArrayBufferLike>;
@@ -444,7 +443,7 @@ const createWebhookMessages = async (
 
             let referencedMessages
             try {
-                referencedMessages = await databaseManager.getMessages(referenceMessage.channelId, referenceMessage.id);
+                referencedMessages = await databaseManager.getMessages(referenceMessage.id);
             } catch(e) {
                 await Promise.reject(ErrorNames.NO_MESSAGE);
                 return;
@@ -478,7 +477,7 @@ const createWebhookMessages = async (
                 
                     
                 const replyButtonLink = new ButtonBuilder()
-                    .setURL(`https://discord.com/channels/${referencedMessageOnChannel?.guildId}/${referencedMessageOnChannel?.channelId}/${referencedMessageOnChannel.channelMessageId}`)
+                    .setURL(`https://discord.com/channels/${referencedMessageOnChannel?.guildId}/${referencedMessageOnChannel?.channelId}/${referencedMessageOnChannel.discordMessageId}`)
                     .setStyle(ButtonStyle.Link);
                 
                 let replyButtonText = referenceMessageContent.slice(0, 25);
@@ -614,11 +613,11 @@ const createWebhookMessages = async (
         
         const messageData = {
             channelId: message.channelId,
-            channelMessageId: message.id,
+            discordMessageId: message.id,
             guildId: webhookMessage.guildId,
             timestamp: interaction.createdAt.getTime(),
             userId: webhookMessage.userId,
-            uniqueMessageId: uid,
+            messageUid: uid,
             username: interaction.guild?.members.cache.find((member) => member.id === interaction.author.id)?.nickname ?? interaction.author.displayName,
             messageOrigin
         }
@@ -647,11 +646,11 @@ const sendNotification = async (client: Client, interaction: Message<boolean>, i
         if (!interaction.reference.messageId) throw new Error(ErrorNames.NO_REFERENCE_MESSAGE);
         let referencedMessages: MessagesRecord[];
         try {
-            referencedMessages = await databaseManager.getMessages(interaction.reference.channelId, interaction.reference.messageId);
+            referencedMessages = await databaseManager.getMessages(interaction.reference.messageId);
         } catch (error) {
             throw new Error(ErrorNames.NO_MESSAGE_IN_DB);
         }
-        const referenceMessage = referencedMessages.find((rMessage) => rMessage.channelMessageId === interaction.reference?.messageId);
+        const referenceMessage = referencedMessages.find((rMessage) => rMessage.discordMessageId === interaction.reference?.messageId);
         if (!referenceMessage) throw new Error(ErrorNames.MESSAGE_DOES_NOT_EXIST);
         if (!interaction.reference.guildId) throw new Error(ErrorNames.NO_GUILD);
         const pingedUser = client.users.cache.get(referenceMessage.userId);

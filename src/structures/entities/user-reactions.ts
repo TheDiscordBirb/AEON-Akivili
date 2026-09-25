@@ -4,7 +4,7 @@ import { encryptionManager } from "../../utils/data-encryption";
 @Entity()
 export class UserReactions {
     @PrimaryColumn({ type: "text" })
-    uniqueMessageId: string
+    messageUid: string
     @PrimaryColumn({ type: "text",
         transformer: {
             from(value: string) {

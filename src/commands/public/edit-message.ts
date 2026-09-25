@@ -45,7 +45,7 @@ export const editMessageChecks = async (options: RunOptions) => {
     
     const webhookChannelType = webhookBroadcast.channelType;
 
-    const relatedMessageRecords = await databaseManager.getMessages(message.channelId, message.id);
+    const relatedMessageRecords = await databaseManager.getMessages(message.id);
     const matchingBroadcastRecords = (await databaseManager.getBroadcasts())
         .filter((broadcast) => broadcast.channelType === webhookChannelType);
 
@@ -116,7 +116,7 @@ export const EditMessageCommand = async (
         if (!networkChannel) throw new Error(ErrorNames.NO_CHANNEL);
 
         const guildNetworkChannel = networkChannel as GuildTextBasedChannel;
-        const networkMessage = guildNetworkChannel.messages.cache.find((guildMessage) => guildMessage.id === networkMessageRecord.channelMessageId);
+        const networkMessage = guildNetworkChannel.messages.cache.find((guildMessage) => guildMessage.id === networkMessageRecord.discordMessageId);
         
         if (!networkMessage) throw new Error(ErrorNames.NO_MESSAGE);
         const webhook = webhooks.find((webhook) => webhook.id === broadcastRecord.webhookId);

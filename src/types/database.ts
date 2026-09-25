@@ -1,4 +1,17 @@
+import { ExtendedClientTypes } from "./client"
 import { CatCakeTypes, Regions } from "./command"
+
+export interface CachedMessage {
+    messageUid: string,
+    userId: string,
+    messageIds: string[]
+}
+
+export interface CachedClient {
+    uid: string,
+    clientId: string,
+    type: ExtendedClientTypes
+}
 
 export type DatabaseTypes = BroadcastRecord |
     NetworkStickerStatus |
@@ -26,11 +39,11 @@ export interface NetworkStickerStatus {
 
 export interface MessagesRecord {
     channelId: string
-    channelMessageId: string,
+    discordMessageId: string,
     guildId: string,
     timestamp: number,
     userId: string,
-    uniqueMessageId: string,
+    messageUid: string,
     username: string,
     messageOrigin: boolean
 }
@@ -42,7 +55,7 @@ export interface ModmailRecord {
 }
 
 export interface UserReactionRecord {
-    uniqueMessageId: string,
+    messageUid: string,
     userId: string,
     reactionIdentifier: string
 }

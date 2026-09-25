@@ -45,6 +45,6 @@ export default new Command({
 });
 
 export const getUidCommand = async (options: RunOptions, messageId: string) => {
-    const userId = await databaseManager.getUserId(options.interaction.channelId, messageId);
+    const userId = await databaseManager.getUserId(messageId);
     await options.interaction.reply({ content: userId, flags: 'Ephemeral' });
 }

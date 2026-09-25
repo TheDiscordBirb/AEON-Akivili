@@ -86,7 +86,7 @@ export const rebuildMessageComponentAfterUserInteraction = async (
         newButtonComponents.push(newButton);
     }
     
-    let messageUid = await databaseManager.getMessageUid(message.channel.id, message.id);
+    let messageUid = await databaseManager.getMessageUid(message.id);
     let repliedMessageUrl = null;
     if(message.components.length) {
         if(hasReplyRow) {
@@ -95,7 +95,7 @@ export const rebuildMessageComponentAfterUserInteraction = async (
                 const repliedMessageLinkRegex = /https:\/\/discord.com\/channels\/[0-9]*\/([0-9]*)\/([0-9]*)/gm;
                 const repliedMessageArgs = repliedMessageLinkRegex.exec(repliedMessageUrl);
                 if(repliedMessageArgs) {
-                    messageUid = await databaseManager.getMessageUid(repliedMessageArgs[1], repliedMessageArgs[2]);
+                    messageUid = databaseManager.getMessageUid(repliedMessageArgs[2]);
                 }
             }  
         }
@@ -110,7 +110,7 @@ export const rebuildMessageComponentAfterUserInteraction = async (
             const replyButtons: ButtonBuilder[] = [];
             component[0].components.forEach((replyComponent) => {
                 const replyButton = replyComponent as ButtonComponent;
-                const url = repliedMessageUrl ? ((replyComponent as ButtonComponent).url ? `https://discord.com/channels/${messagesRecord.guildId}/${messagesRecord.channelId}/${messagesRecord.channelMessageId}` : replyButton.url) : replyButton.url;
+                const url = repliedMessageUrl ? ((replyComponent as ButtonComponent).url ? `https://discord.com/channels/${messagesRecord.guildId}/${messagesRecord.channelId}/${messagesRecord.messageUid}` : replyButton.url) : replyButton.url;
                 const customId = replyButton.customId;
                 const emoji = replyButton.emoji;
                 if (!replyButton.label) {

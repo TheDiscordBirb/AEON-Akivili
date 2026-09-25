@@ -39,9 +39,9 @@ export const banChecks = async (options: RunOptions) => {
     const message = await options.interaction.channel.messages.fetch(messageId);
     if (!message) throw new Error(ErrorNames.MESSAGE_DOES_NOT_EXIST);
     
-    const userId = await databaseManager.getUserId(options.interaction.channel.id, messageId);
+    const userId = await databaseManager.getUserId(messageId);
     const broadcasts = await databaseManager.getBroadcasts();
-    const messageRecords = await databaseManager.getMessages(message.channel.id, message.id);
+    const messageRecords = await databaseManager.getMessages(message.id);
 
     const messageChannelType = broadcasts.find((broadcast) => broadcast.channelId === messageRecords[0].channelId)?.channelType;
     if(!messageChannelType) throw new Error(ErrorNames.NO_CHANNEL_TYPE);

@@ -7,6 +7,7 @@ export interface ErrorData {
 }
 
 export enum InteractionTypes {
+    MODIFY_CLIENT_TYPE = "modify-client-type",
     ADD_TO_SERVERS_EMBED = "add-to-servers-embed",
     BAN = "ban",
     BANSHARE_LIST = "banshare-list",
@@ -45,7 +46,8 @@ export const ErrorNames = {
     DID_NOT_FIND_WEBHOOK_IN_CACHE: "Could not find webhook in cached webhooks.",
     DID_NOT_GET_STICKER: "This sticker is disabled on this channel.",
     DID_NOT_MODIFY_DB_DATA: "Could not modify db entry.",
-    DID_NOT_SEND_MESSAGE: "Did not send message.",
+    DID_NOT_SEND_MESSAGE: "Could not send message.",
+    DID_NOT_GENERATE_CLIENT: "Could not generate client.",
     DISABLED_STICKER: "This sticker has been disabled automatically or by request.",
     GENERIC_DB_ERROR: "Something went wrong with the db.",
     MESSAGE_DOES_NOT_EXIST: "Message does not exist.",
@@ -56,6 +58,8 @@ export const ErrorNames = {
     NO_CHANNEL: "Could not get channel.",
     NO_CHANNEL_TYPE: "Could not get channel type.",
     NO_CLIENT_IN_SERVER: "Could not get bot client for server.",
+    NO_CLIENT_USER: "Could not get client user.",
+    NO_CLIENT_IN_CACHE: "Could not get client from cache.",
     NO_DB_ENTRY: "No entry exists in the db with that primary key.",
     NO_GUILD: "Could not get server.",
     NO_GUILD_ID: "Could not get server id.",
@@ -68,6 +72,7 @@ export const ErrorNames = {
     NO_MESSAGE: "Could not get message.",
     NO_MESSAGE_ID: "Could not get message id.",
     NO_MESSAGE_IN_DB: 'Could not get message from db.',
+    NO_MESSAGE_IN_CACHE: 'Could not get message from cache.',
     NO_MODMAIL_IN_DB: "Could got get modmail from db.",
     NO_MUTE_INFO: "Could not get mute state.",
     NO_PERMISSIONS: "No permissions.",

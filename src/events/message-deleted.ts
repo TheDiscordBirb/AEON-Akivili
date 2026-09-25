@@ -22,7 +22,7 @@ export default new Event("messageDelete", async (interaction) => {
     
     const broadcasts = await databaseManager.getBroadcasts();
     
-    const referencedMessages = await databaseManager.getMessages(interaction.channelId, interaction.id);
+    const referencedMessages = await databaseManager.getMessages(interaction.id);
     if (!referencedMessages.length) throw new Error(ErrorNames.NO_MESSAGE_IN_DB);
 
     let messageChannelType = '';
@@ -43,7 +43,7 @@ export default new Event("messageDelete", async (interaction) => {
             return undefined;
         }
         await (channel as TextChannel).messages.fetch();
-        message = (channel as TextChannel).messages.cache.get(referencedMessage.channelMessageId);
+        message = (channel as TextChannel).messages.cache.get(referencedMessage.discordMessageId);
         
         if (!message) {
             return undefined;
@@ -54,7 +54,7 @@ export default new Event("messageDelete", async (interaction) => {
             logger.error('Could not delete message.', error as Error);
         }
     }));
-    await databaseManager.deleteMessages(referencedMessages[0].channelMessageId);
+    await databaseManager.deleteMessages(referencedMessages[0].discordMessageId);
     await notificationManager.sendNotification({
         executingUser: targetUser as User,
         targetUser: targetUser,

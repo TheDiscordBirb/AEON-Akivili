@@ -144,7 +144,7 @@ const checkForGuildMember = async (interaction: ButtonInteraction<CacheType>): P
 const emojiButtonFunction = async (client: Client, interaction: ButtonInteraction<CacheType>): Promise<void> => {
     let uniqueMessageId: string;
     try {
-        uniqueMessageId = await databaseManager.getMessageUid(interaction.channelId, interaction.message.id);
+        uniqueMessageId = await databaseManager.getMessageUid(interaction.message.id);
     } catch (error) {
         logger.error(`Could not get messages. Error: `, error as Error);
         return;
@@ -196,7 +196,7 @@ const emojiButtonFunction = async (client: Client, interaction: ButtonInteractio
     const newActionRows = await rebuildMessageComponentAfterUserInteraction(
         interaction.message, 
         interaction.message.components as ActionRow<MessageActionRowComponent>[],
-        { userId, uniqueMessageId, reactionIdentifier }, 
+        { userId, messageUid: uniqueMessageId, reactionIdentifier }, 
         (interaction.user.id === client.user?.id ? true : false)
     );
     const emojiReplacement = await replaceEmojis(interaction.message.content, client);
@@ -210,7 +210,7 @@ const emojiButtonFunction = async (client: Client, interaction: ButtonInteractio
         }
         let messagesOnNetwork: MessagesRecord[];
         try {
-            messagesOnNetwork = await databaseManager.getMessages(interaction.message.channel.id, interaction.message.id);
+            messagesOnNetwork = await databaseManager.getMessages(interaction.message.id);
         } catch (error) {
             logger.error(`Could not get messages. Error: `, error as Error);
             return;
@@ -222,7 +222,7 @@ const emojiButtonFunction = async (client: Client, interaction: ButtonInteractio
         }
         
         const channel = client.channels.cache.find((ch) => ch.id === correctMessageOnNetwork.channelId) as TextChannel;
-        const message = await channel.messages.fetch({ message: correctMessageOnNetwork.channelMessageId });
+        const message = await channel.messages.fetch({ message: correctMessageOnNetwork.messageUid });
         if (!message.components) {
             logger.warn(`No message components, message id: ${message.id}`)
             return;

@@ -15,6 +15,7 @@ import { statusUpdate } from "../utils/misc";
 import cron from 'node-cron';
 import { NetworkJoinOptions } from "../types/command";
 import { clients } from "../structures/client";
+import { ErrorNames } from "../types/error-handler";
 
 const logger = new Logger('Ready');
 
@@ -22,6 +23,7 @@ export default new Event("clientReady", async (client: Client) => {
     const guilds = await client.guilds.fetch();
     const clientId = client.user?.id ?? "-";
     const broadcasts = await databaseManager.getBroadcasts();
+    await databaseManager.loadMessages();
     const chatBroadcasts = broadcasts.filter((broadcast) => !config.nonChatWebhooksTypes.includes(broadcast.channelType));
     const otherBroadcasts = broadcasts.filter((broadcast) => config.nonChatWebhooksTypes.includes(broadcast.channelType));
     let guildCount = 0;
@@ -140,7 +142,14 @@ const botsReady = async () => {
     config.loadedClients++;
     if(config.loadedClients === clients.length) {
         for(const client of clients) {
-            logger.info(`${client.user?.username} (${client.user?.id}) is online`, client.user?.id ?? "-");
+            await client.setType();
+            if(!client.user) throw new Error(ErrorNames.NO_CLIENT_USER);
+            const cachedClients = await databaseManager.loadClientTypes();
+            const cachedClient = cachedClients.find((c) => c.clientId === client.user?.id);
+            if(!cachedClient) {
+                await databaseManager.saveClient(client.user.id);
+            }
+            logger.info(`${client.user?.username} |${client.clientType}| is online`, client.user?.id ?? "-");
         }
         config.botStarting = false;
     }

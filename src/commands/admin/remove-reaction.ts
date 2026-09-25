@@ -36,8 +36,8 @@ const removeReactionChecks = async (options: RunOptions): Promise<void> => {
     const message = channel.messages.cache.get(messageId);
     if (!message) throw new Error(ErrorNames.NO_MESSAGE);
 
-    const messageRecord = (await databaseManager.getMessages(message.channel.id, message.id))
-        .find((record) => record.channelMessageId === message.id);
+    const messageRecord = (await databaseManager.getMessages(message.id))
+        .find((record) => record.discordMessageId === message.id);
     if (!messageRecord) throw new Error(ErrorNames.NO_MESSAGE_IN_DB);
 
     await removeReactionCommand(options, message)

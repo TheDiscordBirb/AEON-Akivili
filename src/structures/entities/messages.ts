@@ -14,7 +14,7 @@ export class Messages {
         }})
     userId: string
     @PrimaryColumn({ type: "text" })
-    uniqueMessageId: string
+    messageUid: string
     @Column({ type: "text",
         transformer: {
             from(value: string) {
@@ -44,7 +44,7 @@ export class Messages {
                 return encryptionManager.encrypt(value);
             },
         }})
-    channelMessageId: string
+    discordMessageId: string
     @Column({ type: "text",
         transformer: {
             from(value: string) {

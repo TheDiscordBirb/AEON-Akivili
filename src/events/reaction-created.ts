@@ -64,7 +64,7 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
     const matchingBroadcastRecords = broadcastRecords.filter((broadcastRecord) => broadcastRecord.channelType === webhookChannelType);
     let messageUidInDb: string;
     try {
-        messageUidInDb = await databaseManager.getMessageUid(interaction.message.channelId, interaction.message.id);
+        messageUidInDb = await databaseManager.getMessageUid(interaction.message.id);
     } catch (error) {
         logger.error(`Could not get messages. Error: `, error as Error);
         return;
@@ -72,7 +72,7 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
     const newActionRows = await rebuildMessageComponentAfterUserInteraction(
         interaction.message as Message<boolean>, 
         actionRows as ActionRow<MessageActionRowComponent>[], 
-        { userId: user.id, uniqueMessageId: messageUidInDb, reactionIdentifier: interaction.emoji.identifier }
+        { userId: user.id, messageUid: messageUidInDb, reactionIdentifier: interaction.emoji.identifier }
     );
     let messageContent = interaction.message.content;
     let emojiReplacement : EmojiReplacementData | undefined;
@@ -89,7 +89,7 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
         }
         let messagesOnNetwork: MessagesRecord[];
         try {
-            messagesOnNetwork = await databaseManager.getMessages(interaction.message.channel.id, interaction.message.id);
+            messagesOnNetwork = await databaseManager.getMessages(interaction.message.id);
         } catch (error) {
             logger.error(`Could not get messages. Error: `, error as Error);
             return;
@@ -99,7 +99,7 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
             return;
         }
         
-        const webhookMessage = await webhook.fetchMessage(correctMessageOnNetwork.channelMessageId);
+        const webhookMessage = await webhook.fetchMessage(correctMessageOnNetwork.discordMessageId);
         await webhook.editMessage(webhookMessage.id, { content: emojiReplacement?.content, components: [...newActionRows[newActionRows.indexOf(newActionRows.find((actionRow) => actionRow.guildID === broadcastRecord.guildId) || newActionRows[0])].components] });
         return;
     }))

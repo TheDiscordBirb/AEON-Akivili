@@ -236,7 +236,7 @@ class DatabaseManager {
         const db = await this.db();
         await db.run(
             `INSERT OR REPLACE INTO Messages (userId, uniqueMessageId, username, channelId, channelMessageId, guildId, timestamp, messageOrigin) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [messagesRecord.userId, messagesRecord.uniqueMessageId, messagesRecord.username, messagesRecord.channelId, messagesRecord.channelMessageId, messagesRecord.guildId, messagesRecord.timestamp, messagesRecord.messageOrigin],
+            [messagesRecord.userId, messagesRecord.discordMessageId, messagesRecord.username, messagesRecord.channelId, messagesRecord.messageUid, messagesRecord.guildId, messagesRecord.timestamp, messagesRecord.messageOrigin],
             (error: Error) => {
                 throw new Error(`Could not save record to the Messages table. Error: ${error.message}`);
             }
@@ -250,9 +250,9 @@ class DatabaseManager {
             if (deleteRecords) return [];
             throw new Error(`Could not get user message. ChannelId: ${channelId}, channelMessageId: ${channelMessageId}`);
         }
-        const relatedMessageRecords = await db.all<MessagesRecord[]>(`SELECT * FROM Messages WHERE userId=? AND uniqueMessageId=?`, [userMessageRecord.userId, userMessageRecord.uniqueMessageId]);
+        const relatedMessageRecords = await db.all<MessagesRecord[]>(`SELECT * FROM Messages WHERE userId=? AND uniqueMessageId=?`, [userMessageRecord.userId, userMessageRecord.discordMessageId]);
         if ((relatedMessageRecords.length) && (deleteRecords)) {
-            await db.run(`DELETE FROM Messages WHERE userId=? AND uniqueMessageId=?`, [userMessageRecord.userId, userMessageRecord.uniqueMessageId]);
+            await db.run(`DELETE FROM Messages WHERE userId=? AND uniqueMessageId=?`, [userMessageRecord.userId, userMessageRecord.discordMessageId]);
         }
         return relatedMessageRecords;
     }
@@ -331,27 +331,27 @@ class DatabaseManager {
 
     public async toggleUserReaction(userReactionRecord: UserReactionRecord): Promise<void> {
         const db = await this.db();
-        const result = await db.get<UserReactionRecord>(`SELECT * FROM UserReaction WHERE userId = ? AND uniqueMessageId=? and reactionIdentifier=?`, [ userReactionRecord.userId, userReactionRecord.uniqueMessageId, userReactionRecord.reactionIdentifier])
+        const result = await db.get<UserReactionRecord>(`SELECT * FROM UserReaction WHERE userId = ? AND uniqueMessageId=? and reactionIdentifier=?`, [ userReactionRecord.userId, userReactionRecord.messageUid, userReactionRecord.reactionIdentifier])
         if (!result) {
-            await db.run(`INSERT OR REPLACE INTO UserReaction (userId, uniqueMessageId, reactionIdentifier) VALUES (?, ?, ?)`, [ userReactionRecord.userId, userReactionRecord.uniqueMessageId, userReactionRecord.reactionIdentifier])
+            await db.run(`INSERT OR REPLACE INTO UserReaction (userId, uniqueMessageId, reactionIdentifier) VALUES (?, ?, ?)`, [ userReactionRecord.userId, userReactionRecord.messageUid, userReactionRecord.reactionIdentifier])
         } else {
-            await db.run(`DELETE FROM UserReaction WHERE userId = ? AND uniqueMessageId=? and reactionIdentifier=?`, [userReactionRecord.userId, userReactionRecord.uniqueMessageId, userReactionRecord.reactionIdentifier]);
+            await db.run(`DELETE FROM UserReaction WHERE userId = ? AND uniqueMessageId=? and reactionIdentifier=?`, [userReactionRecord.userId, userReactionRecord.messageUid, userReactionRecord.reactionIdentifier]);
         }
     }
 
     public async deleteReaction(userReactionRecord: UserReactionRecord): Promise<void> {
         const db = await this.db();
-        const result = await db.get<UserReactionRecord>(`SELECT * FROM UserReaction WHERE uniqueMessageId=? and reactionIdentifier=?`, [userReactionRecord.uniqueMessageId, userReactionRecord.reactionIdentifier])
+        const result = await db.get<UserReactionRecord>(`SELECT * FROM UserReaction WHERE uniqueMessageId=? and reactionIdentifier=?`, [userReactionRecord.messageUid, userReactionRecord.reactionIdentifier])
         if (!result) {
             throw new Error(`Could not find reactions to delete.`);
         } else {
-            await db.run(`DELETE FROM UserReaction WHERE uniqueMessageId=? and reactionIdentifier=?`, [userReactionRecord.uniqueMessageId,userReactionRecord.reactionIdentifier]);
+            await db.run(`DELETE FROM UserReaction WHERE uniqueMessageId=? and reactionIdentifier=?`, [userReactionRecord.messageUid,userReactionRecord.reactionIdentifier]);
         }
     }
 
     public async hasUserReactedToMessage(userReactionRecord: UserReactionRecord): Promise<boolean> {
         const db = await this.db();
-        const result = await db.get<UserReactionRecord>(`SELECT * FROM UserReaction WHERE userId = "${userReactionRecord.userId}" AND uniqueMessageId="${userReactionRecord.uniqueMessageId}" and reactionIdentifier="${userReactionRecord.reactionIdentifier}"`)
+        const result = await db.get<UserReactionRecord>(`SELECT * FROM UserReaction WHERE userId = "${userReactionRecord.userId}" AND uniqueMessageId="${userReactionRecord.messageUid}" and reactionIdentifier="${userReactionRecord.reactionIdentifier}"`)
         return (!!result);
     }
 

@@ -37,12 +37,12 @@ export const networkChannelPingNotificationEmbedBuilder = async (pingedUserId: s
     const attachments: Attachment[] = [];
     message.attachments.forEach((attachment) => attachments.push(attachment));
 
-    const pingedUserMessages = await databaseManager.getUniqueUserMessages(pingedUserId, 50);
-    if (!pingedUserMessages.length) {
+    const pingedUserMessage = await databaseManager.getLastMessageForUser(pingedUserId);
+    if (!pingedUserMessage) {
         logger.warn(`Can not get message of pinged user`);
         return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};
     }
-    const pingedUserLastMessage = pingedUserMessages[0];
+    const pingedUserLastMessage = pingedUserMessage;
     if(Date.now() - pingedUserLastMessage.timestamp <= Time.minutes(10)) {
         return undefined;
     }
@@ -51,14 +51,9 @@ export const networkChannelPingNotificationEmbedBuilder = async (pingedUserId: s
         logger.warn(`Can not get network message`);
         return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};
     }
-    const relatedNetworkMessages = await databaseManager.getMessagesByUid(networkMessage.uniqueMessageId);
+    const relatedNetworkMessages = await databaseManager.getMessagesByUid(networkMessage.discordMessageId);
     if (replyMessage) {
-        const replyMessageInCorrectGuild = pingedUserMessages.find((pingedUserMessage) => pingedUserMessage.uniqueMessageId === replyMessage.uniqueMessageId);
-        if (!replyMessageInCorrectGuild) {
-            logger.warn(`Can not get reply message in correct guild`);
-            return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};
-        }
-        messageToLinkTo = relatedNetworkMessages.find((relatedNetworkMessage) => relatedNetworkMessage.channelId === replyMessageInCorrectGuild.channelId);
+        messageToLinkTo = relatedNetworkMessages.find((relatedNetworkMessage) => relatedNetworkMessage.channelId === pingedUserLastMessage.channelId);
     } else {
         messageToLinkTo = relatedNetworkMessages.find((relatedNetworkMessage) => pingedUserLastMessage.channelId === relatedNetworkMessage.channelId);
     }
@@ -69,7 +64,7 @@ export const networkChannelPingNotificationEmbedBuilder = async (pingedUserId: s
     }
     const messageGuild = client.guilds.cache.get(messageToLinkTo.guildId);
     const messageChannel = (messageGuild?.channels.cache.get(messageToLinkTo.channelId) as BaseGuildTextChannel);
-    const messageMessage = messageChannel.messages.cache.get(messageToLinkTo.channelMessageId);
+    const messageMessage = messageChannel.messages.cache.get(messageToLinkTo.messageUid);
     if (!messageMessage) {
         logger.warn(`Can not get message`);
         return { EmbedBuilder: pingNotificationEmbed, Attachments: attachments};
