@@ -11,21 +11,16 @@ import { Event } from "../structures/event";
 import { notificationManager } from "../functions/notification";
 import { NotificationType } from "../types/event";
 import { config } from "../const";
-import { clients, ExtendedClient } from "../structures/client";
+import { clients } from "../structures/client";
 import { Logger } from "../logger";
-import { whoIs } from "../utils/client-checks";
+import { ErrorNames } from "../types/error-handler";
 
 const logger = new Logger("ServerJoin");
 
 // TODO: rework, test
 export default new Event("guildCreate", async (guild) => {
-    let client: ExtendedClient;
-    try {
-        client = await whoIs(guild.id);
-    } catch(e) {
-        logger.error((e as Error).message, e as Error);
-        return;
-    }
+    const client = clients.find((c) => c.guilds.cache.has(guild.id));
+    if(!client) throw new Error(ErrorNames.NO_CLIENT_IN_CACHE);
     
     try {
         const newClient = clients.find((c) => c.guilds.cache.has(guild.id) && 

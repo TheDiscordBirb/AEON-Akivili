@@ -1,11 +1,13 @@
-import { Entity, PrimaryColumn } from "typeorm";
+import { Column, Entity, PrimaryColumn } from "typeorm";
 import { encryptionManager } from "../../utils/data-encryption";
 
 @Entity()
 export class UserReactions {
     @PrimaryColumn({ type: "text" })
+    reactionUid: string
+    @PrimaryColumn({ type: "text" })
     messageUid: string
-    @PrimaryColumn({ type: "text",
+    @Column({ type: "text",
         transformer: {
             from(value: string) {
                 return encryptionManager.decrypt(value);
@@ -15,7 +17,7 @@ export class UserReactions {
             },
         }})
     userId: string
-    @PrimaryColumn({ type: "text",
+    @Column({ type: "text",
         transformer: {
             from(value: string) {
                 return encryptionManager.decrypt(value);
@@ -24,5 +26,5 @@ export class UserReactions {
                 return encryptionManager.encrypt(value);
             },
         }})
-    reactionIndentifier: string
+    reactionIdentifier: string
 }

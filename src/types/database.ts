@@ -1,6 +1,38 @@
 import { ExtendedClientTypes } from "./client"
 import { CatCakeTypes, Regions } from "./command"
 
+export interface CachedBanshare {
+    banshareUid: string,
+    serverId: string,
+    userId: string
+}
+
+export interface CachedModmail {
+    modmailUid: string,
+    channelId: string,
+    userId: string,
+    active: boolean
+}
+
+export interface CachedStickerStatus {
+    stickerUid: string,
+    guildId: string,
+    status: boolean
+}
+
+export interface CachedMute {
+    muteUid: string,
+    userId: string,
+    staffId: string
+}
+
+export interface CachedReaction {
+    reactionUid: string,
+    messageUid: string,
+    userId: string,
+    reactionIdentifier: string
+}
+
 export interface CachedMessage {
     messageUid: string,
     userId: string,
@@ -8,7 +40,7 @@ export interface CachedMessage {
 }
 
 export interface CachedClient {
-    uid: string,
+    clientUid: string,
     clientId: string,
     type: ExtendedClientTypes
 }
@@ -49,6 +81,7 @@ export interface MessagesRecord {
 }
 
 export interface ModmailRecord {
+    modmailUid: string,
     userId: string,
     channelId: string,
     active: boolean

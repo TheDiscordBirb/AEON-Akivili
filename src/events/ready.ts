@@ -16,14 +16,17 @@ import cron from 'node-cron';
 import { NetworkJoinOptions } from "../types/command";
 import { clients } from "../structures/client";
 import { ErrorNames } from "../types/error-handler";
+import { metrics } from "../structures/metrics";
+import { TimeSpanMetricLabel } from "../types/metrics";
 
 const logger = new Logger('Ready');
 
 export default new Event("clientReady", async (client: Client) => {
+    const metricId = metrics.start(TimeSpanMetricLabel.START);
     const guilds = await client.guilds.fetch();
     const clientId = client.user?.id ?? "-";
     const broadcasts = await databaseManager.getBroadcasts();
-    await databaseManager.loadMessages();
+    await databaseManager.fillCache();
     const chatBroadcasts = broadcasts.filter((broadcast) => !config.nonChatWebhooksTypes.includes(broadcast.channelType));
     const otherBroadcasts = broadcasts.filter((broadcast) => config.nonChatWebhooksTypes.includes(broadcast.channelType));
     let guildCount = 0;
@@ -127,15 +130,12 @@ export default new Event("clientReady", async (client: Client) => {
         }
     }));
 
-    
     await statusUpdate();
     cron.schedule('*/5 * * * *', async () => {
         await statusUpdate();
     });
 
-    //cron.schedule('7 1 */2 * *', async () => {
-    //    await experimentalPatchWarning();
-    //})
+    metrics.stop(metricId, client.user?.id);
 });
 
 const botsReady = async () => {

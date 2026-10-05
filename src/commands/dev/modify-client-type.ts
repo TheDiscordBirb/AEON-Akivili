@@ -12,11 +12,18 @@ const logger = new Logger('ModifyClientCmd');
 
 export const modifyClientTypeChecks = async (options: RunOptions) => {
     if(!config.devIds.includes(options.interaction.user.id)) throw new Error(ErrorNames.NO_PERMISSIONS);
+
     const type = options.args.getString("type");
     if(!type) throw new Error(ErrorNames.NO_REQUIRED_FIELD);
+
     const clientUser = options.client.user;
     if(!clientUser) throw new Error(ErrorNames.NO_CLIENT_USER);
 
+    const cachedClients = await databaseManager.loadClientTypes();
+    const cachedClient = cachedClients.find((c) => c.clientId === clientUser.id);
+    if(!cachedClient) throw new Error(ErrorNames.NO_CLIENT_IN_CACHE);
+    if(cachedClient.type === ExtendedClientTypes.LIVE) throw new Error(ErrorNames.CAN_NOT_CHANGE_TYPE);
+    
     await modifyClientTypeCommand(options, clientUser.id, type as ExtendedClientTypes);
 }
 
@@ -36,22 +43,24 @@ export default new Command({
             required: true
         }],
     
-        run: async (options) => {
-            try {
-                await modifyClientTypeChecks(options);
-            } catch(e) {
-                await errorHandler.showError({
-                    error: e as Error,
-                    user: options.interaction.user,
-                    interactionType: InteractionTypes.MODIFY_CLIENT_TYPE
-                });
-                logger.error(`Got error during ${options.interaction.commandName} command.`, e as Error, options.client.user?.id);
-            }
+    run: async (options) => {
+        try {
+            await modifyClientTypeChecks(options);
+        } catch(e) {
+            await errorHandler.showError({
+                error: e as Error,
+                user: options.interaction.user,
+                interactionType: InteractionTypes.MODIFY_CLIENT_TYPE
+            });
+            logger.error(`Got error during ${options.interaction.commandName} command.`, e as Error, options.client.user?.id);
         }
-
+    }
 });
 
 export const modifyClientTypeCommand = async (options: RunOptions, clientId: string, type: ExtendedClientTypes) => {
     await databaseManager.modifyClientType(clientId, type);
-    await options.interaction.reply({ content: `${options.client.user?.displayName} has been set to ${type}`, flags: ['Ephemeral'] });
+    await options.interaction.reply({ 
+        content: `${options.client.user?.displayName} has been set to ${type.toUpperCase()}`,
+        flags: ['Ephemeral'] 
+    });
 }

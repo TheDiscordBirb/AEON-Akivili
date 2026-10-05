@@ -1,4 +1,5 @@
 export enum TimeSpanMetricLabel {
+    START = 'Start Up',
     CMD_BAN  = 'Ban Command',
     MESSAGE_CREATED = 'Message Created',
     CMD_REMOVE_REACTION = 'Remove Reaction Command',

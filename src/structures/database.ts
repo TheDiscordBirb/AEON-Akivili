@@ -3,8 +3,13 @@ import { DataSource } from 'typeorm';
 import { 
     BanshareListRecord, 
     BroadcastRecord, 
+    CachedBanshare, 
     CachedClient, 
     CachedMessage, 
+    CachedModmail, 
+    CachedMute, 
+    CachedReaction, 
+    CachedStickerStatus, 
     CatCakeRecord, 
     FilteredWordRecord, 
     MessagesRecord, 
@@ -20,7 +25,6 @@ import { Banshares } from './entities/banshares';
 import { CatCakeTypes } from '../types/command';
 import { config } from '../const';
 import { ErrorNames } from '../types/error-handler';
-import { Time } from '../utils/time';
 import { FilteredWords } from './entities/filtered-words';
 import { Regions } from '../types/command';
 import { CatCakes } from './entities/cat-cakes';
@@ -33,10 +37,14 @@ const logger = new Logger('Database');
 
 class DatabaseManager {
     protected _db: DataSource | null = null;
-    protected _networkServerStickerStatusCache: NetworkStickerStatus[] = [];
     protected _broadcastCache: BroadcastRecord[] = [];
+    protected _stickerCache: CachedStickerStatus[] = [];
     protected _messageCache: CachedMessage[] = [];
     protected _clientCache: CachedClient[] = [];
+    protected _reactionCache: CachedReaction[] = [];
+    protected _muteCache: CachedMute[] = [];
+    protected _banshareCache: CachedBanshare[] = [];
+    protected _modmailCache: CachedModmail[] = [];
 
     constructor() {
         this.connect();
@@ -50,7 +58,7 @@ class DatabaseManager {
             host: config.databaseHost,  
             port: config.databasePort,  
             database: config.databaseName,  
-            logging: true,
+            logging: false,
             schema: 'AkiDb',
             extensions: ["pgcrypto"],
             entities: [
@@ -83,9 +91,20 @@ class DatabaseManager {
         return this._db;
     }
 
+    public async fillCache(): Promise<void> {
+        const cachedMessages = await databaseManager.loadMessages();
+        logger.info(`Cached ${cachedMessages.length} messages.`);
+        const cachedReactions = await databaseManager.loadUserReactions();
+        logger.info(`Cached ${cachedReactions.length} reactions.`);
+        const cachedModmails = await databaseManager.loadActiveModmails();
+        logger.info(`Cached ${cachedModmails.length} modmails.`);
+        const cachedBanshares = await databaseManager.loadBanshares();
+        logger.info(`Cached ${cachedBanshares.length} banshares.`);
+    }
+
     public async disconnect(): Promise<void> {
         const db = await this.db();
-        db.destroy();
+        await db.destroy();
         this._db = null;
         logger.info('Database disconnected')
     }
@@ -167,7 +186,7 @@ class DatabaseManager {
         }
     }
 
-    public async loadMessages(): Promise<void> {
+    public async loadMessages(): Promise<CachedMessage[]> {
         const db = await this.db();
         const messages = await db.createQueryBuilder(Messages, 'messages')
             .select()
@@ -184,6 +203,7 @@ class DatabaseManager {
             }
         }));
         await this.cleanDb();
+        return this._messageCache;
     }
     
     public async getMessages(discordMessageId: string): Promise<MessagesRecord[]> {
@@ -282,36 +302,50 @@ class DatabaseManager {
         if(!message) throw new Error(ErrorNames.NO_MESSAGE_IN_DB);
         return message.userId;
     }
+
+    public async loadUserReactions(): Promise<CachedReaction[]> {
+        const db = await this.db();
+        this._reactionCache = await db.createQueryBuilder(UserReactions, "user_reactions")
+            .select()
+            .getMany();
+        return this._reactionCache;
+    }
     
     public async toggleUserReaction(userReactionRecord: UserReactionRecord, onlyDelete = false): Promise<void> {
         const db = await this.db();
-        const current = await this.hasUserReactedToMessage(userReactionRecord);
-        if(current) {
+        const cachedReaction = this._reactionCache.find((reaction) => 
+            reaction.messageUid === userReactionRecord.messageUid &&
+            reaction.userId === userReactionRecord.userId &&
+            reaction.reactionIdentifier === userReactionRecord.reactionIdentifier
+        );
+        if(cachedReaction) {
             if(!onlyDelete) return;
             await db.createQueryBuilder(UserReactions, "user_reactions")
                 .delete()
-                .where('"userId" = :userId AND "queMessageId" = :messageUid AND "reactionIdentifier" = :reactionIdentifier',
-                    { ...userReactionRecord }
+                .where('"reactionUid" = :reactionUid AND "messageUid" = :messageUid',
+                    { reactionUid: cachedReaction.reactionUid, messageUid: cachedReaction.messageUid }
                 )
                 .execute();
+            this._reactionCache.splice(this._reactionCache.indexOf(cachedReaction), 1);
         } else {
+            const reactionUid = ulid();
             await db.createQueryBuilder(UserReactions, "user_reactions")
                 .insert()
                 .values([{
-                    ...userReactionRecord
+                    ...userReactionRecord,
+                    reactionUid
                 }])
                 .execute();
+            this._reactionCache.push({ ...userReactionRecord, reactionUid });
         }
     }
 
     public async hasUserReactedToMessage(userReactionRecord: UserReactionRecord): Promise<boolean> {
-        const db = await this.db();
-        return !!await db.createQueryBuilder(UserReactions, "user_reactions")
-            .select()
-            .where('"userId" = :userId AND "messageUid" = :messageUid AND "reactionIdentifier" = :reactionIdentifier',
-                { ...userReactionRecord }
-            )
-            .getCount();
+        return !!this._reactionCache.find((cachedReaction) => 
+            cachedReaction.userId === userReactionRecord.userId &&
+            cachedReaction.messageUid === userReactionRecord.messageUid &&
+            cachedReaction.reactionIdentifier === userReactionRecord.reactionIdentifier
+        );
     }
 
     public async getReactionCountForMessage(messageUid: string): Promise<number> {
@@ -323,110 +357,117 @@ class DatabaseManager {
     }
 
     public async hasUserBeenMutedOnNetworkChat(userId: string): Promise<boolean> {
-        const db = await this.db();
-        return !!await db.createQueryBuilder(NetworkChatMutedUsers, "network_chat_muted_users")
-            .select()
-            .where('"userId" = :userId', { userId })
-            .getCount();
+        return !!this._muteCache.find((cachedMute) => cachedMute.userId === userId);
     }
 
     public async whoMutedUser(userId: string): Promise<string> {
-        const db = await this.db();
-        const entry = await db.createQueryBuilder(NetworkChatMutedUsers, "network_chat_muted_users")
-            .select()
-            .where('"userId" = :userId', { userId })
-            .getOne();
+        const entry = this._muteCache.find((cachedMute) => cachedMute.userId === userId);
         if(!entry) throw new Error(ErrorNames.NO_MUTE_INFO);
         return entry.staffId;
     }
 
     public async toggleNetworkChatMute(userId: string, staffId: string): Promise<void> {
         const db = await this.db();
-        const current = await db.createQueryBuilder(NetworkChatMutedUsers, "network_chat_muted_users")
-            .select()
-            .where('"userId" = :userId', { userId })
-            .getCount();
+        const current = this._muteCache.find((cachedMute) => cachedMute.userId === userId);
         if(current) {
             await db.createQueryBuilder(NetworkChatMutedUsers, "network_chat_muted_users")
                 .delete()
-                .where('"userId" = :userId', { userId })
+                .where('"muteUid" = :muteUid', { muteUid: current.muteUid })
                 .execute();
+            this._muteCache.splice(this._muteCache.indexOf(current), 1);
         } else {
+            const muteUid = ulid();
             await db.createQueryBuilder(NetworkChatMutedUsers, "network_chat_muted_users")
                 .insert()
-                .values([{ userId, staffId }])
+                .values([{ muteUid, userId, staffId }])
                 .execute();
+            this._muteCache.push({ muteUid, userId, staffId });
         }
     }
 
-    public async getModmail(channelId: string): Promise<ModmailRecord> {
+    public async loadActiveModmails(): Promise<ModmailRecord[]> {
         const db = await this.db();
-        const result = await db.createQueryBuilder(Modmails, "modmails")
+        if(this._modmailCache.length) return this._modmailCache;
+        return await db.createQueryBuilder(Modmails, "modmails")
             .select()
-            .where('"channelId" = :channelId', { channelId })
-            .getOne();
-        if(!result) throw new Error(ErrorNames.NO_MODMAIL_IN_DB);
+            .where('"active" = true')
+            .getMany();
+    }
+
+    public getModmail(channelId: string): ModmailRecord {
+        let result = this._modmailCache.find((cachedModmail) => cachedModmail.channelId === channelId);
+        if(!result) throw new Error(ErrorNames.NO_MODMAIL_IN_CACHE);
         return result;
     }
 
-    public async getModmailByUserId(userId: string): Promise<ModmailRecord | null> {
-        const db = await this.db();
-
-        return await db.createQueryBuilder(Modmails, "modmails")
-            .select()
-            .where('"userId" = :userId', { userId })
-            .getOne();
+    public async getModmailByUserId(userId: string): Promise<ModmailRecord | undefined> {
+        let result = this._modmailCache.find((cachedModmail) => cachedModmail.userId === userId);
+        return result;
     }
     
     public async createModmail(userId: string, channelId: string): Promise<void> {
         const db = await this.db();
+        const modmailUid = ulid();
 
         await db.createQueryBuilder(Modmails, "modmails")
             .insert()
-            .values([{ userId, channelId, active: true }])
+            .values([{ modmailUid, userId, channelId, active: true }])
             .execute();
+        this._modmailCache.push({ modmailUid, userId, channelId, active: true });
     }
-
     
     public async closeModmail(channelId: string) {
         const db = await this.db();
-        let modmail = await this.getModmail(channelId);
+        const modmail = this.getModmail(channelId);
         await db.createQueryBuilder(Modmails, "modmails")
             .update()
-            .where('"userId" = :userId AND "channelId" = :channelId AND "active" = true', 
-                { userId: modmail.userId, channelId: modmail.channelId}
+            .where('"modmailUid" = :modmailUid AND "active" = true', 
+                { modmailUid: modmail.modmailUid}
             )
             .set({ active: false })
             .execute();
+        this._modmailCache.splice(this._modmailCache.indexOf(modmail), 1)
+    }
+
+    public async loadBanshares(): Promise<CachedBanshare[]> {
+        if(this._banshareCache.length) return this._banshareCache;
+        const db = await this.db();
+        return await db.createQueryBuilder(Banshares, "banshares")
+            .select()
+            .getMany();
     }
 
     public async getBanshareList(serverId: string): Promise<BanshareListRecord[]> {
         const db = await this.db();
-
-       return await db.createQueryBuilder(Banshares, "banshares")
+        const banshareUids = this._banshareCache.reduce<string[]>(((acc, item) => {
+            if(item.serverId === serverId) {
+                acc.push(item.banshareUid);
+            }
+            return acc;
+        }), []);
+        return await db.createQueryBuilder(Banshares, "banshares")
             .select()
-            .where('"serverId" = :serverId', { serverId })
+            .where('"banshareUid" IN (:...banshareUids)', { banshareUids })
             .getMany();
     }
 
-    public async registerBanshare(banshareListRecord: BanshareListRecord) {
+    public async registerBanshare(banshareListRecord: BanshareListRecord): Promise<void> {
         const db = await this.db();
+        const banshareUid = ulid();
         await db.createQueryBuilder(Banshares, "banshares")
             .insert()
-            .values([{ ...banshareListRecord }])
+            .values([{ ...banshareListRecord, banshareUid }])
             .execute();
+        this._banshareCache.push({ ...banshareListRecord, banshareUid });
     }
 
     public async updateBanshareStatus(serverId: string, userId: string, status: string): Promise<void> {
         const db = await this.db();
-        const banshare = await db.createQueryBuilder(Banshares, "banshares")
-            .select()
-            .where('"serverId" = :serverId AND "userId" = :userId', { serverId, userId })
-            .getOne();
-        if(!banshare) throw new Error(ErrorNames.NO_MODMAIL_IN_DB);
+        const cachedBanshare = this._banshareCache.find((banshare) => banshare.serverId === serverId && banshare.userId === userId);
+        if(!cachedBanshare) throw new Error(ErrorNames.NO_BANSHARE_IN_CACHE);
         await db.createQueryBuilder(Banshares, "banshares")
             .update()
-            .where('"serverId" = :serverId AND "userId" = :userId', { serverId, userId })
+            .where('"banshareUid" = :banshareUid', { banshareUid: cachedBanshare.banshareUid })
             .set({ status })
             .execute();
     }
@@ -438,7 +479,6 @@ class DatabaseManager {
             .getMany();
     }
 
-
     public async addToFilteredWords(word: string): Promise<void> {
         const db = await this.db();    
         if((await this.getFilteredWords()).includes({ word })) return;
@@ -448,7 +488,6 @@ class DatabaseManager {
             .execute();
     }
 
-    
     public async insertIntoCatCakes(catCakeRecord: CatCakeRecord):Promise<void> {
         const db = await this.db();
         await db.createQueryBuilder(CatCakes, "cat_cakes")
@@ -478,7 +517,7 @@ class DatabaseManager {
     }
 
     public async getAllServerStickerStatus(): Promise<NetworkStickerStatus[]> {
-        if(this._networkServerStickerStatusCache.length) return this._networkServerStickerStatusCache;
+        if(this._stickerCache.length) return this._stickerCache;
         const db = await this.db();
         return await db.createQueryBuilder(NetworkStickerStatus, "network_sticker_status")
             .select()
@@ -496,12 +535,13 @@ class DatabaseManager {
         const statusInDb = await this.getServerStickerStatus(guildId);
         if(statusInDb) throw new Error(ErrorNames.DB_ENTRY_ALREADY_EXISTS);
         const db = await this.db();
+        const stickerUid = ulid();
 
         await db.createQueryBuilder(NetworkStickerStatus, "network_sticker_status")
             .insert()
-            .values([{ guildId, status }])
+            .values([{ stickerUid, guildId, status }])
             .execute();
-        this._networkServerStickerStatusCache.push({ guildId, status });
+        this._stickerCache.push({ stickerUid, guildId, status });
         logger.info(`${status ? "Enabled" : "Disabled"} stickers from ${guildId}`, clientId);
     }
 
@@ -509,17 +549,19 @@ class DatabaseManager {
         const statusInDb = await this.getServerStickerStatus(guildId);
         if(!statusInDb) throw new Error(ErrorNames.NO_DB_ENTRY);
         if(statusInDb === status) throw new Error(ErrorNames.DID_NOT_MODIFY_DB_DATA);
+        const cachedSticker = this._stickerCache.find((stickerStatus) => stickerStatus.guildId === guildId);
+        if(!cachedSticker) throw new Error(ErrorNames.NO_STICKER_STATUS_IN_CACHE);
         const db = await this.db();
 
         await db.createQueryBuilder(NetworkStickerStatus, "network_sticker_status")
             .update()
-            .where('"guildId" = :guildId', { guildId })
-            .set({ guildId, status })
+            .where('"stickerUid" = :stickerUid', { stickerUid: cachedSticker.stickerUid })
+            .set({ ...cachedSticker, status })
             .execute();
-        this._networkServerStickerStatusCache.splice(
-            this._networkServerStickerStatusCache.indexOf({ guildId, status: !status }),
+        this._stickerCache.splice(
+            this._stickerCache.indexOf({ ...cachedSticker }),
             1,
-            { guildId, status }
+            { ...cachedSticker, status }
         )
         logger.info(`${status ? "Enabled" : "Disabled"} stickers from ${guildId}`, clientId);
     }
@@ -536,17 +578,17 @@ class DatabaseManager {
 
     public async saveClient(clientId: string) {
         const db = await this.db();
-        const uid = ulid();
+        const clientUid = ulid();
         await db.createQueryBuilder(Clients, "clients")
             .insert()
             .into(Clients)
             .values([{
-                uid,
+                clientUid,
                 clientId,
                 type: ExtendedClientTypes.ALPHA
             }])
             .execute();
-        this._clientCache.push({ uid, clientId, type: ExtendedClientTypes.ALPHA });
+        this._clientCache.push({ clientUid, clientId, type: ExtendedClientTypes.ALPHA });
     }
 
     public async modifyClientType(clientId: string, type: ExtendedClientTypes) {
@@ -555,8 +597,8 @@ class DatabaseManager {
         if(!cachedClient) throw new Error(ErrorNames.NO_CLIENT_IN_CACHE);
         await db.createQueryBuilder(Clients, "clients")
             .update()
-            .where('"uid" = :uid', 
-                { uid: cachedClient.uid }
+            .where('"clientUid" = :clientUid', 
+                { clientUid: cachedClient.clientUid }
             )
             .set({ type })
             .execute();

@@ -21,7 +21,7 @@ import { PermissionLevels } from "../../types/permission-handler";
 import { RunOptions } from "../../types/command";
 import { errorHandler } from "../../structures/error-handler";
 import { ErrorNames, InteractionTypes } from "../../types/error-handler";
-import { whoIs } from "../../utils/client-checks";
+import { clients } from "../../structures/client";
 
 const logger = new Logger('DeleteMessageCmd');
 
@@ -116,8 +116,9 @@ export const deleteMessageCommand = async (
     await Promise.allSettled(matchingBroadcastRecords.map(async (broadcastRecord) => {
         const networkMessageRecord = relatedMessageRecords.find((relatedMessage) => relatedMessage.channelId === broadcastRecord.channelId);
         if (!networkMessageRecord) throw new Error(ErrorNames.NO_MESSAGE);
-        const correctClient = await whoIs(networkMessageRecord.guildId);
-        const networkChannel = correctClient.channels.cache.find((clientChannel) => clientChannel.id === broadcastRecord.channelId);
+        const client = clients.find((c) => c.user?.id === broadcastRecord.serviceClientId);
+        if(!client) throw new Error(ErrorNames.NO_CLIENT_IN_CACHE);
+        const networkChannel = client.channels.cache.find((clientChannel) => clientChannel.id === broadcastRecord.channelId);
         if (!networkChannel) throw new Error(ErrorNames.NO_CHANNEL);
         const guildNetworkChannel = networkChannel as GuildTextBasedChannel;
         const networkMessage = guildNetworkChannel.messages.cache.find((guildMessage) => guildMessage.id === networkMessageRecord.discordMessageId);

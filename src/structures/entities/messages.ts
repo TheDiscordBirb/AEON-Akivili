@@ -3,7 +3,7 @@ import { encryptionManager } from "../../utils/data-encryption";
 
 @Entity()
 export class Messages {
-    @PrimaryColumn({ type: "text",
+    @Column({ type: "text",
         transformer: {
             from(value: string) {
                 return encryptionManager.decrypt(value);

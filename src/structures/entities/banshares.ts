@@ -3,6 +3,8 @@ import { encryptionManager } from "../../utils/data-encryption";
 
 @Entity()
 export class Banshares {
+    @PrimaryColumn({ type: "text" })
+    banshareUid: string
     @PrimaryColumn({ type: "text",
         transformer: {
             from(value: string) {
@@ -23,7 +25,7 @@ export class Banshares {
             },
         }})
     status: string
-    @PrimaryColumn({ type: "text",
+    @Column({ type: "text",
         transformer: {
             from(value: string) {
                 return encryptionManager.decrypt(value);
@@ -33,7 +35,7 @@ export class Banshares {
             },
         }})
     userId: string
-    @PrimaryColumn({ type: "text",
+    @Column({ type: "text",
         transformer: {
             from(value: string) {
                 return encryptionManager.decrypt(value);
@@ -43,7 +45,7 @@ export class Banshares {
             },
         }})
     reason: string
-    @PrimaryColumn({ type: "text",
+    @Column({ type: "text",
         transformer: {
             from(value: string) {
                 return encryptionManager.decrypt(value);
@@ -53,7 +55,7 @@ export class Banshares {
             },
         }})
     proof: string
-    @PrimaryColumn({ type: "text",
+    @Column({ type: "text",
         transformer: {
             from(value: string) {
                 return Number(encryptionManager.decrypt(value));

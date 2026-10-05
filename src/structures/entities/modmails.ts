@@ -3,6 +3,8 @@ import { encryptionManager } from "../../utils/data-encryption";
 
 @Entity()
 export class Modmails {
+    @PrimaryColumn({ type: "text" })
+    modmailUid: string
     @Column({ type: "text",
         transformer: {
             from(value: string) {
@@ -13,7 +15,7 @@ export class Modmails {
             },
         }})
     userId: string
-    @PrimaryColumn({ type: "text",
+    @Column({ type: "text",
         transformer: {
             from(value: string) {
                 return encryptionManager.decrypt(value);

@@ -13,8 +13,6 @@ import { deleteEmojis, replaceEmojis } from "../utils/emoji";
 import { rebuildMessageComponentAfterUserInteraction } from "../utils/rebuild-comps"
 import { MessagesRecord } from "../types/database";
 import { EmojiReplacementData } from "../types/event";
-import { ExtendedClient } from "../structures/client";
-import { whoIs } from "../utils/client-checks";
 
 const logger = new Logger("ReactionCreated");
 
@@ -22,14 +20,6 @@ const logger = new Logger("ReactionCreated");
 export default new Event("messageReactionAdd", async (interaction, user) => {
     if(config.botStarting) return;
     if (user.bot) return;
-
-    let client: ExtendedClient;
-    try {
-        client = await whoIs(interaction.message.guildId);
-    } catch(e) {
-        logger.error((e as Error).message, e as Error);
-        return;
-    }
     
     const channel = interaction.message.channel as BaseGuildTextChannel;
     if (channel.type !== ChannelType.GuildText) return;
@@ -77,7 +67,7 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
     let messageContent = interaction.message.content;
     let emojiReplacement : EmojiReplacementData | undefined;
     if(messageContent) {
-        emojiReplacement = await replaceEmojis(messageContent, client);
+        emojiReplacement = await replaceEmojis(messageContent, interaction.client);
     }
 
     await Promise.allSettled(matchingBroadcastRecords.map(async (broadcastRecord) => {

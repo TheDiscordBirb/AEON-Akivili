@@ -5,7 +5,7 @@ import { ExtendedClientTypes } from "../../types/client";
 @Entity()
 export class Clients {
     @PrimaryColumn({ type: "text" })
-    uid: string
+    clientUid: string
     @Column({ type: "text",
         transformer: {
             from(value: string) {

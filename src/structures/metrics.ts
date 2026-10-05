@@ -93,7 +93,7 @@ class Metrics {
         return id;
     }
 
-    public stop(id: string): void {
+    public stop(id: string, clientId?: string): void {
         const activeMetric = this.activeTimeSpanMetrics[id];
         if (!activeMetric) {
             logger.warn(`Could not find metric to stop. Id: ${id}`);
@@ -103,7 +103,7 @@ class Metrics {
             end: Date.now(),
         };
 
-        logger.debug(`Metric ended. Label: ${finishedMetric.label} execution time. Value: ${finishedMetric.end - finishedMetric.start}ms`);
+        logger.debug(`Metric ended. Label: ${finishedMetric.label} execution time. Value: ${finishedMetric.end - finishedMetric.start}ms`, clientId);
 
         const specificMetric = this.timeSpanValues[activeMetric.label];
         

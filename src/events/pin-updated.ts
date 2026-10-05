@@ -3,8 +3,8 @@ import { Event } from "../structures/event";
 import { Logger } from "../logger";
 import { databaseManager } from "../structures/database";
 import { config } from "../const";
-import { clients, ExtendedClient } from "../structures/client";
-import { whoIs } from "../utils/client-checks";
+import { clients } from "../structures/client";
+import { ErrorNames } from "../types/error-handler";
 const logger = new Logger(`PinEvent`);
 
 // TODO: rework, test
@@ -19,13 +19,9 @@ export default new Event("messageUpdate", async (oldMessage, newMessage) => {
     const message = channel.messages.cache.get(newMessage.id);
     if (!message) return;
     
-    let client: ExtendedClient;
-    try {
-        client = await whoIs(newMessage.guildId);
-    } catch(e) {
-        logger.error((e as Error).message, e as Error);
-        return;
-    }
+    
+    const client = clients.find((c) => c.channels.cache.has(channel.id));
+    if(!client) throw new Error(ErrorNames.NO_CLIENT_IN_CACHE);
 
     const broadcastRecords = await databaseManager.getBroadcasts();
     if (!broadcastRecords.find((broadcastRecord) => broadcastRecord.channelId === newMessage.channel.id)) return;

@@ -3,7 +3,9 @@ import { encryptionManager } from "../../utils/data-encryption";
 
 @Entity()
 export class NetworkStickerStatus {
-    @PrimaryColumn({ type: "text",
+    @PrimaryColumn({ type: "text" })
+    stickerUid: string
+    @Column({ type: "text",
         transformer: {
             from(value: string) {
                 return encryptionManager.decrypt(value);
