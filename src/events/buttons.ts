@@ -20,15 +20,13 @@ import { Event } from "../structures/event";
 import { deleteEmojis, replaceEmojis } from "../utils/emoji";
 import { rebuildMessageComponentAfterUserInteraction } from "../utils/rebuild-comps"
 import { Logger } from "../logger";
-import { BanShareButtonArg, BanshareStatus, DmMessageButtonArg } from "../types/event";
+import { BanShareButtonArg, BanshareStatus } from "../types/event";
 import { config } from "../const";
 import { databaseManager } from "../structures/database";
 import { ChannelType } from "discord.js";
 import { MessagesRecord } from "../types/database";
-import { modmailHandler } from "../functions/modmail";
 import { permissionHandler } from "../functions/permission-handler";
 import { clients } from "../structures/client";
-import { ErrorNames } from "../types/error-handler";
 
 const logger = new Logger("Buttons");
 
@@ -56,24 +54,11 @@ export default new Event("interactionCreate", async (interaction) => {
     const buttonCustomId = buttonComponent.customId;
     if (!buttonCustomId) {
         logger.warn("Could not get button custom id.");
-        await errorButtonFunction(interaction);
+        //await errorButtonFunction(interaction);
         return;
     }
     if (!interaction.channel) {
         logger.wtf("No button interaction channel.")
-        return;
-    }
-
-    if (interaction.channel.type === ChannelType.DM) {
-        await dmButtonFunction(interaction);
-        return;
-    }
-
-    let guildMember
-    try {
-        guildMember = await checkForGuildMember(interaction);
-    } catch (error) {
-        logger.error("Error:", (error as Error));
         return;
     }
 
@@ -85,71 +70,11 @@ export default new Event("interactionCreate", async (interaction) => {
         return;
     }
 
-    await moderationButtonFunction(client, interaction, guildMember);
+    //await moderationButtonFunction(client, interaction, guildMember);
 })
 
-export const errorButtonFunction = async (interaction: ButtonInteraction<CacheType>): Promise<void> => {
-    logger.warn(`Error button function executed, message server: ${interaction.message.guild} | channel: ${interaction.message.channel}`);
-    const errorButton = new ButtonBuilder()
-        .setCustomId("Error")
-        .setDisabled(true)
-        .setLabel("Error")
-        .setStyle(ButtonStyle.Danger);
-    const errorRow = new ActionRowBuilder<ButtonBuilder>()
-        .addComponents(errorButton);
-    
-    interaction.message.edit({ components: [errorRow] });
-    return;
-}
-
-const dmButtonFunction = async (interaction: ButtonInteraction<CacheType>): Promise<void> => {
-    const customIdArgs = interaction.customId.split(' ');
-    const command = customIdArgs.shift();
-
-    switch (command) {
-        // Dm banshare buttons
-        case DmMessageButtonArg.NEW_BANSHARE: 
-            await banshareManager.dmBanshareFunction(customIdArgs[0], undefined, interaction);
-            break;
-
-        // Dm modmail buttons
-        case DmMessageButtonArg.OPEN_MODMAIL: {
-            await modmailHandler.startModmail(interaction);
-            const message = interaction.channel?.messages.cache.get(customIdArgs[1]);
-            if(!message) {
-                logger.warn("Could not find first message.");
-                return;
-            }
-            await modmailHandler.forwardModmailMessage(message);
-            break;
-        }
-
-        case DmMessageButtonArg.CLOSE_MODMAIL: {
-            const modmail = await databaseManager.getModmailByUserId(interaction.user.id);
-            if(!modmail) throw new Error(ErrorNames.NO_MODMAIL_IN_DB);
-            await modmailHandler.closeModmail(modmail.channelId);
-            break;
-        }
-    }
-}
-
-const checkForGuildMember = async (interaction: ButtonInteraction<CacheType>): Promise<GuildMember> => {
-    const interactionMember = interaction.member;
-    if (interactionMember ? interactionMember as GuildMember : undefined) {
-        return interactionMember as GuildMember;
-    }
-    throw new Error("Could not get guild member from button press.");
-}
-
 const emojiButtonFunction = async (client: Client, interaction: ButtonInteraction<CacheType>): Promise<void> => {
-    let uniqueMessageId: string;
-    try {
-        uniqueMessageId = await databaseManager.getMessageUid(interaction.message.id);
-    } catch (error) {
-        logger.error(`Could not get messages. Error: `, error as Error);
-        return;
-    }
-    
+    const uniqueMessageId = databaseManager.getMessageUid(interaction.message.id);
     const userId = interaction.user.id;
     const reactionIdentifier = (interaction.component as ButtonComponent).customId;
     if (!uniqueMessageId) {
@@ -237,7 +162,7 @@ const moderationButtonFunction = async (client: Client | undefined, interaction:
     if(!client) return;
     const permissionCheck = await permissionHandler.checkForPermission(
         guildMember.user,
-        {local: true, onlyLocal: true},
+        { local: true, onlyLocal: true },
         guildMember.guild,
         [PermissionFlagsBits.BanMembers]);
         
@@ -255,12 +180,6 @@ const moderationButtonFunction = async (client: Client | undefined, interaction:
     const command = customIdArgs.shift();
 
     switch (command) {
-        //Modmail
-        case DmMessageButtonArg.CLOSE_MODMAIL: {
-            const modmail = await databaseManager.getModmail(interaction.channelId);
-            await modmailHandler.closeModmail(modmail.channelId);
-        }
-
         //Banshare
 
         //Main server
@@ -272,7 +191,7 @@ const moderationButtonFunction = async (client: Client | undefined, interaction:
             const userId = customIdArgs[0];
 
             if (!interaction.message.embeds[0].description) {
-                await errorButtonFunction(interaction);
+                //await errorButtonFunction(interaction);
                 return;
             }
             const proofStartIndex = interaction.message.embeds[0].description?.indexOf("Proof");
@@ -315,7 +234,7 @@ const moderationButtonFunction = async (client: Client | undefined, interaction:
 
             const reason = interaction.message.embeds[0].description;
             if (!reason) {
-                await errorButtonFunction(interaction);
+                //await errorButtonFunction(interaction);
                 return;
             }
 

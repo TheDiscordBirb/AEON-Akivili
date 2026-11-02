@@ -78,7 +78,7 @@ export const removeReactionCommand = async (options: RunOptions, message: Messag
         }
     )).fetch();
 
-    interactionReply.createMessageComponentCollector({ time: Time.seconds(2) })
+    interactionReply.createMessageComponentCollector()
         .on('collect', (buttonInteraction) => {
 
         })

@@ -55,6 +55,7 @@ export type DatabaseTypes = BroadcastRecord |
     CatCakeRecord
 
 export interface BroadcastRecord {
+    broadcastUid: string,
     channelId: string,
     channelType: string,
     guildId: string,

@@ -18,6 +18,7 @@ import { clients } from "../structures/client";
 import { ErrorNames } from "../types/error-handler";
 import { metrics } from "../structures/metrics";
 import { TimeSpanMetricLabel } from "../types/metrics";
+import { getQueuedBanshares } from "../utils/website-message-puller";
 
 const logger = new Logger('Ready');
 
@@ -98,7 +99,9 @@ export default new Event("clientReady", async (client: Client) => {
                 networkServer = true;
                 textWebhooks.push(webhook);
                 const timeStart = Date.now();
-                const loadedMessages = await (aeonChannel as GuildTextBasedChannel).messages.fetch({ limit: config.numberOfMessagesToLoad });
+                const loadedMessages = await (aeonChannel as GuildTextBasedChannel).messages.fetch({
+                    limit: (config.numberOfMessagesToLoad > 100) ? 100 : config.numberOfMessagesToLoad
+                });
                 logger.info(`Fetched the last ${loadedMessages.size} messages from ${aeonChannel.name} in ${Date.now() - timeStart}ms`, clientId);
             }
             catch (error) {
@@ -134,6 +137,12 @@ export default new Event("clientReady", async (client: Client) => {
     cron.schedule('*/5 * * * *', async () => {
         await statusUpdate();
     });
+
+    if(!config.botStarting) {
+        cron.schedule('* * * * *', async () => {
+            await getQueuedBanshares();
+        });
+    }
 
     metrics.stop(metricId, client.user?.id);
 });

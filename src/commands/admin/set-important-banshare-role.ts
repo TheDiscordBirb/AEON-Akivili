@@ -78,7 +78,7 @@ export const setImportantBanshareRoleCommand = async (
     role: Role | APIRole | null,
     broadcastToEdit: BroadcastRecord
 ) => {
-    await databaseManager.saveBroadcast({ ...broadcastToEdit, importantBanshareRoleId: (role ? role.id : '') });
+    await databaseManager.updateBroadcast({ ...broadcastToEdit, importantBanshareRoleId: (role ? role.id : '') });
     await options.interaction.reply({
         content: `Your important banshare ping role has been ${role ? `set to ${role}` : `removed`}`,
         allowedMentions: { parse: [] } 

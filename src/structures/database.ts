@@ -32,11 +32,13 @@ import { NetworkStickerStatus } from './entities/network-sticker-status';
 import { Clients } from './entities/clients';
 import { ExtendedClientTypes } from '../types/client';
 import { ulid } from 'ulid';
+import { Webhook } from 'discord.js';
 
 const logger = new Logger('Database');
 
 class DatabaseManager {
     protected _db: DataSource | null = null;
+    protected cacheReady = false;
     protected _broadcastCache: BroadcastRecord[] = [];
     protected _stickerCache: CachedStickerStatus[] = [];
     protected _messageCache: CachedMessage[] = [];
@@ -76,7 +78,7 @@ class DatabaseManager {
         });
         await this._db.initialize();
         await this._db.synchronize();
-        logger.info(`Database connected.`);
+        logger.info(`Database connected.`, "GLOBAL");
         
         // Ensures previously disabled servers stay disabled
         await Promise.allSettled(config.disabledStickerNetworkServerIds.map(async (guildId) => {
@@ -92,21 +94,23 @@ class DatabaseManager {
     }
 
     public async fillCache(): Promise<void> {
+        if(this.cacheReady) return;
         const cachedMessages = await databaseManager.loadMessages();
-        logger.info(`Cached ${cachedMessages.length} messages.`);
+        logger.info(`Cached ${cachedMessages.length} messages.`, "GLOBAL");
         const cachedReactions = await databaseManager.loadUserReactions();
-        logger.info(`Cached ${cachedReactions.length} reactions.`);
+        logger.info(`Cached ${cachedReactions.length} reactions.`, "GLOBAL");
         const cachedModmails = await databaseManager.loadActiveModmails();
-        logger.info(`Cached ${cachedModmails.length} modmails.`);
+        logger.info(`Cached ${cachedModmails.length} modmails.`, "GLOBAL");
         const cachedBanshares = await databaseManager.loadBanshares();
-        logger.info(`Cached ${cachedBanshares.length} banshares.`);
+        logger.info(`Cached ${cachedBanshares.length} banshares.`, "GLOBAL");
+        this.cacheReady = true;
     }
 
     public async disconnect(): Promise<void> {
         const db = await this.db();
         await db.destroy();
         this._db = null;
-        logger.info('Database disconnected')
+        logger.info('Database disconnected', "GLOBAL")
     }
 
     public async db(): Promise<DataSource> {
@@ -115,7 +119,7 @@ class DatabaseManager {
         return this._db;
     }
     
-    public async saveBroadcast(broadcastRecord: BroadcastRecord): Promise<void> {
+    public async saveBroadcast(broadcastRecord: BroadcastRecord, webhook: Webhook): Promise<void> {
         const db = await this.db();
         if (!this._broadcastCache) {
             this._broadcastCache = await this.getBroadcasts();
@@ -129,6 +133,11 @@ class DatabaseManager {
                 ...broadcastRecord
             }])
             .execute();
+        config.activeWebhooks.push(webhook);
+    }
+
+    public async updateBroadcast(broadcastRecord: BroadcastRecord): Promise<void> {
+
     }
 
     public async getBroadcasts(): Promise<BroadcastRecord[]> {
@@ -153,15 +162,22 @@ class DatabaseManager {
 
     public async deleteBroadcastByWebhookId(webhookId: string): Promise<void> {
         const db = await this.db();
+        const broadcasts = await this.getBroadcasts();
+        const broadcast = broadcasts.find((broadcast) => broadcast.webhookId === webhookId);
+        if(!broadcast) throw new Error(ErrorNames.NO_BROADCAST_IN_CACHE);
         await db.createQueryBuilder(Broadcasts, "broadcasts")
             .delete()
-            .where('"webhookId" = :webhookId', { webhookId })
+            .where('"broadcastUid" = :broadcastUid', { broadcastUid: broadcast?.broadcastUid })
             .execute();
 
         const idx = this._broadcastCache.findIndex((cacheElement) => cacheElement.webhookId === webhookId);
         if (idx !== -1) {
             this._broadcastCache.splice(idx, 1);
         }
+        config.activeWebhooks.splice(
+            config.activeWebhooks.findIndex((activeWebhook) => activeWebhook.id === broadcast.webhookId),
+            1
+        )
     }
 
     public async logMessage(messagesRecord: MessagesRecord): Promise<void> {
@@ -279,6 +295,10 @@ class DatabaseManager {
             }
             return acc;
         }, []);
+        if(!cachedUids.length) {
+            logger.info(`Db was already empty.`, "GLOBAL");
+            return;
+        }
         await db.createQueryBuilder(Messages, "messages")
             .delete()
             .where('"messageUid" NOT IN (:...messageUids)', { messageUids: cachedUids })
@@ -287,7 +307,7 @@ class DatabaseManager {
             .delete()
             .where('"messageUid" NOT IN (:...messageUids)', { messageUids: cachedUids })
             .execute();
-        logger.info('Db was cleared.');
+        logger.info('Db was cleared.', "GLOBAL");
     }
     
     public async getUserId(discordMessageId: string): Promise<string> {
@@ -304,6 +324,7 @@ class DatabaseManager {
     }
 
     public async loadUserReactions(): Promise<CachedReaction[]> {
+        if(this._reactionCache.length) return this._reactionCache;
         const db = await this.db();
         this._reactionCache = await db.createQueryBuilder(UserReactions, "user_reactions")
             .select()
@@ -445,6 +466,7 @@ class DatabaseManager {
             }
             return acc;
         }), []);
+        if(!banshareUids.length) return [];
         return await db.createQueryBuilder(Banshares, "banshares")
             .select()
             .where('"banshareUid" IN (:...banshareUids)', { banshareUids })
@@ -524,10 +546,10 @@ class DatabaseManager {
             .getMany();
     }
 
-    public async getServerStickerStatus(serverId: string): Promise<boolean> {
+    public async getServerStickerStatus(serverId: string): Promise<boolean | null> {
         const allServerStickerStatus = await this.getAllServerStickerStatus();
         const serverStickerStatus = allServerStickerStatus.find((guild) => guild.guildId === serverId)?.status;
-        if(serverStickerStatus === undefined) throw new Error(ErrorNames.NO_DB_ENTRY);
+        if(serverStickerStatus === undefined) return null;
         return serverStickerStatus;
     }
 
@@ -542,7 +564,7 @@ class DatabaseManager {
             .values([{ stickerUid, guildId, status }])
             .execute();
         this._stickerCache.push({ stickerUid, guildId, status });
-        logger.info(`${status ? "Enabled" : "Disabled"} stickers from ${guildId}`, clientId);
+        logger.info(`${status ? "Enabled" : "Disabled"} stickers from ${guildId}`, "GLOBAL");
     }
 
     public async modifyServerStickerStatus(guildId: string, status: boolean, clientId?: string): Promise<void> {

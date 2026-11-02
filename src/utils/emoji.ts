@@ -1,13 +1,14 @@
-import { Client, GuildEmoji, } from 'discord.js';
-import { EmojiReplacementData, guildEmojiCooldowns } from '../types/event';
+import { Client, ApplicationEmoji } from 'discord.js';
+import { EmojiReplacementData } from '../types/event';
 import { Logger } from '../logger';
 import axios from 'axios';
 import { config } from '../const';
 import { cacheManager } from '../structures/memcache';
 import { ParsedEmoji } from '../types/utils';
-import { Time } from './time';
 import { makeUid } from './misc';
 import { clients } from '../structures/client';
+import { ExtendedClientTypes } from '../types/client';
+import { ErrorNames } from '../types/error-handler'
 
 const logger = new Logger("emojiUtils");
 
@@ -35,43 +36,11 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
         currentEmojiCapture = emoteCapture.exec(content);
     };
     
-    const emojis: GuildEmoji[] = [];
-    guildEmojiCooldowns.forEach((guildEmojiCooldown, cooldownsIdx) => {
-        if (guildEmojiCooldowns.length === 0) return;
-        guildEmojiCooldown.cooldowns.forEach((cooldown, cooldownIdx) => {
-            if (!guildEmojiCooldown.serverId) return;
-            const cooldownInt = parseInt(cooldown);
-            if (isNaN(cooldownInt)) {
-                logger.warn(`Got a NaN instead of Int: ${cooldown}`);
-                guildEmojiCooldown.cooldowns.splice(cooldownIdx, 1);
-                return;
-            }
-            if (Date.now() >= cooldownIdx) {
-                guildEmojiCooldown.cooldowns.splice(cooldownIdx, 1);
-                return;
-            }
-        });
-        if (guildEmojiCooldown.cooldowns.length <= 1) {
-            guildEmojiCooldowns.splice(cooldownsIdx);
-            return;
-        }
-    });
+    const emojis: ApplicationEmoji[] = [];
   
     await Promise.allSettled(allParsedEmojis.map(async (emoji) => {
+        if(!client.application) throw new Error(ErrorNames.NO_CLIENT_APPLICATION);
         if (client.emojis.cache.get(emoji.id)) {
-            return;
-        }
-            
-        if (guildEmojiCooldowns.length === 0 || guildEmojiCooldowns[guildEmojiCooldowns.length - 1].cooldowns.length >= config.maxEmojiPerServer + 1) {
-            if (guildEmojiCooldowns.length >= config.emojiServerIds.length) {
-                return;
-            }
-            guildEmojiCooldowns.push({serverId: config.emojiServerIds[guildEmojiCooldowns.length ? guildEmojiCooldowns.length - 1 : 0], cooldowns: []});
-        } 
-
-        const guildId = guildEmojiCooldowns[guildEmojiCooldowns.length - 1].serverId;
-        const guild = client.guilds.cache.get(guildId);
-        if (!guild) {
             return;
         }
 
@@ -105,8 +74,7 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
         } else {
             emojiName = emoji.name + emojiUid;
         }
-        await guild.emojis.create({ attachment, name: emojiName }).then((guildEmoji) => {
-            guildEmojiCooldowns[guildEmojiCooldowns.length - 1].cooldowns.push(`${Date.now() + Time.HOUR}`);
+        await client.application.emojis.create({ attachment, name: emojiName }).then((guildEmoji) => {
             emojis.push(guildEmoji);
         })
     }));
@@ -120,12 +88,13 @@ export const replaceEmojis = async (content: string, client: Client): Promise<Em
 }
 
 export const deleteEmojis = async (emojiReplacement: EmojiReplacementData | undefined): Promise<void> => {
-    const client = clients.find((client) => client.guilds.cache.has(config.emojiServerIds[0]));
-    if(!client) return;
+    const client = clients.find((c) => c.clientType === (config.debugMode ? ExtendedClientTypes.ALPHA : ExtendedClientTypes.LIVE));
+    if(!client) throw new Error(ErrorNames.NO_CLIENT_IN_CACHE);
     if(!emojiReplacement) return;
     await Promise.allSettled(emojiReplacement.emojis.map(async (emoji) => {
-        const guildEmoji = client.emojis.cache.get(emoji.id)
-        if (!guildEmoji) return;
-        await guildEmoji.guild.emojis.delete(emoji);
+        if(!client.application) throw new Error(ErrorNames.NO_CLIENT_APPLICATION);
+        const applicationEmoji = client.emojis.cache.get(emoji.id)
+        if (!applicationEmoji) return;
+        await client.application.emojis.delete(emoji);
     }));
 }

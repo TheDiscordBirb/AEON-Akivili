@@ -7,6 +7,7 @@ export interface ErrorData {
 }
 
 export enum InteractionTypes {
+    CONFIGURE = "configure",
     ADD_TO_SERVERS_EMBED = "add-to-servers-embed",
     BAN = "ban",
     BANSHARE_LIST = "banshare-list",
@@ -40,6 +41,10 @@ export enum InteractionTypes {
 }
 
 export const ErrorNames = {
+    NO_BROADCAST_IN_CACHE: "Could not get broadcast from cache.",
+    NO_PREVIOUS_BROADCASTS: "Could not get previous broadcasts.",
+    NO_CLIENT_APPLICATION: "Could not get client application.",
+    NO_MODMAIL_CATEGORY: "Could not get category for modmail.",
     NO_BANSHARE_IN_CACHE: "Could not get banshare from cache.",
     CAN_NOT_CHANGE_TYPE: "Client type can not be changed from LIVE.",
     DB_ENTRY_ALREADY_EXISTS: "There is already an entry in the db with that primary key.",

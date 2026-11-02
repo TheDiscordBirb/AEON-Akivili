@@ -44,6 +44,7 @@ import { notificationManager } from "../functions/notification";
 import { errorHandler } from "../structures/error-handler";
 import { ErrorNames, InteractionTypes } from "../types/error-handler";
 import { databaseManager } from "../structures/database";
+import { dmButtons } from "../functions/buttons";
 
 
 const logger = new Logger('MessageCreated');
@@ -371,7 +372,13 @@ const dmMessageResponse = async (client: Client, interaction: Message<boolean>):
     if(userInfo.guildMember && userInfo.userIsModerator) {
         dmResponseActionRow.addComponents(banshareButton);
     }
-    await (interaction.channel as DMChannel).send({embeds: [dmResponseEmbed], components: [dmResponseActionRow]});
+    const message = await (interaction.channel as DMChannel).send({embeds: [dmResponseEmbed], components: [dmResponseActionRow]});
+    const collector = message.createMessageComponentCollector({ });
+    collector.on('collect', async (interaction) => {
+        if(interaction.isButton()) {
+            await dmButtons(interaction);
+        }
+    })
 }
 
 const createWebhookMessages = async (

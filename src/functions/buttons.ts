@@ -8,22 +8,27 @@ import {
     Client, 
     ComponentType, 
     EmbedBuilder, 
+    GuildMember, 
     InteractionResponse, 
     MessageActionRowComponentBuilder, 
     MessageFlags, 
+    PermissionFlagsBits, 
     StringSelectMenuInteraction, 
     TextChannel 
 } from "discord.js";
-import { JoinRequestButtonArg } from "../types/event";
+import { DmMessageButtonArg, JoinRequestButtonArg } from "../types/event";
 import { clients } from "../structures/client";
 import { joinHandler } from "./join-handler";
-import { errorButtonFunction } from "../events/buttons";
 import { ButtonTypes, RunOptions } from "../types/command";
 import { BanshareListRecord } from "../types/database";
 import { config } from "../const";
 import { buildList, buildServerRemovalUi, buildServerSelectionMessage, deleteWebhookButtonHandler } from "../commands/navigator/remove-server";
 import { databaseManager } from "../structures/database";
-import { ErrorNames } from "../types/error-handler";
+import { ErrorNames, InteractionTypes } from "../types/error-handler";
+import { banshareManager } from "./banshare";
+import { modmailHandler } from "./modmail";
+import { errorHandler } from "../structures/error-handler";
+import { permissionHandler } from "./permission-handler";
 
 export const joinNetworkButtons = async (interaction: ButtonInteraction<"cached">) => {
     const customIdArgs = interaction.customId.split(" ");
@@ -71,8 +76,11 @@ export const joinNetworkButtons = async (interaction: ButtonInteraction<"cached"
                 });
         }
     } catch (error) {
-        await errorButtonFunction(interaction as ButtonInteraction);
-        throw error;
+        await errorHandler.showError({
+            error: error as Error,
+            user: interaction.user,
+            interactionType: InteractionTypes.JOIN_NETWORK
+        }, interaction.message);
     }
 
     const joinHandlerActionRow = new ActionRowBuilder<ButtonBuilder>();
@@ -294,4 +302,51 @@ export const removeServerButtons = async (
             firstReply.edit({embeds: [serverRemovalUi.embed], components: serverRemovalUi.components});
             break;
     }
+}
+
+export const dmButtons = async (interaction: ButtonInteraction<CacheType>): Promise<void> => {
+    const customIdArgs = interaction.customId.split(' ');
+    const command = customIdArgs.shift();
+
+    switch (command) {
+        case DmMessageButtonArg.NEW_BANSHARE: 
+            await banshareManager.dmBanshareFunction(customIdArgs[0], undefined, interaction);
+            break;
+
+        case DmMessageButtonArg.OPEN_MODMAIL: {
+            await modmailHandler.startModmail(interaction);
+            const message = interaction.channel?.messages.cache.get(customIdArgs[1]);
+            if(!message) {
+                throw new Error(ErrorNames.MESSAGE_DOES_NOT_EXIST);
+            }
+            await modmailHandler.forwardModmailMessage(message);
+            break;
+        }
+
+        case DmMessageButtonArg.CLOSE_MODMAIL: {
+            const modmail = await databaseManager.getModmailByUserId(interaction.user.id);
+            if(!modmail) throw new Error(ErrorNames.NO_MODMAIL_IN_DB);
+            await modmailHandler.closeModmail(modmail.channelId);
+            break;
+        }
+    }
+}
+
+export const modmailCloseButton = async (interaction: ButtonInteraction<CacheType>): Promise<void> => {
+    const user = interaction.user;
+    if(!interaction.guild) throw new Error(ErrorNames.NO_GUILD);
+
+    const guildMember = interaction.guild.members.cache.get(user.id);
+    if(!guildMember) throw new Error(ErrorNames.NO_GUILD_MEMBER);
+
+    const permissionCheck = await permissionHandler.checkForPermission(
+        guildMember.user,
+        { local: true, onlyLocal: true },
+        guildMember.guild,
+        [PermissionFlagsBits.BanMembers]);
+        
+    if(!permissionCheck.status) throw new Error(ErrorNames.NO_PERMISSIONS);
+    
+    const modmail = databaseManager.getModmail(interaction.channelId);
+    await modmailHandler.closeModmail(modmail.channelId);
 }

@@ -21,6 +21,7 @@ import { PermissionLevels } from '../../types/permission-handler';
 import { errorHandler } from '../../structures/error-handler';
 import { ErrorNames, InteractionTypes } from '../../types/error-handler';
 import { banshareListButtons } from '../../functions/buttons';
+import { Time } from '../../utils/time';
 
 const logger = new Logger('BanshareListCmd');
 
@@ -98,7 +99,7 @@ export const banshareListCommand = async (
 
     const banshareListEmbedButtonRow = new ActionRowBuilder<MessageActionRowComponentBuilder>();
     const filterSelectorActionRow = new ActionRowBuilder<MessageActionRowComponentBuilder>();
-    let actionRows: ActionRowBuilder<MessageActionRowComponentBuilder>[] = [];
+    const actionRows: ActionRowBuilder<MessageActionRowComponentBuilder>[] = [];
 
     const backButton = new ButtonBuilder()
         .setEmoji('⬅️')
@@ -133,7 +134,6 @@ export const banshareListCommand = async (
     if(!unsortedBanshares.length) {
         banshareListEmbed.setDescription("No banshares found.");
         forwardButton.setDisabled(true);
-        filterSelector.setDisabled(true);
         banshareListEmbedButtonRow.components.length = 0;
         banshareListEmbedButtonRow.addComponents([backButton, forwardButton]);
         if(options.interaction.guildId != config.mainServerId) {
@@ -159,7 +159,7 @@ export const banshareListCommand = async (
         actionRows.push(filterSelectorActionRow)
     }
     actionRows.push(banshareListEmbedButtonRow);
-    const collector = (await options.interaction.reply({ embeds: [banshareListEmbed], components: actionRows, flags: 'Ephemeral'})).createMessageComponentCollector();
+    const collector = (await options.interaction.reply({ embeds: [banshareListEmbed], components: actionRows, flags: 'Ephemeral'})).createMessageComponentCollector({ time: Time.seconds(1) });
     collector.on('collect', async (componentInteraction) => {
         if(componentInteraction.isButton() || componentInteraction.isStringSelectMenu()) {
             await banshareListButtons(
@@ -176,6 +176,5 @@ export const banshareListCommand = async (
                 unsortedBanshares
             )
         }
-    });   
-
+    });
 }

@@ -84,11 +84,11 @@ export class ExtendedClient extends Client {
             logger.info(`Registering commands to ${guildId}`, this.user?.id);
         } else {
             if (!this.application) {
-                logger.warn('Could not register commands. No application found.', undefined, this.user?.id);
+                logger.warn('Could not register commands. No application found.', undefined, "GLOBAL");
                 return;
             }
             this.application.commands.set(commands);
-            logger.info('Registering global commands', this.user?.id);
+            logger.info('Registering global commands', "GLOBAL");
         }
     }
 
@@ -105,7 +105,7 @@ export class ExtendedClient extends Client {
             }
 
             try {
-                logger.info(`Registering command: ${command.name}`, this.user?.id);
+                logger.info(`Registering command: ${command.name}`, "GLOBAL");
                 this.commands.set(command.name, command);
                 slashCommands.push(command);
             } catch (error) {

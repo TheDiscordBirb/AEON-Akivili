@@ -3,6 +3,8 @@ import { encryptionManager } from "../../utils/data-encryption";
 
 @Entity()
 export class Broadcasts {
+    @PrimaryColumn({ type: "text"})
+    broadcastUid: string
     @Column({ type: "text",
         transformer: {
             from(value: string) {
@@ -15,7 +17,7 @@ export class Broadcasts {
     channelId: string
     @Column({ type: "text" })
     channelType: string
-    @PrimaryColumn({ type: "text",
+    @Column({ type: "text",
         transformer: {
             from(value: string) {
                 return encryptionManager.decrypt(value);

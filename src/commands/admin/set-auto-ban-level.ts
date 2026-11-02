@@ -101,6 +101,6 @@ export const setAutoBanLevelCommand = async (
         }
     }
 
-    await databaseManager.saveBroadcast({ ...channelBroadcast, autoBanLevel });
+    await databaseManager.updateBroadcast({ ...channelBroadcast, autoBanLevel });
     await options.interaction.reply(`This server's auto ban level has been set to ${autoBanLevelName}.`);
 }

@@ -22,6 +22,7 @@ import { config } from "../const";
 import { Time } from "../utils/time";
 import { clients } from "../structures/client";
 import { ErrorNames } from "../types/error-handler";
+import { modmailCloseButton } from "./buttons";
 
 const logger = new Logger("ModmailHandler");
 
@@ -42,27 +43,27 @@ class ModmailHandler {
             .setCustomId(DmMessageButtonArg.CLOSE_MODMAIL)
             .setLabel("Close Modmail");
         modmailActionRow.addComponents(closeModmailButton);
-        try {
-            await interaction.message.edit({embeds: [modmailEmbed], components: [modmailActionRow]});
-            
-            const modmailCatergory = this.client.channels.cache.get(config.modmailCategoryChannelId);
-            if(!modmailCatergory) {
-                logger.warn("Could not find modmail category.");
-                return;
+
+        await interaction.message.edit({embeds: [modmailEmbed], components: [modmailActionRow]});
+        
+        const modmailCatergory = this.client.channels.cache.get(config.modmailCategoryChannelId);
+        if(!modmailCatergory) throw new Error(ErrorNames.NO_MODMAIL_CATEGORY);
+
+        const modmailChannel = await (modmailCatergory as CategoryChannel).children.create({ name: `${interaction.user.username}`, type: ChannelType.GuildText })
+        await databaseManager.createModmail(interaction.user.id, modmailChannel.id);
+
+        const modmailNotificationEmbed = new EmbedBuilder()
+            .setTitle(`Modmail opened.`)
+            .setDescription(`${interaction.user} has opened a modmail.`)
+            .setColor(Colors.DarkGold)
+
+        const modmailOpen = await modmailChannel.send({embeds: [modmailNotificationEmbed], components: [modmailActionRow]});
+        const collector = modmailOpen.createMessageComponentCollector()
+        collector.on("collect", async (interaction) => {
+            if(interaction.isButton()) {
+                await modmailCloseButton(interaction);
             }
-            const modmailChannel = await (modmailCatergory as CategoryChannel).children.create({ name: `${interaction.user.username}`, type: ChannelType.GuildText })
-            await databaseManager.createModmail(interaction.user.id, modmailChannel.id);
-
-            const modmailNotificationEmbed = new EmbedBuilder()
-                .setTitle(`Modmail opened.`)
-                .setDescription(`${interaction.user} has opened a modmail.`)
-                .setColor(Colors.DarkGold)
-
-            await modmailChannel.send({embeds: [modmailNotificationEmbed], components: [modmailActionRow]});
-        } catch(error) {
-            logger.error("Could not open modmail.", error as Error);
-            await (interaction.message.channel as GuildTextBasedChannel).send((error as Error).message);
-        }
+        })
     }
 
     public async forwardModmailMessage(interaction?: Message<boolean>, options?: RunOptions): Promise<void> {

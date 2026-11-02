@@ -14,6 +14,8 @@ import { Logger } from "../logger";
 import { NetworkJoinOptions } from "../types/command";
 import { rebuildNetworkInfoEmbeds } from "../utils/rebuild-comps";
 import { clients } from "../structures/client";
+import { ErrorNames } from "../types/error-handler";
+import { ulid } from "ulid";
 
 const logger = new Logger('JoinHandler');
 
@@ -54,8 +56,8 @@ class JoinHandler {
 
     public async acceptNetworkAccessRequest(data: JoinData) {
         const client = clients.find((client) => client.guilds.cache.has(data.guild.id));
-        if(!client) throw new Error("No client.");
-        if(!client.user) throw new Error("No client user.");
+        if(!client) throw new Error(ErrorNames.NO_CLIENT_IN_SERVER);
+        if(!client.user) throw new Error(ErrorNames.NO_CLIENT_USER);
         data.channel.createWebhook({
             name: `Aeon ${data.type}`,
             avatar: client.user.displayAvatarURL()
@@ -82,6 +84,7 @@ class JoinHandler {
                 }
                 try {
                     await databaseManager.saveBroadcast({
+                        broadcastUid: ulid(),
                         guildId: webhook.guildId, 
                         channelId: data.channel.id, 
                         channelType: data.type, 
@@ -89,7 +92,7 @@ class JoinHandler {
                         importantBanshareRoleId: '', 
                         autoBanLevel: 0, 
                         serviceClientId: client.user.id
-                    });
+                    }, webhook);
                     await data.guild.members.fetch();
                     if (config.nonChatWebhooks.includes(webhook.name)) return;
                     const broadcastRecords = await databaseManager.getBroadcasts();

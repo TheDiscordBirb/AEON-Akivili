@@ -1,6 +1,9 @@
 import { 
+    ActionRowBuilder,
     ButtonBuilder, 
+    ButtonInteraction, 
     ButtonStyle, 
+    CacheType, 
     ContainerBuilder,
     Message,
     SectionBuilder,
@@ -15,7 +18,7 @@ import { config } from "../const";
 const logger = new Logger("ErrorHandler");
 
 class ErrorHandler {
-    async showError(errorData: ErrorData) {
+    async showError(errorData: ErrorData, message?: Message<boolean>) {
         const errorContainer = await this.errorContainerGenerator(errorData);
         try {
             await errorData.user.createDM();
@@ -26,6 +29,13 @@ class ErrorHandler {
             await this.sendErrorButton(errorMessage, errorContainer);
         } catch(e) {
             logger.warn(`Couldnt send error message to ${errorData.user.username}`);
+            return;
+        }
+        try {
+            if(!message) return;
+            await this.errorButtonFunction(message);
+        } catch(e) {
+            logger.warn(`Couldnt replace buttons with error button.`);
             return;
         }
     }
@@ -95,6 +105,20 @@ class ErrorHandler {
                 (textDisplay) => textDisplay.setContent(`-# Error message:   ${errorMessage}`)
             );
         return errorContainer;
+    }
+
+    async errorButtonFunction(interaction: Message<boolean>): Promise<void> {
+        if(interaction.components.length) {
+            const errorButton = new ButtonBuilder()
+                .setCustomId("Error")
+                .setDisabled(true)
+                .setLabel("Error")
+                .setStyle(ButtonStyle.Danger);
+            const errorRow = new ActionRowBuilder<ButtonBuilder>()
+                .addComponents(errorButton);
+            
+            await interaction.edit({ components: [errorRow] });
+        }
     }
 }
 

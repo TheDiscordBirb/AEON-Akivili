@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, Guild, GuildEmoji, TextChannel, User } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, Guild, ApplicationEmoji, TextChannel, User } from "discord.js";
 import { ServerCooldowns } from "./utils";
 
 export enum JoinRequestButtonArg {
@@ -45,7 +45,7 @@ export enum NotificationType {
 
 export interface EmojiReplacementData {
     content: string,
-    emojis: GuildEmoji[]
+    emojis: ApplicationEmoji[]
 }
 
 export interface ActionRowComponentReconstructionData {
