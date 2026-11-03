@@ -2,7 +2,6 @@ import {
     ActivityType,
     GuildMember,
     Collection,
-    Guild,
     Invite,
 } from 'discord.js';
 import { databaseManager } from '../structures/database';

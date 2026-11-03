@@ -28,6 +28,8 @@ export default new Event("clientReady", async (client: Client) => {
     const clientId = client.user?.id ?? "-";
     const broadcasts = await databaseManager.getBroadcasts();
     await databaseManager.fillCache();
+    if(!client.application) throw new Error(ErrorNames.NO_CLIENT_APPLICATION);
+    await client.application.emojis.fetch();
     const chatBroadcasts = broadcasts.filter((broadcast) => !config.nonChatWebhooksTypes.includes(broadcast.channelType));
     const otherBroadcasts = broadcasts.filter((broadcast) => config.nonChatWebhooksTypes.includes(broadcast.channelType));
     let guildCount = 0;
@@ -35,7 +37,6 @@ export default new Event("clientReady", async (client: Client) => {
     const noBroadcastGuilds : Guild[] = [];
     const infoOrBanshareBroadcastGuilds : Guild[] = [];
     const textWebhooks : Webhook[] = [];
-    await client.user?.setUsername(config.clientName);
     for await (const oauthGuild of guilds) {
         const guild = client.guilds.cache.get(oauthGuild[0]);
         if (!guild) continue;
@@ -64,7 +65,7 @@ export default new Event("clientReady", async (client: Client) => {
         if(guildChatBroadcasts.length) {
             const stickerStatus = await databaseManager.getServerStickerStatus(guild.id);
             if(stickerStatus === null) {
-                await databaseManager.saveServerStickerStatus(guild.id, true, clientId);
+                await databaseManager.saveServerStickerStatus(guild.id, true);
             }
         }
         guildCount++;

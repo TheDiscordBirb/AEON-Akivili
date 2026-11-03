@@ -32,7 +32,6 @@ if(!unitTest) {
         */
         disabledStickerNetworkServerIds: ["1068066545344970783"] as string[],
         embedFieldLimit: 25,
-        emojiServerIds: getEnvVar<string>("EMOJI_SERVER_IDS").split(' '),
         enableStickers: true,
         infoMessageChannelId: getEnvVar<string>("INFO_MESSAGE_CHANNEL_ID"),
         infoMessageId: getEnvVar<string>("INFO_MESSAGE_ID"),
@@ -52,8 +51,8 @@ if(!unitTest) {
         numberOfMessagesToLoad: 100000,
         privateNotificationChannelId: getEnvVar<string>("PRIVATE_NOTIFICATION_CHANNEL_ID"),
         publicNotificationChannelId: getEnvVar<string>("PUBLIC_NOTIFICATION_CHANNEL_ID"),
-        replyArrowEmojiId: getEnvVar<string>("REPLY_ARROW_EMOJI_ID"),
-        replyPictureEmojiId: getEnvVar<string>("REPLY_PICTURE_EMOJI_ID"),
+        replyArrowEmojiName: getEnvVar<string>("REPLY_ARROW_EMOJI_NAME"),
+        replyPictureEmojiName: getEnvVar<string>("REPLY_PICTURE_EMOJI_NAME"),
         representativeRoleId: getEnvVar<string>("REPRESENTATIVE_ROLE_ID"),
         suspendedPermissionUserIds: [] as string[],
         tempBanshareServerId: getEnvVar<string>("TEMP_BANSHARE_SERVER_ID"),

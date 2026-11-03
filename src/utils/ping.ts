@@ -32,8 +32,11 @@ export const networkChannelPingNotificationEmbedBuilder = async (pingedUserId: s
     } else {
         pingNotificationEmbed.setTitle(`You got pinged.`);
     }
-
-    pingNotificationEmbed.setDescription(message.content);
+    if(message.content.length) {
+        pingNotificationEmbed.setDescription(message.content);
+    } else {
+        pingNotificationEmbed.setDescription("*No message content*");
+    }
     const attachments: Attachment[] = [];
     message.attachments.forEach((attachment) => attachments.push(attachment));
 

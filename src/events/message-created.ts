@@ -460,7 +460,8 @@ const createWebhookMessages = async (
                 (referencedMessage) => referencedMessage.channelId === broadcastRecord.channelId);
             
             if (referencedMessageOnChannel) {
-                const replyArrowEmoji = client.emojis.cache.find((emoji) => emoji.id === config.replyArrowEmojiId);
+                if(!client.application) throw new Error(ErrorNames.NO_CLIENT_APPLICATION);
+                const replyArrowEmoji = client.application.emojis.cache.find((emoji) => emoji.name === config.replyArrowEmojiName);
                 if (!replyArrowEmoji) {
                     await Promise.reject(ErrorNames.NO_REPLY_ARROW_EMOJI);
                     return;
@@ -496,7 +497,8 @@ const createWebhookMessages = async (
                     replyButtonLink.setLabel(`${replyButtonText}${(referenceMessageTooLong && replyButtonText != "[This message contains spoilers]")? '...' : ''}`)
                 }
                 if (!!referenceMessage.attachments.size || !referenceMessageContent) {
-                    const replyPictureEmoji = client.emojis.cache.find((emoji) => emoji.id === config.replyPictureEmojiId);
+                    if(!client.application) throw new Error(ErrorNames.NO_CLIENT_APPLICATION);
+                    const replyPictureEmoji = client.application.emojis.cache.find((emoji) => emoji.name === config.replyPictureEmojiName);
                     if (!replyPictureEmoji) {
                         await Promise.reject(ErrorNames.NO_REPLY_PICTURE_EMOJI);
                         return;
@@ -547,7 +549,6 @@ const createWebhookMessages = async (
 
         const webhook = config.activeWebhooks.find((webhook) => webhook.id === broadcastRecord.webhookId);
         if(!webhook) {
-            await Promise.reject(ErrorNames.DID_NOT_FIND_WEBHOOK_IN_CACHE);
             return;
         }
 
@@ -636,6 +637,10 @@ const createWebhookMessages = async (
         }
     }))
     .catch(async (reason) => {
+        if((reason as Error).message === ErrorNames.DID_NOT_SEND_MESSAGE) {
+            logger.error(reason, new Error(reason));
+            return undefined;
+        }
         await errorHandler.showError({
             error: reason,
             user: interaction.author,

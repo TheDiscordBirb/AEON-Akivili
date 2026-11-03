@@ -137,7 +137,15 @@ class DatabaseManager {
     }
 
     public async updateBroadcast(broadcastRecord: BroadcastRecord): Promise<void> {
-
+        const db = await this.db();
+        await db.createQueryBuilder(Broadcasts, "broadcasts")
+            .update()
+            .where('"broadcastUid" = :broadcastUid',
+                { broadcastUid: broadcastRecord.broadcastUid }
+            )
+            .set({ ...broadcastRecord })
+            .execute();
+        this._broadcastCache.splice(this._broadcastCache.findIndex((b) => b.broadcastUid === broadcastRecord.broadcastUid), 1, broadcastRecord)
     }
 
     public async getBroadcasts(): Promise<BroadcastRecord[]> {
@@ -167,7 +175,7 @@ class DatabaseManager {
         if(!broadcast) throw new Error(ErrorNames.NO_BROADCAST_IN_CACHE);
         await db.createQueryBuilder(Broadcasts, "broadcasts")
             .delete()
-            .where('"broadcastUid" = :broadcastUid', { broadcastUid: broadcast?.broadcastUid })
+            .where('"broadcastUid" = :broadcastUid', { broadcastUid: broadcast.broadcastUid })
             .execute();
 
         const idx = this._broadcastCache.findIndex((cacheElement) => cacheElement.webhookId === webhookId);
@@ -553,7 +561,7 @@ class DatabaseManager {
         return serverStickerStatus;
     }
 
-    public async saveServerStickerStatus(guildId: string, status: boolean, clientId?: string): Promise<void> {
+    public async saveServerStickerStatus(guildId: string, status: boolean): Promise<void> {
         const statusInDb = await this.getServerStickerStatus(guildId);
         if(statusInDb) throw new Error(ErrorNames.DB_ENTRY_ALREADY_EXISTS);
         const db = await this.db();
@@ -567,7 +575,7 @@ class DatabaseManager {
         logger.info(`${status ? "Enabled" : "Disabled"} stickers from ${guildId}`, "GLOBAL");
     }
 
-    public async modifyServerStickerStatus(guildId: string, status: boolean, clientId?: string): Promise<void> {
+    public async modifyServerStickerStatus(guildId: string, status: boolean): Promise<void> {
         const statusInDb = await this.getServerStickerStatus(guildId);
         if(!statusInDb) throw new Error(ErrorNames.NO_DB_ENTRY);
         if(statusInDb === status) throw new Error(ErrorNames.DID_NOT_MODIFY_DB_DATA);
@@ -585,7 +593,7 @@ class DatabaseManager {
             1,
             { ...cachedSticker, status }
         )
-        logger.info(`${status ? "Enabled" : "Disabled"} stickers from ${guildId}`, clientId);
+        logger.info(`${status ? "Enabled" : "Disabled"} stickers from ${guildId}`, "GLOBAL");
     }
 
     public async loadClientTypes(): Promise<CachedClient[]> {

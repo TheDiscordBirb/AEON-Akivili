@@ -93,8 +93,8 @@ export const deleteEmojis = async (emojiReplacement: EmojiReplacementData | unde
     if(!emojiReplacement) return;
     await Promise.allSettled(emojiReplacement.emojis.map(async (emoji) => {
         if(!client.application) throw new Error(ErrorNames.NO_CLIENT_APPLICATION);
-        const applicationEmoji = client.emojis.cache.get(emoji.id)
-        if (!applicationEmoji) return;
+        const applicationEmoji = client.application.emojis.cache.get(emoji.id)
+        if (!applicationEmoji) throw new Error(ErrorNames.NO_CLIENT_EMOJI);
         await client.application.emojis.delete(emoji);
     }));
 }

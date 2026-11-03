@@ -41,6 +41,7 @@ export enum InteractionTypes {
 }
 
 export const ErrorNames = {
+    NO_CLIENT_EMOJI: "Could not get client emoji.",
     NO_BROADCAST_IN_CACHE: "Could not get broadcast from cache.",
     NO_PREVIOUS_BROADCASTS: "Could not get previous broadcasts.",
     NO_CLIENT_APPLICATION: "Could not get client application.",
