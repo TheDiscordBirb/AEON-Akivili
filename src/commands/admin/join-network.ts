@@ -13,7 +13,7 @@ import { Logger } from '../../logger';
 import { permissionHandler } from '../../functions/permission-handler';
 import { errorHandler } from '../../structures/error-handler';
 import { ErrorNames, InteractionTypes } from '../../types/error-handler';
-import { joinNetworkButtons } from '../../functions/buttons';
+import { joinNetworkButtons } from "../../functions/buttons/join-network";
 
 const logger = new Logger('JoinNetworkCmd');
 

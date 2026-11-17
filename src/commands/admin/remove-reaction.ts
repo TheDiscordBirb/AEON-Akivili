@@ -1,5 +1,14 @@
 import { Command } from '../../structures/command';
-import { ActionRow, ActionRowBuilder, ApplicationCommandOptionType, BaseGuildTextChannel, ButtonBuilder, ButtonComponent, ButtonInteraction, CacheType, ChannelType, ComponentType, Message, PermissionFlagsBits } from 'discord.js'
+import { 
+    ActionRow,
+    ApplicationCommandOptionType, 
+    BaseGuildTextChannel, 
+    ChannelType, 
+    Message, 
+    MessageActionRowComponent, 
+    PermissionFlagsBits, 
+    TextChannel, 
+} from 'discord.js'
 import { databaseManager } from '../../structures/database'; 
 import { Logger } from '../../logger';
 import { RunOptions } from '../../types/command';
@@ -7,7 +16,11 @@ import { permissionHandler } from '../../functions/permission-handler';
 import { PermissionLevels } from '../../types/permission-handler';
 import { ErrorNames, InteractionTypes } from '../../types/error-handler';
 import { errorHandler } from '../../structures/error-handler';
-import { Time } from '../../utils/time';
+import { rebuildMessageComponentAfterUserInteraction } from '../../utils/rebuild-comps';
+import { config } from '../../const';
+import { clients } from '../../structures/client';
+import { EmojiReplacementData } from '../../types/event';
+import { replaceEmojis } from '../../utils/emoji';
 
 const logger = new Logger('RemoveReactionCmd');
 
@@ -70,7 +83,10 @@ export default new Command({
     }
 });
 
-export const removeReactionCommand = async (options: RunOptions, message: Message<boolean>) => {
+export const removeReactionCommand = async (
+    options: RunOptions, 
+    message: Message<boolean>,
+) => {
     const interactionReply = await (await options.interaction.reply({ 
             content: 'Click on the reaction you want to remove.',
             components: message.components,
@@ -79,26 +95,32 @@ export const removeReactionCommand = async (options: RunOptions, message: Messag
     )).fetch();
 
     interactionReply.createMessageComponentCollector()
-        .on('collect', (buttonInteraction) => {
+    .on('collect', async (buttonInteraction) => {
+        const messageUid = databaseManager.getMessageUid(message.id);
+        const newActionRows = await rebuildMessageComponentAfterUserInteraction(
+            message,
+            message.components as ActionRow<MessageActionRowComponent>[],
+            { messageUid, userId: options.interaction.user.id, reactionIdentifier: buttonInteraction.customId },
+            true
+        )
+        const relatedMessages = await databaseManager.getMessagesByUid(messageUid);
+        const client = clients.find((c) => c.channels.cache.get(relatedMessages[0].channelId));
+        if(!client) throw new Error(ErrorNames.NO_CLIENT_IN_CACHE);    
+        const messageContent = message.content;
+        let emojiReplacement : EmojiReplacementData | undefined;
+        if(messageContent) {
+            emojiReplacement = await replaceEmojis(messageContent, client);
+        }
 
-        })
-        .on('end', async (buttonInteraction) => {
-            const disabledButtonRows: ActionRowBuilder<ButtonBuilder>[] = [];
-            for(const row of interactionReply.components ) {
-                const disabledButtonRow = new ActionRowBuilder<ButtonBuilder>();
-                if(row.type === ComponentType.ActionRow) {
-                    for(const component of row.components) {
-                        if(component.type != ComponentType.Button) return;
-                        const disabledButton = new ButtonBuilder({ ...component.data, disabled: true });
-                        disabledButtonRow.addComponents(disabledButton);
-                    }
-                }
-                disabledButtonRows.push(disabledButtonRow);
-            }
-            await interactionReply.edit({
-                content: message.content,
-                components: disabledButtonRows
-            });
-        })
-
+        await Promise.allSettled(relatedMessages.map(async (relatedMessage) => {
+            const webhook = config.activeWebhooks.find((activeWebhook) => activeWebhook.channelId === relatedMessage.channelId);
+            if(!webhook) throw new Error(ErrorNames.DID_NOT_FIND_WEBHOOK);
+            const channel = client.channels.cache.get(relatedMessage.channelId) as TextChannel;
+            const message = channel.messages.cache.get(relatedMessage.discordMessageId);
+            if(!message) throw new Error(ErrorNames.NO_MESSAGE);
+            const broadcastRecord = await databaseManager.getBroadcastByWebhookId(webhook.id);
+            if(!broadcastRecord) throw new Error(ErrorNames.NO_BROADCAST_IN_CACHE);
+            await webhook.editMessage(relatedMessage.discordMessageId, { content: emojiReplacement?.content, components: [...newActionRows[newActionRows.indexOf(newActionRows.find((actionRow) => actionRow.guildID === broadcastRecord.guildId) || newActionRows[0])].components] });
+        }))
+    })
 }

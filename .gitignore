@@ -18,3 +18,5 @@ node_modules
 april-fools*.ts
 # Unit test config
 unit-test-config.ts
+# Embed data
+/resources

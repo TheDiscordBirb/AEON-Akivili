@@ -76,7 +76,7 @@ class JoinHandler {
                     if (!infoChannel) {
                         throw new Error("Could not find AEON Info channel.");
                     }
-                    const infoMessage = await (infoChannel as GuildTextBasedChannel).messages.fetch(config.infoMessageId);
+                    const infoMessage = (await (infoChannel as GuildTextBasedChannel).messages.fetch()).first();
                     if (!infoMessage) {
                         throw new Error("Could not find AEON Info message.");
                     }

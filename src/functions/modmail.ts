@@ -22,7 +22,7 @@ import { config } from "../const";
 import { Time } from "../utils/time";
 import { clients } from "../structures/client";
 import { ErrorNames } from "../types/error-handler";
-import { modmailCloseButton } from "./buttons";
+import { modmailCloseButton } from "./buttons/modmail";
 
 const logger = new Logger("ModmailHandler");
 

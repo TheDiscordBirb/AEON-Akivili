@@ -27,14 +27,14 @@ if(!unitTest) {
         databaseUsername: getEnvVar<string>("DATABASE_USERNAME"),  
         debugMode: true,
         devIds: getEnvVar<string>("DEV_IDS").split(' '),
-        /* disabledStickerNetworkServerIds is depricated
-           use DatabaseManager.getAllServerStickerStatus();
+        /* 
+            disabledStickerNetworkServerIds is depricated
+            use DatabaseManager.getAllServerStickerStatus();
         */
         disabledStickerNetworkServerIds: ["1068066545344970783"] as string[],
         embedFieldLimit: 25,
         enableStickers: true,
         infoMessageChannelId: getEnvVar<string>("INFO_MESSAGE_CHANNEL_ID"),
-        infoMessageId: getEnvVar<string>("INFO_MESSAGE_ID"),
         loadedClients: 0,
         mainServerId: getEnvVar<string>("MAIN_SERVER_ID"),
         maxConcurrentRequestCount: 10,
@@ -57,6 +57,7 @@ if(!unitTest) {
         suspendedPermissionUserIds: [] as string[],
         tempBanshareServerId: getEnvVar<string>("TEMP_BANSHARE_SERVER_ID"),
         tokens: getEnvVar<string>("DISCORD_TOKENS").split(" "),
+        latestPrivacyPolicyTime: 0
     }
 } else {
     config = mockConfig;

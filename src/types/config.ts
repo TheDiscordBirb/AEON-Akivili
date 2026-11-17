@@ -25,7 +25,6 @@ export interface configType {
     embedFieldLimit: number,
     enableStickers: boolean,
     infoMessageChannelId: string,
-    infoMessageId: string,
     mainServerId: string,
     maxConcurrentRequestCount: number,
     maxEmbedColumnValueLength: number,
@@ -51,4 +50,5 @@ export interface configType {
     databaseHost: string,
     databasePort: number,
     databaseName: string,
+    latestPrivacyPolicyTime: number
 }

@@ -13,7 +13,6 @@ export const getQueuedBanshares = async () => {
       account_id: getEnvVar<string>("CLOUDFLARE_ACCOUNT_ID"),
     });
     if(!response.messages?.length) return queuedBanshares;
-    console.log(response.messages[0].attempts);
     for(const queuedBanshare of response.messages) {
         if(!queuedBanshare.body) throw new Error("Err");
         try {
@@ -22,8 +21,7 @@ export const getQueuedBanshares = async () => {
         } catch(e) {
             console.log("err2");
         }
-    }
-    console.log(queuedBanshares);/*
+    }/*
     try {
         const a = await client.queues.messages.ack(getEnvVar<string>("CLOUDFLARE_QUEUE_ID"), {
             account_id: getEnvVar<string>("CLOUDFLARE_ACCOUNT_ID"),
@@ -32,6 +30,5 @@ export const getQueuedBanshares = async () => {
     } catch(e) {
         console.log(e as Error)
     }*/
-    console.log("Hey");
     return queuedBanshares;
 }

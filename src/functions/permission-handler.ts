@@ -1,7 +1,7 @@
 import { Client, Guild, PermissionResolvable, User } from "discord.js";
 import { PermissionLocal, PermissionResult } from "../types/permission-handler"
 import { PermissionLevels } from "../types/permission-handler";
-import { IsStaff } from "../utils/permissions";
+import { isStaff, IsStaff } from "../utils/permissions";
 import { config } from "../const";
 import { clients } from "../structures/client";
 
@@ -21,20 +21,20 @@ export class PermissionHandler {
             if(guildUser) {
                 const permissionChecks = await Promise.all(permissionFlags.map((permissionFlag) => {
                     if(!guildUser.permissions.has(permissionFlag)) {
-                        return {status: false};
+                        return {status: false}
                     }
-                    return {status: true};
+                    return {status: true}
                 }));
-                if(local.onlyLocal) {
-                    if(permissionChecks.find((permissionCheck) => permissionCheck.status == false) || permissionChecks.length == 0) {
-                        return {status: false, message: "You do not have permission to use this."};
-                    } else {
-                        return {status: true};
-                    }
-                }
                 if(permissionChecks.find((permissionCheck) => permissionCheck.status == false)) {
+                    if(local.onlyLocal) {
+                        return {status: false, message: "You do not have permission to use this."}
+                    }
+                } else {
                     return {status: true}
                 }
+            }
+            if(!guildUser && local.onlyLocal) {
+                return {status: false, message: "You do not have permission to use this."}
             }
         }
 
@@ -57,8 +57,6 @@ export class PermissionHandler {
             case PermissionLevels.DEV: {
                 if(this.isStaff.dev(user)) {
                     return {status: true};
-                } else {
-                    return {status: false, message: "You do not have permission to use this."};
                 }
             }
             default: {
@@ -68,4 +66,4 @@ export class PermissionHandler {
     }
 }
 
-export const permissionHandler = new PermissionHandler(new IsStaff(clients[0]), clients[0]);
+export const permissionHandler = new PermissionHandler(isStaff, clients[0]);

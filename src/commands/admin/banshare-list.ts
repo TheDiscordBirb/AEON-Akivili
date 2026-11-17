@@ -20,7 +20,7 @@ import { permissionHandler } from '../../functions/permission-handler';
 import { PermissionLevels } from '../../types/permission-handler';
 import { errorHandler } from '../../structures/error-handler';
 import { ErrorNames, InteractionTypes } from '../../types/error-handler';
-import { banshareListButtons } from '../../functions/buttons';
+import { banshareListButtons } from '../../functions/buttons/banshare-list';
 import { Time } from '../../utils/time';
 
 const logger = new Logger('BanshareListCmd');

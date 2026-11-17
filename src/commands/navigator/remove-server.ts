@@ -24,7 +24,7 @@ import { ButtonTypes, RunOptions } from '../../types/command';
 import { BroadcastRecord } from '../../types/database';
 import { permissionHandler } from '../../functions/permission-handler';
 import { PermissionLevels } from '../../types/permission-handler';
-import { removeServerButtons } from '../../functions/buttons';
+import { removeServerButtons } from '../../functions/buttons/remove-server';
 import { ErrorNames, InteractionTypes } from '../../types/error-handler';
 import { clients } from '../../structures/client';
 import { errorHandler } from '../../structures/error-handler';

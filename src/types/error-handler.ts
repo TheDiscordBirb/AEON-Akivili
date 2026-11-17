@@ -7,6 +7,9 @@ export interface ErrorData {
 }
 
 export enum InteractionTypes {
+    BACKUP_EMBED = "backup-embed",
+    STOP = "stop",
+    LEGAL = "legal",
     CONFIGURE = "configure",
     ADD_TO_SERVERS_EMBED = "add-to-servers-embed",
     BAN = "ban",
@@ -41,6 +44,16 @@ export enum InteractionTypes {
 }
 
 export const ErrorNames = {
+    WRONG_CHANNEL: "Got wrong channel.",
+    NO_WEBHOOK: "Could not get webhook.",
+    NO_BANSHARE_DESCRIPTION: "Could not get banshare description.",
+    WRONG_BUTTON_ID: "Got wrong button id.",
+    NO_MESSAGE_COMPONENTS: "Could not get message components.",
+    NO_REACTION_IDENTIFIER: "Could not get reaction identifier.",
+    NO_BUTTON_ID: "Could not get button id.",
+    NO_BUTTON_COMPONENT: "Could not get button component.",
+    NO_REACTION_IN_CACHE: "Could not get reaction from cache.",
+    NO_VERIFIED_USER_IN_CACHE: "Could not get verified user from cache.",
     NO_CLIENT_EMOJI: "Could not get client emoji.",
     NO_BROADCAST_IN_CACHE: "Could not get broadcast from cache.",
     NO_PREVIOUS_BROADCASTS: "Could not get previous broadcasts.",
@@ -96,5 +109,5 @@ export const ErrorNames = {
     STICKERS_DISABLED: "Stickers are currently disabled.",
     USER_IS_MUTED: "User is muted.",
     WRONG_BUTTON_TYPE: "Got wrong button type.",
-    WRONG_CHANNEL_TYPE: "Wrong channel type.",
+    WRONG_CHANNEL_TYPE: "Got wrong channel type.",
 } as const;

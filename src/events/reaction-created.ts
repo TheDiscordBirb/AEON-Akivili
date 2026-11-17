@@ -64,7 +64,7 @@ export default new Event("messageReactionAdd", async (interaction, user) => {
         actionRows as ActionRow<MessageActionRowComponent>[], 
         { userId: user.id, messageUid: messageUidInDb, reactionIdentifier: interaction.emoji.identifier }
     );
-    let messageContent = interaction.message.content;
+    const messageContent = interaction.message.content;
     let emojiReplacement : EmojiReplacementData | undefined;
     if(messageContent) {
         emojiReplacement = await replaceEmojis(messageContent, interaction.client);

@@ -44,7 +44,7 @@ import { notificationManager } from "../functions/notification";
 import { errorHandler } from "../structures/error-handler";
 import { ErrorNames, InteractionTypes } from "../types/error-handler";
 import { databaseManager } from "../structures/database";
-import { dmButtons } from "../functions/buttons";
+import { dmButtons } from "../functions/buttons/dm";
 
 
 const logger = new Logger('MessageCreated');
@@ -121,15 +121,32 @@ export const guildMessageChecks = async (interaction: OmitPartialGroupDMChannel<
 
     const interactionMember = interaction.member;
     if (!interactionMember) throw new Error(ErrorNames.NO_USER);
-    if (interactionMember.user.id === client.user?.id) return;
-    if (await databaseManager.hasUserBeenMutedOnNetworkChat(interactionMember.user.id)) throw new Error(ErrorNames.USER_IS_MUTED);
-    
+
     const channel = interaction.channel as BaseGuildTextChannel;
     if (channel.type !== ChannelType.GuildText) throw new Error(ErrorNames.WRONG_CHANNEL_TYPE);
+
+    if (interactionMember.user.id === client.user?.id) return;
+    if (await databaseManager.hasUserBeenMutedOnNetworkChat(interactionMember.user.id)) throw new Error(ErrorNames.USER_IS_MUTED);
     
     const broadcastRecords = await databaseManager.getBroadcasts();
     const channelWebhookBroadcast = broadcastRecords.find((broadcast) => broadcast.channelId === channel.id);
     if (!channelWebhookBroadcast) throw new Error(ErrorNames.DID_NOT_FIND_WEBHOOK);
+
+    let verifiedUser = databaseManager.getVerifiedUser(interactionMember.user.id);
+    if(!verifiedUser) {
+        verifiedUser = await databaseManager.saveVerifiedUser({
+            userId: interactionMember.user.id,
+            agreed: true,
+            verifiedUserUid: ulid(),
+            timestamp: Date.now().toString()
+        })
+    }
+    if(parseInt(verifiedUser.timestamp) < config.latestPrivacyPolicyTime) {
+        await databaseManager.updateVerificationTime(verifiedUser, Date.now().toString());
+    }
+    if(!verifiedUser.agreed) {
+        await databaseManager.updateAgreementStatus(verifiedUser, true, Date.now().toString());
+    }
 
     const interactionType = interaction.type;
     if (interactionType === MessageType.ChannelPinnedMessage) return;

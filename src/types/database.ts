@@ -45,14 +45,12 @@ export interface CachedClient {
     type: ExtendedClientTypes
 }
 
-export type DatabaseTypes = BroadcastRecord |
-    NetworkStickerStatus |
-    MessagesRecord |
-    ModmailRecord |
-    UserReactionRecord |
-    BanshareListRecord |
-    FilteredWordRecord |
-    CatCakeRecord
+export interface VerifiedUser {
+    verifiedUserUid: string
+    userId: string,
+    agreed: boolean,
+    timestamp: string
+}
 
 export interface BroadcastRecord {
     broadcastUid: string,

@@ -14,7 +14,8 @@ import {
     FilteredWordRecord, 
     MessagesRecord, 
     ModmailRecord, 
-    UserReactionRecord
+    UserReactionRecord,
+    VerifiedUser
 } from '../types/database';
 import { Messages } from './entities/messages';
 import { Broadcasts } from './entities/broadcasts';
@@ -33,6 +34,7 @@ import { Clients } from './entities/clients';
 import { ExtendedClientTypes } from '../types/client';
 import { ulid } from 'ulid';
 import { Webhook } from 'discord.js';
+import { VerifiedUsers } from './entities/verified-users';
 
 const logger = new Logger('Database');
 
@@ -47,6 +49,7 @@ class DatabaseManager {
     protected _muteCache: CachedMute[] = [];
     protected _banshareCache: CachedBanshare[] = [];
     protected _modmailCache: CachedModmail[] = [];
+    protected _verifiedUserCache: VerifiedUser[] = [];
 
     constructor() {
         this.connect();
@@ -73,7 +76,8 @@ class DatabaseManager {
                 FilteredWords,
                 CatCakes,
                 NetworkStickerStatus,
-                Clients
+                Clients,
+                VerifiedUsers
             ]
         });
         await this._db.initialize();
@@ -95,14 +99,16 @@ class DatabaseManager {
 
     public async fillCache(): Promise<void> {
         if(this.cacheReady) return;
-        const cachedMessages = await databaseManager.loadMessages();
+        const cachedMessages = await this.loadMessages();
         logger.info(`Cached ${cachedMessages.length} messages.`, "GLOBAL");
-        const cachedReactions = await databaseManager.loadUserReactions();
+        const cachedReactions = await this.loadUserReactions();
         logger.info(`Cached ${cachedReactions.length} reactions.`, "GLOBAL");
-        const cachedModmails = await databaseManager.loadActiveModmails();
+        const cachedModmails = await this.loadActiveModmails();
         logger.info(`Cached ${cachedModmails.length} modmails.`, "GLOBAL");
-        const cachedBanshares = await databaseManager.loadBanshares();
+        const cachedBanshares = await this.loadBanshares();
         logger.info(`Cached ${cachedBanshares.length} banshares.`, "GLOBAL");
+        const cachedVerifiedUsers = await this.loadVerifiedUsers();
+        logger.info(`Cached ${cachedVerifiedUsers.length} verified users.`, "GLOBAL");
         this.cacheReady = true;
     }
 
@@ -632,6 +638,80 @@ class DatabaseManager {
             )
             .set({ type })
             .execute();
+
+        this._clientCache.splice(
+            this._clientCache.findIndex((c) => c.clientId === cachedClient.clientId),
+            1,
+            { ...cachedClient, type }
+        )
+    }
+
+    public async saveVerifiedUser(verifiedUser: VerifiedUser): Promise<VerifiedUser> {
+        const db = await this.db();
+        await db.createQueryBuilder(VerifiedUsers, "verified_user")
+            .insert()
+            .into(VerifiedUsers)
+            .values({ ...verifiedUser })
+            .execute();
+
+        this._verifiedUserCache.push({ ...verifiedUser });
+        return verifiedUser;
+    }
+
+    public async updateVerificationTime(verifiedUser: VerifiedUser, timestamp: string) {
+        const db = await this.db();
+        const cachedVerifiedUser = this._verifiedUserCache.find(
+            (cachedVerifiedUser) => cachedVerifiedUser.userId === verifiedUser.userId
+        );
+        if(!cachedVerifiedUser) throw new Error(ErrorNames.NO_CLIENT_IN_CACHE);
+        await db.createQueryBuilder(VerifiedUsers, "verified_user")
+            .update()
+            .where('"verifiedUserUid" = :verifiedUserUid', 
+                { verifiedUserUid: verifiedUser.userId }
+            )
+            .set({ timestamp })
+            .execute();
+
+        this._verifiedUserCache.splice(
+            this._verifiedUserCache.indexOf(cachedVerifiedUser),
+            1,
+            { ...cachedVerifiedUser, timestamp }
+        )
+    }
+
+    public async updateAgreementStatus(verifiedUser: VerifiedUser, agreed: boolean, timestamp: string) {
+        const db = await this.db();
+        const cachedVerifiedUser = this._verifiedUserCache.find(
+            (cachedVerifiedUser) => cachedVerifiedUser.userId === verifiedUser.userId
+        );
+        if(!cachedVerifiedUser) throw new Error(ErrorNames.NO_CLIENT_IN_CACHE);
+        await db.createQueryBuilder(VerifiedUsers, "verified_user")
+            .update()
+            .where('"verifiedUserUid" = :verifiedUserUid', 
+                { verifiedUserUid: verifiedUser.userId }
+            )
+            .set({ agreed, timestamp })
+            .execute();
+
+        this._verifiedUserCache.splice(
+            this._verifiedUserCache.indexOf(cachedVerifiedUser),
+            1,
+            { ...cachedVerifiedUser, agreed, timestamp }
+        )
+    }
+
+    public async loadVerifiedUsers(): Promise<VerifiedUser[]> {
+        if(this._verifiedUserCache.length) return this._verifiedUserCache;
+        const db = await this.db();
+        this._verifiedUserCache = await db.createQueryBuilder(VerifiedUsers, "verified_users")
+            .select()
+            .getMany();
+        return this._verifiedUserCache;
+    }
+
+    public getVerifiedUser(userId: string): VerifiedUser | undefined {
+        const verifiedUserId = this._verifiedUserCache.find((u) => u.userId === userId)
+        return verifiedUserId;
     }
 }
 
