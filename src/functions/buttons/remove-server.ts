@@ -31,11 +31,12 @@ export const removeServerButtons = async (
     options: RunOptions,
     firstReply: InteractionResponse<boolean>,
 ) => {
-    const broadcasts = await databaseManager.getBroadcasts();
     await componentInteraction.deferUpdate();
+    const broadcasts = await databaseManager.getBroadcasts();
     switch(componentInteraction.componentType) {
         case ComponentType.Button:
-            const componentInteractionCustomIdArgs = componentInteraction.customId.split(/ +/);
+            const componentInteractionCustomIdArgs = componentInteraction.customId.split(/ +/)
+            componentInteractionCustomIdArgs.splice(0, 1);
             if(componentInteractionCustomIdArgs.length < 2) throw new Error(ErrorNames.WRONG_BUTTON_ID);
             const buttonType = componentInteractionCustomIdArgs[1];
             const selectedServerId = componentInteractionCustomIdArgs[2];

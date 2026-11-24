@@ -16,8 +16,10 @@ import { config } from "../../const";
 import { databaseManager } from "../../structures/database";
 import { permissionHandler } from "../../functions/permission-handler";
 import { ErrorNames } from "../../types/error-handler";
+import { ButtonIds } from "../../types/buttons";
 
 export const banshareButtons = async (client: Client | undefined, interaction: ButtonInteraction<CacheType>, guildMember: GuildMember): Promise<void> => {
+    await interaction.deferUpdate();
     if(!client) throw new Error(ErrorNames.NO_CLIENT_IN_CACHE);
     const permissionCheck = await permissionHandler.checkForPermission(
         guildMember.user,
@@ -36,6 +38,7 @@ export const banshareButtons = async (client: Client | undefined, interaction: B
     };
     
     const customIdArgs = interaction.customId.split(' ');
+    customIdArgs.splice(0, 1);
     const command = customIdArgs.shift();
 
     switch (command) {
@@ -55,7 +58,7 @@ export const banshareButtons = async (client: Client | undefined, interaction: B
             const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
 
             const banshareButton = new ButtonBuilder()
-                .setCustomId(`${BanShareButtonArg.BANSHARE} ${userId}`)
+                .setCustomId(`${ButtonIds.BANSHARE} ${BanShareButtonArg.BANSHARE} ${userId}`)
                 .setLabel('Banshared')
                 .setStyle(ButtonStyle.Success)
                 .setDisabled(true)
@@ -101,7 +104,7 @@ export const banshareButtons = async (client: Client | undefined, interaction: B
             
             if (approvers.length === config.approvalCountNeededForImportantBanshare) {
                 const importantBanshareButton = new ButtonBuilder()
-                    .setCustomId(`${BanShareButtonArg.IMPORTANT_BANSHARE}`)
+                    .setCustomId(`${ButtonIds.BANSHARE} ${BanShareButtonArg.IMPORTANT_BANSHARE}`)
                     .setLabel(`Banshared ${config.approvalCountNeededForImportantBanshare}/${config.approvalCountNeededForImportantBanshare}`)
                     .setStyle(ButtonStyle.Success)
                     .setDisabled(true)
@@ -122,15 +125,15 @@ export const banshareButtons = async (client: Client | undefined, interaction: B
             }
 
             const banshareButton = new ButtonBuilder()
-                .setCustomId(`${BanShareButtonArg.BANSHARE} ${userId}`)
+                .setCustomId(`${ButtonIds.BANSHARE} ${BanShareButtonArg.BANSHARE} ${userId}`)
                 .setLabel('Banshare')
                 .setStyle(ButtonStyle.Success)
             const importantBanshareButton = new ButtonBuilder()
-                .setCustomId(`${BanShareButtonArg.IMPORTANT_BANSHARE} ${userId} ${approvers.join(':')}`)
+                .setCustomId(`${ButtonIds.BANSHARE} ${BanShareButtonArg.IMPORTANT_BANSHARE} ${userId} ${approvers.join(':')}`)
                 .setLabel(`Important Banshare ${approvers.length}/${config.approvalCountNeededForImportantBanshare}`)
                 .setStyle(ButtonStyle.Success)
             const reject = new ButtonBuilder()
-                .setCustomId(`${BanShareButtonArg.REJECT_MAIN} ${userId}`)
+                .setCustomId(`${ButtonIds.BANSHARE} ${BanShareButtonArg.REJECT_MAIN} ${userId}`)
                 .setLabel('Reject')
                 .setStyle(ButtonStyle.Danger)
 
@@ -144,7 +147,7 @@ export const banshareButtons = async (client: Client | undefined, interaction: B
             const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
 
             const rejectButton = new ButtonBuilder()
-                .setCustomId(`${BanShareButtonArg.REJECT_MAIN}`)
+                .setCustomId(`${ButtonIds.BANSHARE} ${BanShareButtonArg.REJECT_MAIN}`)
                 .setLabel('Rejected')
                 .setStyle(ButtonStyle.Danger)
                 .setDisabled(true)
@@ -174,7 +177,7 @@ export const banshareButtons = async (client: Client | undefined, interaction: B
             const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
 
             const banButton = new ButtonBuilder()
-                .setCustomId(`${BanShareButtonArg.BAN_FROM_SERVER}`)
+                .setCustomId(`${ButtonIds.BANSHARE} ${BanShareButtonArg.BAN_FROM_SERVER}`)
                 .setLabel('Banned')
                 .setStyle(ButtonStyle.Success)
                 .setDisabled(true)
@@ -204,7 +207,7 @@ export const banshareButtons = async (client: Client | undefined, interaction: B
             const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
 
             const rejectButton = new ButtonBuilder()
-                .setCustomId(`${BanShareButtonArg.REJECT_SUB}`)
+                .setCustomId(`${ButtonIds.BANSHARE} ${BanShareButtonArg.REJECT_SUB}`)
                 .setLabel('Rejected')
                 .setStyle(ButtonStyle.Danger)
                 .setDisabled(true)

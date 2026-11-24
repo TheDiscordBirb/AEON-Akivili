@@ -7,9 +7,7 @@ import { ErrorNames, InteractionTypes } from '../../types/error-handler';
 import { errorHandler } from '../../structures/error-handler';
 import { config } from '../../const';
 import { GuildTextBasedChannel, Message } from 'discord.js';
-import { readFileSync, writeFileSync } from 'fs';
-import { encryptionManager } from '../../utils/data-encryption';
-import path from 'path';
+import { readEmbedData, saveEmbed } from '../../utils/embed-caching';
 
 const logger = new Logger('BackupEmbedCmd');
 
@@ -55,13 +53,7 @@ export default new Command({
 });
 
 export const backupEmbedCommand = async (options: RunOptions, message: Message<true>) => {
-    const enrcyptedData = encryptionManager.encrypt(JSON.stringify(message.embeds));
-    writeFileSync(
-        path.join(__dirname, "..", "..", "..", "/resources", "infoEmbed.txt"), 
-        enrcyptedData,
-        { flag: 'w' }
-    );
-    const data = readFileSync(path.join(__dirname, "..", "..", "..", "/resources", "infoEmbed.txt"), "utf-8")
-    const decryptedData = JSON.parse(encryptionManager.decrypt(data));
+    await saveEmbed(message);
+    const decryptedData = await readEmbedData();
     await options.interaction.reply({content: "Backed up the following embed:", embeds: decryptedData, flags: 'Ephemeral'});
 }

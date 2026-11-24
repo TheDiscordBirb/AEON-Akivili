@@ -22,6 +22,7 @@ import { errorHandler } from '../../structures/error-handler';
 import { ErrorNames, InteractionTypes } from '../../types/error-handler';
 import { banshareListButtons } from '../../functions/buttons/banshare-list';
 import { Time } from '../../utils/time';
+import { ButtonIds } from '../../types/buttons';
 
 const logger = new Logger('BanshareListCmd');
 
@@ -103,17 +104,17 @@ export const banshareListCommand = async (
 
     const backButton = new ButtonBuilder()
         .setEmoji('⬅️')
-        .setCustomId(`${options.interaction.user.id} ${ButtonTypes.BACK} 0`)
+        .setCustomId(`${ButtonIds.BANSHARE_LIST} ${options.interaction.user.id} ${ButtonTypes.BACK} 0`)
         .setDisabled(true)
         .setStyle(ButtonStyle.Secondary)
 
     const forwardButton = new ButtonBuilder()
         .setEmoji('➡️')
-        .setCustomId(`${options.interaction.user.id} ${ButtonTypes.FORWARD} 0`)
+        .setCustomId(`${ButtonIds.BANSHARE_LIST} ${options.interaction.user.id} ${ButtonTypes.FORWARD} 0`)
         .setStyle(ButtonStyle.Secondary)
 
     const filterSelector = new StringSelectMenuBuilder()
-        .setCustomId(`${options.interaction.user.id} selector`)
+        .setCustomId(`${ButtonIds.BANSHARE_LIST} ${options.interaction.user.id} selector`)
         .setPlaceholder("Select a filter.")
         .setOptions(
             {label: "All", value: "all"},
@@ -159,7 +160,11 @@ export const banshareListCommand = async (
         actionRows.push(filterSelectorActionRow)
     }
     actionRows.push(banshareListEmbedButtonRow);
-    const collector = (await options.interaction.reply({ embeds: [banshareListEmbed], components: actionRows, flags: 'Ephemeral'})).createMessageComponentCollector({ time: Time.seconds(1) });
+    const collector = (await options.interaction.reply({ 
+        embeds: [banshareListEmbed], 
+        components: actionRows, 
+        flags: 'Ephemeral'
+    })).createMessageComponentCollector();
     collector.on('collect', async (componentInteraction) => {
         if(componentInteraction.isButton() || componentInteraction.isStringSelectMenu()) {
             await banshareListButtons(

@@ -1,12 +1,14 @@
 import { User } from "discord.js";
+import { ModalTypes } from "./modals";
 
 export interface ErrorData {
     error: Error | string,
     user: User,
-    interactionType: InteractionTypes
+    interactionType: InteractionTypes | ModalTypes
 }
 
 export enum InteractionTypes {
+    UPDATE_EMBED = "update-embed",
     BACKUP_EMBED = "backup-embed",
     STOP = "stop",
     LEGAL = "legal",
@@ -44,6 +46,7 @@ export enum InteractionTypes {
 }
 
 export const ErrorNames = {
+    WRONG_MODAL_INPUT: "Got wrong modal input.",
     WRONG_CHANNEL: "Got wrong channel.",
     NO_WEBHOOK: "Could not get webhook.",
     NO_BANSHARE_DESCRIPTION: "Could not get banshare description.",

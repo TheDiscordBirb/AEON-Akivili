@@ -68,6 +68,7 @@ class ErrorHandler {
                 .addTextDisplayComponents(new TextDisplayBuilder({content: "# Error" }))
                 .setButtonAccessory(disabledButton);
             await errorMessage.edit({components: [errorContainer.spliceComponents(0, 1, disabledButtonSection)]});
+            await componentInteraction.deferUpdate();
 
             await birb.send({
                 components: [

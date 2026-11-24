@@ -43,6 +43,8 @@ export enum AutoBanLevelOptions {
 }
 
 export enum ButtonTypes {
+    ADD_TO_EMBED = 'addToEmbed',
+    REMOVE_FROM_EMBED = 'removeFromEmbed',
     BACK = 'back',
     FORWARD = 'forward',
     SERVER_SELECTOR = 'serverSelector',

@@ -7,13 +7,14 @@ export const unitTest = false;
 export let config: configType;
 if(!unitTest) {
     config = {
-        activeBanshareFuncionUserIds: [] as string[],
-        activeWebhooks: [] as Webhook[],
+        cachedInteractions: [],
+        activeBanshareFuncionUserIds: [],
+        activeWebhooks: [],
         aeonBanshareChannelId: getEnvVar<string>("AEON_BANSHARE_CHANNEL_ID"),
         approvalCountNeededForImportantBanshare: 2,
         birbId: getEnvVar<string>("BIRB_ID"),
         botStarting: false,
-        cachedEmojiUids: [] as string[],
+        cachedEmojiUids: [],
         cleanDbMode: false,
         clientName: "Akivili",
         conductorRoleId: getEnvVar<string>("CONDUCTOR_ROLE_ID"),

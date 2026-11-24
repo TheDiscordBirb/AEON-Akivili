@@ -1,6 +1,8 @@
 import { Webhook } from "discord.js"
+import { ExtendedInteraction } from "./command"
 
 export interface configType {
+    cachedInteractions: ExtendedInteraction[],
     clientName: string,
     maxServerPerClient: number,
     loadedClients: number,

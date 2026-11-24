@@ -9,7 +9,9 @@ import { banshareManager } from "../banshare";
 import { modmailHandler } from "../modmail";
 
 export const dmButtons = async (interaction: ButtonInteraction<CacheType>): Promise<void> => {
+    await interaction.deferUpdate();
     const customIdArgs = interaction.customId.split(' ');
+    customIdArgs.splice(0, 1);
     const command = customIdArgs.shift();
 
     switch (command) {

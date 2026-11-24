@@ -2,6 +2,7 @@ import {
     ActionRowBuilder,
     ButtonBuilder, 
     ButtonInteraction, 
+    CacheType, 
     TextChannel
 } from "discord.js";
 import { clients } from "../../structures/client";
@@ -11,8 +12,10 @@ import { ErrorNames, InteractionTypes } from "../../types/error-handler";
 import { JoinRequestButtonArg } from "../../types/event";
 import { joinHandler } from "../join-handler";
 
-export const joinNetworkButtons = async (interaction: ButtonInteraction<"cached">) => {
-    const customIdArgs = interaction.customId.split(" ");
+export const joinNetworkButtons = async (interaction: ButtonInteraction<CacheType>) => {
+    await interaction.deferUpdate();
+    const customIdArgs = interaction.customId.split(" ")
+    customIdArgs.splice(0, 1);
     const command = customIdArgs.shift();
     if (!(command === JoinRequestButtonArg.ACCEPT_REQUEST || command === JoinRequestButtonArg.REJECT_REQUEST)) {
         throw new Error(ErrorNames.WRONG_BUTTON_ID);

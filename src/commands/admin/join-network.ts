@@ -121,11 +121,4 @@ export const joinNetworkCommand = async (options: RunOptions, channel: TextChann
         content: `Your application has been sent to join Aeon ${channelType}, you will be notified when your application has been reviewed.`,
         flags: 'Ephemeral' 
     });
-
-    const collector = requestMessage.createMessageComponentCollector();
-    collector.on('collect', async (interaction) => {
-        if(interaction.isButton()) {
-            await joinNetworkButtons(interaction);
-        }
-    });
 }

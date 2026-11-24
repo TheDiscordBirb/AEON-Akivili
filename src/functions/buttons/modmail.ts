@@ -9,6 +9,7 @@ import { modmailHandler } from "../modmail";
 import { permissionHandler } from "../permission-handler";
 
 export const modmailCloseButton = async (interaction: ButtonInteraction<CacheType>): Promise<void> => {
+    await interaction.deferUpdate();
     const user = interaction.user;
     if(!interaction.guild) throw new Error(ErrorNames.NO_GUILD);
 

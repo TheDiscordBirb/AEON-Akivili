@@ -18,9 +18,13 @@ import { config } from "../const";
 import { databaseManager } from "../structures/database";
 import { BanShareButtonArg, BanshareStatus, DmMessageButtonArg } from "../types/event";
 import { Logger } from "../logger";
-import { AutoBanLevelOptions, RunOptions } from "../types/command";
+import { AutoBanLevelOptions, NetworkJoinOptions, RunOptions } from "../types/command";
 import { Time } from "../utils/time";
 import { clients } from "../structures/client";
+import { banshareButtons } from "./buttons/banshare";
+import { ErrorNames, InteractionTypes } from "../types/error-handler";
+import { errorHandler } from "../structures/error-handler";
+import { ButtonIds } from "../types/buttons";
 
 const logger = new Logger("Banshare");
 
@@ -32,53 +36,63 @@ class BanshareManager {
     }
 
     public async requestBanshare(data: BanshareRecord, submitter: User, guildOfOrigin: Guild) {
-        const mainChannel = this.client.channels.cache.get(config.aeonBanshareChannelId);
-        if (!mainChannel) {
-            logger.warn(`Could not get main channel`);
-            return;
-        }
-        let dataUsername: string, dataDisplayName: string, dataUserId: string;
-        if (typeof (data.user) === "string") {
-            dataUsername = dataUserId = dataDisplayName = data.user;
-        } else {
-            dataUsername = data.user.username;
-            dataUserId = data.user.id;
-            dataDisplayName = data.user.displayName;
-        }
+        try {
 
-        let proofMessage = "";
-        data.proof.forEach((proof) => {
-            proofMessage += `${proof}\n`;
-        })
-
-        const banshareRequestEmbed = new EmbedBuilder()
-            .setAuthor({ name: `${submitter.displayName} | ${guildOfOrigin.name}`, iconURL: submitter.displayAvatarURL() })
-            .setTitle(`**Banshare request for ${dataUsername} | ${dataDisplayName}**`)
-            .setDescription(`Reason: ${data.reason}\n\nProof:\n${proofMessage}`)
-            .setURL(`https://discord.com/users/${dataUserId}`);
-        
+            const mainChannel = this.client.channels.cache.get(config.aeonBanshareChannelId);
+            if (!mainChannel) {
+                logger.warn(`Could not get main channel`);
+                return;
+            }
+            let dataUsername: string, dataDisplayName: string, dataUserId: string;
+            if (typeof (data.user) === "string") {
+                dataUsername = dataUserId = dataDisplayName = data.user;
+            } else {
+                dataUsername = data.user.username;
+                dataUserId = data.user.id;
+                dataDisplayName = data.user.displayName;
+            }
+    
+            let proofMessage = "";
+            data.proof.forEach((proof) => {
+                proofMessage += `${proof}\n`;
+            })
+    
+            const banshareRequestEmbed = new EmbedBuilder()
+                .setAuthor({ name: `${submitter.displayName} | ${guildOfOrigin.name}`, iconURL: submitter.displayAvatarURL() })
+                .setTitle(`**Banshare request for ${dataUsername} | ${dataDisplayName}**`)
+                .setDescription(`Reason: ${data.reason}\n\nProof:\n${proofMessage}`)
+                .setURL(`https://discord.com/users/${dataUserId}`);
             
-        const embeds: EmbedBuilder[] = [];
-        embeds.push(banshareRequestEmbed);
-        
-        const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
-
-        const banshareButton = new ButtonBuilder()
-            .setCustomId(`${BanShareButtonArg.BANSHARE} ${dataUserId}`)
-            .setLabel('Banshare')
-            .setStyle(ButtonStyle.Success)
-        const importantBanshareButton = new ButtonBuilder()
-            .setCustomId(`${BanShareButtonArg.IMPORTANT_BANSHARE} ${dataUserId}`)
-            .setLabel(`Important Banshare 0/${config.approvalCountNeededForImportantBanshare}`)
-            .setStyle(ButtonStyle.Success)
-        const reject = new ButtonBuilder()
-            .setCustomId(`${BanShareButtonArg.REJECT_MAIN} ${dataUserId}`)
-            .setLabel('Reject')
-            .setStyle(ButtonStyle.Danger)
-        
-        banshareActionRow.addComponents(banshareButton, importantBanshareButton, reject);
-        
-        await (mainChannel as TextChannel).send({ content: proofMessage, embeds, components: [banshareActionRow] });
+                
+            const embeds: EmbedBuilder[] = [];
+            embeds.push(banshareRequestEmbed);
+            
+            const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
+    
+            const banshareButton = new ButtonBuilder()
+                .setCustomId(`${ButtonIds.BANSHARE} ${BanShareButtonArg.BANSHARE} ${dataUserId}`)
+                .setLabel('Banshare')
+                .setStyle(ButtonStyle.Success)
+            const importantBanshareButton = new ButtonBuilder()
+                .setCustomId(`${ButtonIds.BANSHARE} ${BanShareButtonArg.IMPORTANT_BANSHARE} ${dataUserId}`)
+                .setLabel(`Important Banshare 0/${config.approvalCountNeededForImportantBanshare}`)
+                .setStyle(ButtonStyle.Success)
+            const reject = new ButtonBuilder()
+                .setCustomId(`${ButtonIds.BANSHARE} ${BanShareButtonArg.REJECT_MAIN} ${dataUserId}`)
+                .setLabel('Reject')
+                .setStyle(ButtonStyle.Danger)
+            
+            banshareActionRow.addComponents(banshareButton, importantBanshareButton, reject);
+            
+            await (mainChannel as TextChannel).send({ content: proofMessage, embeds, components: [banshareActionRow] });
+        } catch(e) {
+            await errorHandler.showError({
+                error: e as Error,
+                user: submitter,
+                interactionType: InteractionTypes.REQUEST_BANSHARE
+            });
+            logger.error(`Got error during banshare request.`, e as Error);   
+        }
     }
 
     public async shareBanshare(data: BanshareRecord, importantBansharePing = false) {
@@ -104,19 +118,18 @@ class BanshareManager {
         embeds.push(banshareRequestEmbed);
         
 
-        const broadcasts = await databaseManager.getBroadcasts();
+        const broadcasts = (await databaseManager.getBroadcasts()).filter((broadcast) => broadcast.channelType === NetworkJoinOptions.BANSHARE);
         const autoBannedContent = 'This user has been automatically banned';
 
         const webhookMessages = broadcasts.map(async (broadcast) => {
-            if (broadcast.channelType !== 'Banshare') return;
             const banshareActionRow = new ActionRowBuilder<ButtonBuilder>();
 
             const banFromServerButton = new ButtonBuilder()
-                .setCustomId(`${BanShareButtonArg.BAN_FROM_SERVER} ${dataUserId}`)
+                .setCustomId(`${ButtonIds.BANSHARE} ${BanShareButtonArg.BAN_FROM_SERVER} ${dataUserId}`)
                 .setLabel('Ban')
                 .setStyle(ButtonStyle.Success)
             const reject = new ButtonBuilder()
-                .setCustomId(`${BanShareButtonArg.REJECT_SUB} ${dataUserId}`)
+                .setCustomId(`${ButtonIds.BANSHARE} ${BanShareButtonArg.REJECT_SUB} ${dataUserId}`)
                 .setLabel('Reject')
                 .setStyle(ButtonStyle.Danger)
             
@@ -185,7 +198,7 @@ class BanshareManager {
         await Promise.allSettled(webhookMessages.map(async (webhookMessage) => {
             const awaitedWebhookMessage = await webhookMessage;
             if (!awaitedWebhookMessage) return;
-            awaitedWebhookMessage.webhook.send(awaitedWebhookMessage.data)
+            await awaitedWebhookMessage.webhook.send(awaitedWebhookMessage.data)
                 .then(async (message) => {
                     if (message.content === autoBannedContent) {
                         if (!message.components) {
@@ -307,15 +320,14 @@ class BanshareManager {
                 dmBanshareEmbed.setTitle("Banshare request process ended.");
                 dmBanshareEmbed.setDescription("Click the button to submit another banshare.");
                 const newBanshareButton = new ButtonBuilder()
-                    .setCustomId(`${DmMessageButtonArg.NEW_BANSHARE} ${guild.id}`)
+                    .setCustomId(`${ButtonIds.DM} ${DmMessageButtonArg.NEW_BANSHARE} ${guild.id}`)
                     .setLabel('New Banshare')
                     .setStyle(ButtonStyle.Danger)
                 
                 const banshareButtonRow = new ActionRowBuilder<ButtonBuilder>();
                 banshareButtonRow.addComponents(newBanshareButton);
 
-                await message.edit({ embeds: [dmBanshareEmbed], components: [banshareButtonRow] });
-
+                await message.edit({ embeds: [dmBanshareEmbed], components: [banshareButtonRow] })
             }).catch(async () => {
                 await interactionMember.user.send("Did not get a response in 5 minutes, aborting.");
                 if(config.activeBanshareFuncionUserIds.find(e => e === interactionMember.id)) {

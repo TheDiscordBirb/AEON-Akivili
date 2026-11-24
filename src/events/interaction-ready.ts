@@ -10,6 +10,7 @@ import { Event } from "../structures/event";
 import { ExtendedInteraction } from "../types/command";
 import { config } from "../const";
 import { Logger } from "../logger";
+import { modalFunction } from "../functions/modals";
 
 const logger = new Logger("InteractionReady");
 
@@ -30,5 +31,8 @@ export default new Event("interactionCreate", async (interaction) => {
             client,
             interaction: interaction as ExtendedInteraction
         });
+    }
+    if(interaction.isModalSubmit()) {
+        await modalFunction(interaction);
     }
 });

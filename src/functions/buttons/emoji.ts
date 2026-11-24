@@ -16,9 +16,13 @@ import { rebuildMessageComponentAfterUserInteraction } from "../../utils/rebuild
 import { ErrorNames } from "../../types/error-handler";
 
 export const emojiButton = async (client: Client, interaction: ButtonInteraction<CacheType>): Promise<void> => {
+    await interaction.deferUpdate();
     const uniqueMessageId = databaseManager.getMessageUid(interaction.message.id);
     const userId = interaction.user.id;
-    const reactionIdentifier = (interaction.component as ButtonComponent).customId;
+    const customId = (interaction.component as ButtonComponent).customId?.split(' ');
+    if(!customId) throw new Error(ErrorNames.WRONG_BUTTON_ID);
+    customId.splice(0, 1);
+    const reactionIdentifier = customId[0];
     if (!reactionIdentifier) throw new Error(ErrorNames.NO_REACTION_IDENTIFIER);
 
     const channel = interaction.message.channel as BaseGuildTextChannel;

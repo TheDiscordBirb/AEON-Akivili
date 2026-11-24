@@ -12,6 +12,7 @@ import {
 import { ButtonTypes, RunOptions } from "../../types/command";
 import { BanshareListRecord } from "../../types/database";
 import { config } from "../../const";
+import { ButtonIds } from "../../types/buttons";
 
 export const banshareListButtons = async (
     componentInteraction: ButtonInteraction<CacheType> | StringSelectMenuInteraction<CacheType>,
@@ -26,17 +27,18 @@ export const banshareListButtons = async (
     sortedBanshareBlock: BanshareListRecord[],
     unsortedBanshares: BanshareListRecord[]
 ) => {
+    await componentInteraction.deferUpdate();
     switch(componentInteraction.componentType) {
         case ComponentType.Button:
             const fields : APIEmbedField[] = [];
-            const currentPage = parseInt(componentInteraction.customId.split(/ +/)[2]);
-            const pageInstruction = componentInteraction.customId.split(/ +/)[1] === ButtonTypes.BACK ? 0 : 1;
+            const currentPage = parseInt(componentInteraction.customId.split(/ +/)[3]);
+            const pageInstruction = componentInteraction.customId.split(/ +/)[2] === ButtonTypes.BACK ? 0 : 1;
             sortedBanshares[currentPage+(pageInstruction ? 1 : -1)].forEach((banshare) => {
                 fields.push({name: `${banshare.userId} | ${banshare.status}`, value: `Reason: ${banshare.reason}\nProof:\n${banshare.proof}\nTimestamp: ${new Date(banshare.timestamp).getFullYear()}.${new Date(banshare.timestamp).getMonth() + 1}.${new Date(banshare.timestamp).getDate()}. ${new Date(banshare.timestamp).getHours()}:${new Date(banshare.timestamp).getMinutes()}:${new Date(banshare.timestamp).getSeconds()}`})
             })
             banshareListEmbed.setFields(fields);
-            backButton.setCustomId(`${options.interaction.user.id} ${ButtonTypes.BACK} ${currentPage+(pageInstruction ? 1 : -1)}`);
-            forwardButton.setCustomId(`${options.interaction.user.id} ${ButtonTypes.FORWARD} ${currentPage+(pageInstruction ? 1 : -1)}`);
+            backButton.setCustomId(`${ButtonIds.BANSHARE_LIST} ${componentInteraction.user.id} ${ButtonTypes.BACK} ${currentPage+(pageInstruction ? 1 : -1)}`);
+            forwardButton.setCustomId(`${ButtonIds.BANSHARE_LIST} ${componentInteraction.user.id} ${ButtonTypes.FORWARD} ${currentPage+(pageInstruction ? 1 : -1)}`);
 
             try {
                 sortedBanshares[currentPage+(pageInstruction ? 1 : -1) - 1]
@@ -54,14 +56,13 @@ export const banshareListButtons = async (
             banshareListEmbedButtonRow.addComponents([backButton, forwardButton]);
             
             actionRows.length = 0;
-            if(options.interaction.guildId != config.mainServerId) {
+            if(componentInteraction.guildId != config.mainServerId) {
                 actionRows.push(filterSelectorActionRow)
             }
             actionRows.push(banshareListEmbedButtonRow);
             await options.interaction.editReply({embeds: [banshareListEmbed], components: actionRows});
             break;
         case ComponentType.StringSelect:
-            await componentInteraction.deferUpdate();
             sortedBanshares.length = 0;
             sortedBanshareBlock.length = 0;
             
@@ -90,7 +91,7 @@ export const banshareListButtons = async (
                 banshareListEmbedButtonRow.components.length = 0;
                 banshareListEmbedButtonRow.addComponents([backButton, forwardButton]);
                 actionRows.length = 0;
-                if(options.interaction.guildId != config.mainServerId) {
+                if(componentInteraction.guildId != config.mainServerId) {
                     actionRows.push(filterSelectorActionRow)
                 }
                 actionRows.push(banshareListEmbedButtonRow);
@@ -98,9 +99,9 @@ export const banshareListButtons = async (
                 return;
             }
             
-            backButton.setCustomId(`${options.interaction.user.id} ${ButtonTypes.BACK} 0`);
+            backButton.setCustomId(`${ButtonIds.BANSHARE_LIST} ${componentInteraction.user.id} ${ButtonTypes.BACK} 0`);
             backButton.setDisabled(true);
-            forwardButton.setCustomId(`${options.interaction.user.id} ${ButtonTypes.FORWARD} 0`);
+            forwardButton.setCustomId(`${ButtonIds.BANSHARE_LIST} ${componentInteraction.user.id} ${ButtonTypes.FORWARD} 0`);
             
             try {
                 sortedBanshares[1].length;
@@ -110,7 +111,7 @@ export const banshareListButtons = async (
             }
             banshareListEmbedButtonRow.addComponents([backButton, forwardButton]);
             actionRows.length = 0;
-            if(options.interaction.guildId != config.mainServerId) {
+            if(componentInteraction.guildId != config.mainServerId) {
                 actionRows.push(filterSelectorActionRow)
             }
             actionRows.push(banshareListEmbedButtonRow);

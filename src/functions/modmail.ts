@@ -57,13 +57,7 @@ class ModmailHandler {
             .setDescription(`${interaction.user} has opened a modmail.`)
             .setColor(Colors.DarkGold)
 
-        const modmailOpen = await modmailChannel.send({embeds: [modmailNotificationEmbed], components: [modmailActionRow]});
-        const collector = modmailOpen.createMessageComponentCollector()
-        collector.on("collect", async (interaction) => {
-            if(interaction.isButton()) {
-                await modmailCloseButton(interaction);
-            }
-        })
+        await modmailChannel.send({embeds: [modmailNotificationEmbed], components: [modmailActionRow]});
     }
 
     public async forwardModmailMessage(interaction?: Message<boolean>, options?: RunOptions): Promise<void> {

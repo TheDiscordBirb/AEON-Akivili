@@ -14,6 +14,7 @@ import { databaseManager } from '../structures/database';
 import { ActionRowComponentReconstructionData, CustomId } from '../types/event';
 import { Logger } from '../logger';
 import { config } from '../const';
+import { ErrorNames } from '../types/error-handler';
 
 const logger = new Logger("rebuildUtils");
 
@@ -166,12 +167,15 @@ export const rebuildMessageComponentAfterUserInteraction = async (
     return returnValues;
 }
 
-export const rebuildNetworkInfoEmbeds = async (message: Message, join?: boolean, name?: string, link?: string, remove = false): Promise<EmbedBuilder[]> => {
+export const rebuildNetworkInfoEmbeds = async (
+    message: Message,
+    name?: string, 
+    link?: string, 
+    remove = false
+): Promise<EmbedBuilder[]> => {
     const embeds: EmbedBuilder[] = [];
 
-    if (!message) {
-        throw Error('No message to rebuild network info embeds');
-    }
+    if (!message) throw new Error(ErrorNames.NO_MESSAGE);
     const messageEmbeds = message.embeds;
     
     messageEmbeds.flatMap(async (embed) => {
@@ -193,14 +197,12 @@ export const rebuildNetworkInfoEmbeds = async (message: Message, join?: boolean,
                 return;
             }
         } else {
-            if(!join) {
-                if (link && name) {
-                    networkServerStrings.push(`★・[${name}](${link})`);
-                }
-                if(!link || !name) {
-                    logger.warn("Could not get name or link for rebuilding info embed.");
-                    return;
-                }
+            if (link && name) {
+                networkServerStrings.push(`★・[${name}](${link})`);
+            }
+            if(!link || !name) {
+                logger.warn("Could not get name or link for rebuilding info embed.");
+                return;
             }
         }
         

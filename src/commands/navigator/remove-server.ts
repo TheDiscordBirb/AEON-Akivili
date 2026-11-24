@@ -28,6 +28,7 @@ import { removeServerButtons } from '../../functions/buttons/remove-server';
 import { ErrorNames, InteractionTypes } from '../../types/error-handler';
 import { clients } from '../../structures/client';
 import { errorHandler } from '../../structures/error-handler';
+import { ButtonIds } from '../../types/buttons';
 
 const logger = new Logger('RemoveServerCmd');
 
@@ -153,12 +154,12 @@ export const buildServerSelectionMessage = async (
         .setTitle('Please select the server you want to modify.')
     const backButton = new ButtonBuilder()
         .setEmoji('⬅️')
-        .setCustomId(`${interactionUserId} ${ButtonTypes.BACK} ${currentPage}`)
+        .setCustomId(`${ButtonIds.REMOVE_SERVER} ${interactionUserId} ${ButtonTypes.BACK} ${currentPage}`)
         .setStyle(ButtonStyle.Secondary)
     
     const forwardButton = new ButtonBuilder()
         .setEmoji('➡️')
-        .setCustomId(`${interactionUserId} ${ButtonTypes.FORWARD} ${currentPage}`)
+        .setCustomId(`${ButtonIds.REMOVE_SERVER} ${interactionUserId} ${ButtonTypes.FORWARD} ${currentPage}`)
         .setStyle(ButtonStyle.Secondary)
 
     if(currentPage === 1) {
@@ -169,7 +170,7 @@ export const buildServerSelectionMessage = async (
     }
     
     const serverSelector = new StringSelectMenuBuilder()
-        .setCustomId(`${interactionUserId} ${ButtonTypes.SERVER_SELECTOR}`)
+        .setCustomId(`${ButtonIds.REMOVE_SERVER} ${interactionUserId} ${ButtonTypes.SERVER_SELECTOR}`)
         .setPlaceholder("Select a server.")
     
     list.forEach((embedField) => {
@@ -209,7 +210,7 @@ export const buildServerRemovalUi = async (
         const broadcast = await databaseManager.getBroadcastByWebhookId(aeonWebhook.id);
         if(!broadcast) return;
         const button = new ButtonBuilder()
-            .setCustomId(`${aeonWebhook.id} ${ButtonTypes.WEBHOOK} ${selectedServer.id}`)
+            .setCustomId(`${ButtonIds.REMOVE_SERVER} ${aeonWebhook.id} ${ButtonTypes.WEBHOOK} ${selectedServer.id}`)
             .setLabel(broadcast.channelType)
             .setStyle(ButtonStyle.Primary)
         
@@ -218,14 +219,14 @@ export const buildServerRemovalUi = async (
 
     const removeServerButtonActionRow = new ActionRowBuilder<ButtonBuilder>();
     const removeEverythingButton = new ButtonBuilder()
-        .setCustomId(`${options.interaction.user.id} ${ButtonTypes.REMOVE_SERVER} ${selectedServer.id}`)
+        .setCustomId(`${ButtonIds.REMOVE_SERVER} ${options.interaction.user.id} ${ButtonTypes.REMOVE_SERVER} ${selectedServer.id}`)
         .setLabel('Remove entire server.')
         .setStyle(ButtonStyle.Danger)
     removeServerButtonActionRow.addComponents(removeEverythingButton);
     
     const backToServersButtonActionRow = new ActionRowBuilder<ButtonBuilder>();
     const backToServersButton = new ButtonBuilder()
-        .setCustomId(`${options.interaction.user.id} ${ButtonTypes.MENU_BACK}`)
+        .setCustomId(`${ButtonIds.REMOVE_SERVER} ${options.interaction.user.id} ${ButtonTypes.MENU_BACK}`)
         .setLabel('Back to servers')
         .setStyle(ButtonStyle.Success)
     backToServersButtonActionRow.addComponents(backToServersButton);
@@ -289,7 +290,7 @@ export const deleteWebhookButtonHandler = async (
                     .setStyle(buttonComponent.style)
 
                 if(buttonComponent.customId !== componentInteraction.customId) {
-                    switch(buttonComponent.customId.split(/ +/)[1]) {
+                    switch(buttonComponent.customId.split(/ +/)[2]) {
                         case ButtonTypes.WEBHOOK:
                             webhookButtonsRow.addComponents(button);
                             break;

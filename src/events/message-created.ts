@@ -45,6 +45,7 @@ import { errorHandler } from "../structures/error-handler";
 import { ErrorNames, InteractionTypes } from "../types/error-handler";
 import { databaseManager } from "../structures/database";
 import { dmButtons } from "../functions/buttons/dm";
+import { ButtonIds } from "../types/buttons";
 
 
 const logger = new Logger('MessageCreated');
@@ -377,11 +378,11 @@ const dmMessageResponse = async (client: Client, interaction: Message<boolean>):
     }, {guildMember: undefined, userIsModerator: false});
 
     const modmailButton = new ButtonBuilder()
-        .setCustomId(`${DmMessageButtonArg.OPEN_MODMAIL} ${interaction.author.id} ${interaction.id}`)
+        .setCustomId(`${ButtonIds.DM} ${DmMessageButtonArg.OPEN_MODMAIL} ${interaction.author.id} ${interaction.id}`)
         .setLabel("Modmail")
         .setStyle(ButtonStyle.Secondary)
     const banshareButton = new ButtonBuilder()
-        .setCustomId(`${DmMessageButtonArg.NEW_BANSHARE} ${userInfo.guildMember?.guild.id}`)
+        .setCustomId(`${ButtonIds.DM} ${DmMessageButtonArg.NEW_BANSHARE} ${userInfo.guildMember?.guild.id}`)
         .setLabel("Banshare")
         .setStyle(ButtonStyle.Secondary)
 
@@ -389,13 +390,7 @@ const dmMessageResponse = async (client: Client, interaction: Message<boolean>):
     if(userInfo.guildMember && userInfo.userIsModerator) {
         dmResponseActionRow.addComponents(banshareButton);
     }
-    const message = await (interaction.channel as DMChannel).send({embeds: [dmResponseEmbed], components: [dmResponseActionRow]});
-    const collector = message.createMessageComponentCollector({ });
-    collector.on('collect', async (interaction) => {
-        if(interaction.isButton()) {
-            await dmButtons(interaction);
-        }
-    })
+    await (interaction.channel as DMChannel).send({embeds: [dmResponseEmbed], components: [dmResponseActionRow]});
 }
 
 const createWebhookMessages = async (

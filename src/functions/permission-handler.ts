@@ -11,13 +11,14 @@ export class PermissionHandler {
         this.isStaff = isStaff;
         this.client = client;
     }
-    public async checkForPermission(user: User, local: PermissionLocal, guild: Guild, permissionFlags: PermissionResolvable[], permissionLevel?: PermissionLevels): Promise<PermissionResult> {
+    public async checkForPermission(user: User, local: PermissionLocal, guild: Guild | null, permissionFlags: PermissionResolvable[], permissionLevel?: PermissionLevels): Promise<PermissionResult> {
         if(config.suspendedPermissionUserIds.includes(user.id)) {
             return {status: false, message: "Your permissions are currently suspended."};
         }
 
-        const guildUser = guild.members.cache.get(user.id);
         if(local.local) {
+            if(!guild) return {status: false, message: "You do not have permission to use this."}
+            const guildUser = guild.members.cache.get(user.id);
             if(guildUser) {
                 const permissionChecks = await Promise.all(permissionFlags.map((permissionFlag) => {
                     if(!guildUser.permissions.has(permissionFlag)) {

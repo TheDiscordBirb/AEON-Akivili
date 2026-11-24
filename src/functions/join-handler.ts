@@ -80,7 +80,7 @@ class JoinHandler {
                     if (!infoMessage) {
                         throw new Error("Could not find AEON Info message.");
                     }
-                    await webhook.send({embeds: await rebuildNetworkInfoEmbeds(infoMessage, true)})
+                    await webhook.send({embeds: infoMessage.embeds})
                 }
                 try {
                     await databaseManager.saveBroadcast({

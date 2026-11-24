@@ -1,5 +1,13 @@
 import { Command } from '../../structures/command';
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ClientUser, Guild, PermissionFlagsBits, TextChannel } from 'discord.js'
+import { 
+    ActionRowBuilder, 
+    ButtonBuilder, 
+    ButtonStyle, 
+    ClientUser, 
+    Guild, 
+    PermissionFlagsBits, 
+    TextChannel 
+} from 'discord.js'
 import { databaseManager } from '../../structures/database';
 import { Logger } from '../../logger';
 import { metrics } from '../../structures/metrics';
@@ -10,8 +18,6 @@ import { errorHandler } from '../../structures/error-handler';
 import { ErrorNames, InteractionTypes } from '../../types/error-handler';
 import { BroadcastRecord } from '../../types/database'
 import { clients, ExtendedClient } from '../../structures/client';
-import { ExtendedClientTypes } from '../../types/client';
-import { config } from '../../const';
 import { ulid } from 'ulid';
 
 const logger = new Logger('ConfigureCmd');
